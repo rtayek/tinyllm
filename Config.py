@@ -26,7 +26,7 @@ class ModelConfig:
 
     # paths
     ckptPath: str = "checkpoints/tiny_llm.pt"
-    dataPath: str = "../data/input.txt"
+    dataPath: str = "testData/input.txt"
 
     # hardware
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
