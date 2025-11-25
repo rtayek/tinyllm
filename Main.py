@@ -9,6 +9,7 @@ from Config import ModelConfig
 from DataModule import ByteDataModule
 from Model import TinyGpt
 from Trainer import Trainer
+from typing import cast
 
 
 def main() -> None:
@@ -16,15 +17,17 @@ def main() -> None:
 
     cfg = ModelConfig()
 
-    print("Loading data module...", flush=True)
+    print("Loading data module...")
     dataModule = ByteDataModule(cfg)
 
-    print("Building model...", flush=True)
+    print("Building model...")
     model = TinyGpt(cfg).to(cfg.device)
+    #model = torch.compile(model)
+    #model = cast(TinyGpt, model)
 
     trainer = Trainer(cfg, model, dataModule)
 
-    print("Loading checkpoint (if any)...", flush=True)
+    print("Loading checkpoint (if any)...")
     trainer.loadCheckpointIfExists()
 
     trainer.train()

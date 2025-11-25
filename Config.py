@@ -15,14 +15,17 @@ class ModelConfig:
     nEmbed: int = 256
     nHead: int = 4
     nLayer: int = 4
-    dropout: float = 0.1
+    dropout: float = 0.2
 
     # training
     batchSize: int = 32
-    learningRate: float = 3e-4
+    learningRate: float = 3e-5
     maxSteps: int = 5000
-    evalInterval: int = 500
+    evalInterval: int = 100
     evalIters: int = 100
+    weightDecay: float = 0.02
+    earlyStopPatience: int = 3      # number of evals
+    earlyStopDelta: float = 0.002   # minimum improvement in val loss
 
     # paths
     ckptPath: str = "checkpoints/tiny_llm.pt"
