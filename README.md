@@ -1,6 +1,6 @@
-# Tiny LLM Project (CamelCase OO Byte-Level GPT in PyTorch)
+# Tiny LLM Project (Byte-Level GPT in PyTorch)
 
-This is the CamelCase, Java-flavored version of a tiny byte-level GPT model in PyTorch.
+This is a tiny byte-level GPT model in PyTorch.
 
 ## Files
 
@@ -17,7 +17,7 @@ This is the CamelCase, Java-flavored version of a tiny byte-level GPT model in P
 From a bash-like shell (Git Bash, WSL, etc.):
 
 ```bash
-cd tiny_llm_project_camel_fresh
+cd <wherever you put this project>
 ./runTinyLlm.sh
 ```
 
