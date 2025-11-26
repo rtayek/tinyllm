@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import Optional, Dict, List, Tuple
+import math
 
 import torch
 
@@ -25,6 +26,20 @@ class Trainer:
         self.dataModule = dataModule
         print("CONFIG DUMP:", cfg)
         self.optimizer = torch.optim.AdamW(model.parameters(),lr=cfg.learningRate,weight_decay=cfg.weightDecay)
+        warmupSteps = max(1, int(0.1 * cfg.maxSteps))
+        totalSteps = max(cfg.maxSteps, warmupSteps + 1)
+
+        def lr_lambda(current_step: int) -> float:
+            if current_step < warmupSteps:
+                return float(current_step + 1) / float(warmupSteps)
+
+            progress = (current_step - warmupSteps) / float(max(1, totalSteps - warmupSteps))
+            return 0.5 * (1.0 + math.cos(math.pi * progress))
+
+        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+            self.optimizer,
+            lr_lambda=lr_lambda,
+        )
         self.checkpoints = CheckpointManager(cfg)
 
         self.globalStep: int = 0
@@ -37,9 +52,14 @@ class Trainer:
         self.noImproveEvals: int = 0
 
     def loadCheckpointIfExists(self) -> None:
-        step, best = self.checkpoints.load(self.model, self.optimizer)
+        step, best, schedulerRestored = self.checkpoints.load(
+            self.model, self.optimizer, self.scheduler
+        )
         self.globalStep = step
         self.bestValLoss = best
+        if not schedulerRestored and step > 0:
+            self.scheduler.last_epoch = step - 1
+            self.scheduler.step()
 
     def estimateLoss(self) -> Dict[str, float]:
         self.model.eval()
@@ -112,7 +132,8 @@ class Trainer:
                         self.model,
                         self.optimizer,
                         step,
-                        self.bestValLoss
+                        self.bestValLoss,
+                        self.scheduler,
                     )
 
                     print(
@@ -147,6 +168,7 @@ class Trainer:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
+            self.scheduler.step()
 
         print("Training loop finished.", flush=True)
         print(f"Best validation loss: {self.bestValLoss}", flush=True)
