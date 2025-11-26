@@ -14,31 +14,13 @@ This is a tiny byte-level GPT model in PyTorch.
 
 ## How to Run
 
-From a bash-like shell (Git Bash, WSL, etc.):
-
-```bash
-cd <wherever you put this project>
-./runTinyLlm.sh
-```
-
-Or directly:
-
-```bash
+```sh
 python Main.py
 ```
 
 You will also need a `data` directory with an `input.txt`:
 
 ```text
-tiny_llm_project_camel_fresh/
-  Config.py
-  Model.py
-  DataModule.py
-  Checkpoints.py
-  Trainer.py
-  Main.py
-  runTinyLlm.sh
-  README.md
   data/
     input.txt
 ```
