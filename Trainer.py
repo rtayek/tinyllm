@@ -87,10 +87,22 @@ class Trainer:
 
                 if self.bestValLoss is None:
                     improved = True
+                elif self.bestValLoss <= 0:
+                    improved = True
                 else:
                     frac_improvement = (self.bestValLoss - valLoss) / self.bestValLoss
                     improved = frac_improvement > self.cfg.earlyStopDelta
 
+                    print(
+                        f"[step {step}] train loss: {trainLoss:.4f}, val loss: {valLoss:.4f}",
+                        flush=True,
+                    )
+
+                    print(
+                        f"[step {step}] fractional improvement: {frac_improvement:.4f} "
+                        f"(need > {self.cfg.earlyStopDelta:.4f})",
+                        flush=True,
+                    )
 
                 if improved:
                     self.bestValLoss = valLoss

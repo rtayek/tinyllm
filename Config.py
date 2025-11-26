@@ -24,8 +24,8 @@ class ModelConfig:
     evalInterval: int = 100
     evalIters: int = 100
     weightDecay: float = 0.02
-    earlyStopPatience: int = 3      # number of evals
-    earlyStopDelta: float = 0.002   # minimum improvement in val loss
+    earlyStopPatience: int = 2      # number of evals
+    earlyStopDelta: float = 0.003  # minimum improvement in val loss
 
     # paths
     ckptPath: str = "checkpoints/tiny_llm.pt"
