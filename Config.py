@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import torch
 
 
-@dataclass
+@dataclass(frozen=True)
 class ModelConfig:
     # model
     vocabSize: int = 256          # byte-level

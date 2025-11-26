@@ -9,23 +9,24 @@ from Config import ModelConfig
 from DataModule import ByteDataModule
 from Model import TinyGpt
 from Trainer import Trainer
-from typing import cast
 
 
-def main() -> None:
+def build_trainer(cfg: ModelConfig | None = None) -> Trainer:
     torch.manual_seed(1337)
 
-    cfg = ModelConfig()
+    cfg = cfg or ModelConfig()
 
     print("Loading data module...")
-    dataModule = ByteDataModule(cfg)
+    data_module = ByteDataModule(cfg)
 
     print("Building model...")
     model = TinyGpt(cfg).to(cfg.device)
-    #model = torch.compile(model)
-    #model = cast(TinyGpt, model)
 
-    trainer = Trainer(cfg, model, dataModule)
+    return Trainer(cfg, model, data_module)
+
+
+def main() -> None:
+    trainer = build_trainer()
 
     print("Loading checkpoint (if any)...")
     trainer.loadCheckpointIfExists()
