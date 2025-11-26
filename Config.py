@@ -17,6 +17,9 @@ class ModelConfig:
     nLayer: int = 4
     dropout: float = 0.2
 
+
+@dataclass(frozen=True)
+class TrainConfig:
     # training
     batchSize: int = 32
     learningRate: float = 5e-5

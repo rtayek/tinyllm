@@ -9,22 +9,23 @@ from typing import Tuple, List, Optional
 import torch
 from torch import Tensor
 
-from Config import ModelConfig
+from Config import ModelConfig, TrainConfig
 
 
 class ByteDataModule:
-    def __init__(self, cfg: ModelConfig) -> None:
-        self.cfg = cfg
+    def __init__(self, modelCfg: ModelConfig, trainCfg: TrainConfig) -> None:
+        self.modelCfg = modelCfg
+        self.trainCfg = trainCfg
         self.trainData: Tensor
         self.valData: Tensor
 
         self.loadAndSplit()
 
     def loadAndSplit(self) -> None:
-        if not os.path.exists(self.cfg.dataPath):
-            raise FileNotFoundError(self.cfg.dataPath)
+        if not os.path.exists(self.trainCfg.dataPath):
+            raise FileNotFoundError(self.trainCfg.dataPath)
 
-        with open(self.cfg.dataPath, "rb") as f:
+        with open(self.trainCfg.dataPath, "rb") as f:
             dataBytes = f.read()
 
         data = torch.tensor(list(dataBytes), dtype=torch.long)
@@ -44,7 +45,8 @@ class ByteDataModule:
         else:
             raise ValueError(f"Unknown split: {split}")
 
-        cfg = self.cfg
+        modelCfg = self.modelCfg
+        trainCfg = self.trainCfg
 
         if generator is None:
             generator = torch.Generator()
@@ -52,8 +54,8 @@ class ByteDataModule:
 
         indices = torch.randint(
             low=0,
-            high=len(source) - cfg.blockSize - 1,
-            size=(cfg.batchSize,),
+            high=len(source) - modelCfg.blockSize - 1,
+            size=(trainCfg.batchSize,),
             generator=generator,
         )
 
@@ -61,9 +63,9 @@ class ByteDataModule:
         yList: List[Tensor] = []
 
         for start in indices.tolist():
-            xList.append(source[start : start + cfg.blockSize])
-            yList.append(source[start + 1 : start + 1 + cfg.blockSize])
+            xList.append(source[start : start + modelCfg.blockSize])
+            yList.append(source[start + 1 : start + 1 + modelCfg.blockSize])
 
-        batchX = torch.stack(xList).to(cfg.device)
-        batchY = torch.stack(yList).to(cfg.device)
+        batchX = torch.stack(xList).to(trainCfg.device)
+        batchY = torch.stack(yList).to(trainCfg.device)
         return batchX, batchY

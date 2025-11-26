@@ -8,14 +8,15 @@ from typing import Optional, Tuple, Dict, Any
 
 import torch
 
-from Config import ModelConfig
+from Config import ModelConfig, TrainConfig
 from Model import TinyGpt
 
 
 class CheckpointManager:
-    def __init__(self, cfg: ModelConfig) -> None:
-        self.cfg = cfg
-        ckptDir = os.path.dirname(cfg.ckptPath)
+    def __init__(self, modelCfg: ModelConfig, trainCfg: TrainConfig) -> None:
+        self.modelCfg = modelCfg
+        self.trainCfg = trainCfg
+        ckptDir = os.path.dirname(trainCfg.ckptPath)
         if ckptDir:
             os.makedirs(ckptDir, exist_ok=True)
 
@@ -32,11 +33,12 @@ class CheckpointManager:
             "optimizerState": optimizer.state_dict(),
             "step": step,
             "bestValLoss": bestValLoss,
-            "config": self.cfg.__dict__,
+            "modelConfig": self.modelCfg.__dict__,
+            "trainConfig": self.trainCfg.__dict__,
         }
         if lrStrategyState is not None:
             checkpoint["lrStrategyState"] = lrStrategyState
-        torch.save(checkpoint, self.cfg.ckptPath)
+        torch.save(checkpoint, self.trainCfg.ckptPath)
 
     def load(
         self,
@@ -44,10 +46,10 @@ class CheckpointManager:
         optimizer: torch.optim.Optimizer,
         lrStrategy: Optional[Any] = None,
     ) -> Tuple[int, Optional[float], bool]:
-        if not os.path.exists(self.cfg.ckptPath):
+        if not os.path.exists(self.trainCfg.ckptPath):
             return 0, None, False
 
-        checkpoint = torch.load(self.cfg.ckptPath, map_location=self.cfg.device)
+        checkpoint = torch.load(self.trainCfg.ckptPath, map_location=self.trainCfg.device)
         model.load_state_dict(checkpoint["modelState"])
         optimizer.load_state_dict(checkpoint["optimizerState"])
         step = int(checkpoint.get("step", 0))

@@ -9,7 +9,7 @@ import math
 
 import torch
 
-from Config import ModelConfig
+from Config import ModelConfig, TrainConfig
 from Model import TinyGpt
 from DataModule import ByteDataModule
 from Checkpoints import CheckpointManager
@@ -95,22 +95,29 @@ class EarlyStopping:
 class Trainer:
     def __init__(
         self,
-        cfg: ModelConfig,
+        modelCfg: ModelConfig,
+        trainCfg: TrainConfig,
         model: TinyGpt,
         dataModule: ByteDataModule,
     ) -> None:
-        self.cfg = cfg
+        self.modelCfg = modelCfg
+        self.trainCfg = trainCfg
         self.model = model
         self.dataModule = dataModule
-        print("CONFIG DUMP:", cfg)
-        self.optimizer = torch.optim.AdamW(model.parameters(),lr=cfg.learningRate,weight_decay=cfg.weightDecay)
+        print("MODEL CONFIG:", modelCfg)
+        print("TRAIN CONFIG:", trainCfg)
+        self.optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=trainCfg.learningRate,
+            weight_decay=trainCfg.weightDecay,
+        )
         self.lrStrategy = WarmupCosineStrategy(
             self.optimizer,
-            max_steps=cfg.maxSteps,
-            warmup_frac=cfg.warmupFrac,
+            max_steps=trainCfg.maxSteps,
+            warmup_frac=trainCfg.warmupFrac,
         )
-        self.earlyStopping = EarlyStopping(cfg.earlyStopPatience, cfg.earlyStopDelta)
-        self.checkpoints = CheckpointManager(cfg)
+        self.earlyStopping = EarlyStopping(trainCfg.earlyStopPatience, trainCfg.earlyStopDelta)
+        self.checkpoints = CheckpointManager(modelCfg, trainCfg)
 
         self.globalStep: int = 0
         self.bestValLoss: Optional[float] = None
@@ -165,7 +172,7 @@ class Trainer:
         with torch.no_grad():
             for split in ("train", "val"):
                 lossList: List[float] = []
-                for _ in range(self.cfg.evalIters):
+                for _ in range(self.trainCfg.evalIters):
                     batchX, batchY = self.dataModule.getBatch(split, self.generator)
                     _, loss = self.model(batchX, batchY)
                     if loss is None:
@@ -177,14 +184,14 @@ class Trainer:
         return losses
 
     def train(self) -> None:
-        print(f"Using device: {self.cfg.device}", flush=True)
+        print(f"Using device: {self.trainCfg.device}", flush=True)
         print("Starting training loop...", flush=True)
 
-        for step in range(self.globalStep, self.cfg.maxSteps):
+        for step in range(self.globalStep, self.trainCfg.maxSteps):
             self.globalStep = step
 
             # ---- Evaluation ----
-            if step % self.cfg.evalInterval == 0:
+            if step % self.trainCfg.evalInterval == 0:
                 print(f"[step {step}] Running evaluation...", flush=True)
 
                 evalResult = self.evaluate(step)
@@ -199,7 +206,7 @@ class Trainer:
                 if evalResult.frac_improvement is not None:
                     print(
                         f"[step {step}] fractional improvement: {evalResult.frac_improvement:.4f} "
-                        f"(need > {self.cfg.earlyStopDelta:.4f})",
+                        f"(need > {self.trainCfg.earlyStopDelta:.4f})",
                         flush=True,
                     )
 
@@ -275,13 +282,13 @@ class Trainer:
             os.makedirs(out_dir, exist_ok=True)
 
             # Build a short name from config
-            cfg = self.cfg
+            cfg = self.trainCfg
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Filename encodes key hyperparameters
             filename = (
                 f"plot_lr{cfg.learningRate}_wd{cfg.weightDecay}"
-                f"_do{cfg.dropout}_bs{cfg.batchSize}_"
+                f"_bs{cfg.batchSize}_"
                 f"{timestamp}.png"
             )
             filepath = os.path.join(out_dir, filename)
@@ -291,7 +298,10 @@ class Trainer:
                 out_dir, f"config_{timestamp}.txt"
             )
             with open(config_dump_path, "w", encoding="utf-8") as f:
-                f.write("TRAINING CONFIGURATION:\n")
+                f.write("MODEL CONFIGURATION:\n")
+                for field, value in vars(self.modelCfg).items():
+                    f.write(f"{field} = {value}\n")
+                f.write("\nTRAINING CONFIGURATION:\n")
                 for field, value in vars(cfg).items():
                     f.write(f"{field} = {value}\n")
 
@@ -322,7 +332,7 @@ class Trainer:
             print(f"Could not plot training curve: {e}", flush=True)
 
     def printSample(self, maxNewTokens: int = 200) -> None:
-        start = torch.zeros((1, 1), dtype=torch.long, device=self.cfg.device)
+        start = torch.zeros((1, 1), dtype=torch.long, device=self.trainCfg.device)
 
         with torch.no_grad():
             generated = self.model.generate(start, maxNewTokens=maxNewTokens)

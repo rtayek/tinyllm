@@ -4,7 +4,7 @@ This is a tiny byte-level GPT model in PyTorch.
 
 ## Files
 
-- `Config.py` — ModelConfig with fields like `vocabSize`, `blockSize`, `maxSteps`.
+- `Config.py` — `ModelConfig` (architecture) and `TrainConfig` (training/runtime settings).
 - `Model.py` — TinyGpt model with multi-head self-attention (`MultiHeadSelfAttention`, `Block`, `TinyGpt`).
 - `DataModule.py` — ByteDataModule that loads raw bytes, splits train/val, and produces batches via `getBatch`.
 - `Checkpoints.py` — CheckpointManager for saving/loading model + optimizer state.
