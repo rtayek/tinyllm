@@ -53,6 +53,7 @@ coverage.xml
 # Data directories (if not intended for version control)
 data/
 datasets/
+plots/
 
 # Logs
 logs/
