@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import Optional, Dict, List, Tuple
+from dataclasses import dataclass
 import math
 
 import torch
@@ -51,6 +52,34 @@ class Trainer:
 
         self.noImproveEvals: int = 0
 
+    @dataclass
+    class EvalResult:
+        step: int
+        train_loss: float
+        val_loss: float
+        frac_improvement: Optional[float]
+        improved: bool
+
+    def evaluate(self, step: int) -> "Trainer.EvalResult":
+        losses = self.estimateLoss()
+        trainLoss = losses["train"]
+        valLoss = losses["val"]
+
+        if self.bestValLoss is None or self.bestValLoss <= 0:
+            frac_improvement = None
+            improved = True
+        else:
+            frac_improvement = (self.bestValLoss - valLoss) / self.bestValLoss
+            improved = frac_improvement > self.cfg.earlyStopDelta
+
+        return Trainer.EvalResult(
+            step=step,
+            train_loss=trainLoss,
+            val_loss=valLoss,
+            frac_improvement=frac_improvement,
+            improved=improved,
+        )
+
     def loadCheckpointIfExists(self) -> None:
         step, best, schedulerRestored = self.checkpoints.load(
             self.model, self.optimizer, self.scheduler
@@ -93,39 +122,24 @@ class Trainer:
             if step % self.cfg.evalInterval == 0:
                 print(f"[step {step}] Running evaluation...", flush=True)
 
-                losses = self.estimateLoss()
-                trainLoss = losses["train"]
-                valLoss = losses["val"]
+                evalResult = self.evaluate(step)
+                self.trainingCurve.append((step, evalResult.train_loss, evalResult.val_loss))
 
                 print(
-                    f"[step {step}] train loss {trainLoss:.4f}, "
-                    f"val loss {valLoss:.4f}",
+                    f"[step {step}] train loss {evalResult.train_loss:.4f}, "
+                    f"val loss {evalResult.val_loss:.4f}",
                     flush=True,
                 )
 
-                self.trainingCurve.append((step, trainLoss, valLoss))
-
-                if self.bestValLoss is None:
-                    improved = True
-                elif self.bestValLoss <= 0:
-                    improved = True
-                else:
-                    frac_improvement = (self.bestValLoss - valLoss) / self.bestValLoss
-                    improved = frac_improvement > self.cfg.earlyStopDelta
-
+                if evalResult.frac_improvement is not None:
                     print(
-                        f"[step {step}] train loss: {trainLoss:.4f}, val loss: {valLoss:.4f}",
-                        flush=True,
-                    )
-
-                    print(
-                        f"[step {step}] fractional improvement: {frac_improvement:.4f} "
+                        f"[step {step}] fractional improvement: {evalResult.frac_improvement:.4f} "
                         f"(need > {self.cfg.earlyStopDelta:.4f})",
                         flush=True,
                     )
 
-                if improved:
-                    self.bestValLoss = valLoss
+                if evalResult.improved:
+                    self.bestValLoss = evalResult.val_loss
                     self.noImproveEvals = 0
 
                     self.checkpoints.save(
