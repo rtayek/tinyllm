@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Optional, Dict, List, Tuple
 from dataclasses import dataclass
+import logging
 import math
 
 import torch
@@ -104,8 +105,10 @@ class Trainer:
         self.trainCfg = trainCfg
         self.model = model
         self.dataModule = dataModule
-        print("MODEL CONFIG:", modelCfg)
-        print("TRAIN CONFIG:", trainCfg)
+        self.logger = logging.getLogger(__name__)
+
+        self.logger.info("MODEL CONFIG: %s", modelCfg)
+        self.logger.info("TRAIN CONFIG: %s", trainCfg)
         self.optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=trainCfg.learningRate,
@@ -184,30 +187,32 @@ class Trainer:
         return losses
 
     def train(self) -> None:
-        print(f"Using device: {self.trainCfg.device}", flush=True)
-        print("Starting training loop...", flush=True)
+        self.logger.info("Using device: %s", self.trainCfg.device)
+        self.logger.info("Starting training loop...")
 
         for step in range(self.globalStep, self.trainCfg.maxSteps):
             self.globalStep = step
 
             # ---- Evaluation ----
             if step % self.trainCfg.evalInterval == 0:
-                print(f"[step {step}] Running evaluation...", flush=True)
+                self.logger.info("[step %s] Running evaluation...", step)
 
                 evalResult = self.evaluate(step)
                 self.trainingCurve.append((step, evalResult.train_loss, evalResult.val_loss))
 
-                print(
-                    f"[step {step}] train loss {evalResult.train_loss:.4f}, "
-                    f"val loss {evalResult.val_loss:.4f}",
-                    flush=True,
+                self.logger.info(
+                    "[step %s] train loss %.4f, val loss %.4f",
+                    step,
+                    evalResult.train_loss,
+                    evalResult.val_loss,
                 )
 
                 if evalResult.frac_improvement is not None:
-                    print(
-                        f"[step {step}] fractional improvement: {evalResult.frac_improvement:.4f} "
-                        f"(need > {self.trainCfg.earlyStopDelta:.4f})",
-                        flush=True,
+                    self.logger.info(
+                        "[step %s] fractional improvement: %.4f (need > %.4f)",
+                        step,
+                        evalResult.frac_improvement,
+                        self.trainCfg.earlyStopDelta,
                     )
 
                 if evalResult.improved:
@@ -221,23 +226,19 @@ class Trainer:
                         self.lrStrategy.state_dict(),
                     )
 
-                    print(
-                        f"[step {step}] Checkpoint saved (improved validation loss).",
-                        flush=True,
-                    )
+                    self.logger.info("[step %s] Checkpoint saved (improved validation loss).", step)
                 else:
-                    print(
-                        f"[step {step}] No val improvement for "
-                        f"{evalResult.no_improve_evals} evals.",
-                        flush=True,
+                    self.logger.info(
+                        "[step %s] No val improvement for %s evals.",
+                        step,
+                        evalResult.no_improve_evals,
                     )
 
                     if evalResult.should_stop:
-                        print(
-                            f"[step {step}] Early stopping triggered: "
-                            f"no val improvement for "
-                            f"{evalResult.no_improve_evals} evals.",
-                            flush=True,
+                        self.logger.info(
+                            "[step %s] Early stopping triggered: no val improvement for %s evals.",
+                            step,
+                            evalResult.no_improve_evals,
                         )
                         break
 
@@ -254,22 +255,21 @@ class Trainer:
             self.optimizer.step()
             self.lrStrategy.step()
 
-        print("Training loop finished.", flush=True)
-        print(f"Best validation loss: {self.bestValLoss}", flush=True)
-        print(
-            f"Training done. Best val loss {self.bestValLoss:.4f} "
-            f"reached at some earlier step (see checkpoint metadata).",
-            flush=True,
+        self.logger.info("Training loop finished.")
+        self.logger.info("Best validation loss: %s", self.bestValLoss)
+        self.logger.info(
+            "Training done. Best val loss %.4f reached at some earlier step (see checkpoint metadata).",
+            self.bestValLoss,
         )
-        print("Last few evals (step, train, val):")
+        self.logger.info("Last few evals (step, train, val):")
         for step, tr, va in self.trainingCurve[-5:]:
-            print(f"  {step:6d}: {tr:.4f}, {va:.4f}")
+            self.logger.info("  %6d: %.4f, %.4f", step, tr, va)
 
         
 
     def plotTrainingCurve(self) -> None:
         if not self.trainingCurve:
-            print("No trainingCurve data to plot.", flush=True)
+            self.logger.info("No trainingCurve data to plot.")
             return
 
         try:
@@ -322,14 +322,14 @@ class Trainer:
 
             # Save plot
             plt.savefig(filepath, dpi=150)
-            print(f"[plot] Saved plot to {filepath}", flush=True)
-            print(f"[plot] Saved config to {config_dump_path}", flush=True)
+            self.logger.info("[plot] Saved plot to %s", filepath)
+            self.logger.info("[plot] Saved config to %s", config_dump_path)
 
             # Optionally show it live
             plt.show()
 
         except Exception as e:
-            print(f"Could not plot training curve: {e}", flush=True)
+            self.logger.info("Could not plot training curve: %s", e)
 
     def printSample(self, maxNewTokens: int = 200) -> None:
         start = torch.zeros((1, 1), dtype=torch.long, device=self.trainCfg.device)
@@ -342,5 +342,5 @@ class Trainer:
         outBytes = bytes(int(v) for v in rawList)
         decoded = outBytes.decode("utf-8", errors="ignore")
 
-        print("\nSampled text:")
-        print(decoded)
+        self.logger.info("\nSampled text:")
+        self.logger.info(decoded)
