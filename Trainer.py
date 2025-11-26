@@ -15,6 +15,83 @@ from DataModule import ByteDataModule
 from Checkpoints import CheckpointManager
 
 
+class LRScheduleStrategy:
+    def step(self) -> None:
+        raise NotImplementedError
+
+    def state_dict(self) -> Dict[str, float]:
+        raise NotImplementedError
+
+    def load_state_dict(self, state: Dict[str, float]) -> None:
+        raise NotImplementedError
+
+    def align_after_resume(self, step: int) -> None:
+        raise NotImplementedError
+
+
+class WarmupCosineStrategy(LRScheduleStrategy):
+    def __init__(self, optimizer: torch.optim.Optimizer, max_steps: int, warmup_frac: float) -> None:
+        self.optimizer = optimizer
+        self.warmup_steps = max(1, int(warmup_frac * max_steps))
+        self.total_steps = max(max_steps, self.warmup_steps + 1)
+
+        def lr_lambda(current_step: int) -> float:
+            if current_step < self.warmup_steps:
+                return float(current_step + 1) / float(self.warmup_steps)
+
+            progress = (current_step - self.warmup_steps) / float(
+                max(1, self.total_steps - self.warmup_steps)
+            )
+            return 0.5 * (1.0 + math.cos(math.pi * progress))
+
+        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+            self.optimizer,
+            lr_lambda=lr_lambda,
+        )
+
+    def step(self) -> None:
+        self.scheduler.step()
+
+    def state_dict(self) -> Dict[str, float]:
+        return self.scheduler.state_dict()
+
+    def load_state_dict(self, state: Dict[str, float]) -> None:
+        self.scheduler.load_state_dict(state)
+
+    def align_after_resume(self, step: int) -> None:
+        if step > 0:
+            self.scheduler.last_epoch = step - 1
+            self.scheduler.step()
+
+
+class EarlyStopping:
+    def __init__(self, patience: int, delta: float) -> None:
+        self.patience = patience
+        self.delta = delta
+        self.no_improve_evals = 0
+
+    def reset(self) -> None:
+        self.no_improve_evals = 0
+
+    def check(
+        self, best_val_loss: Optional[float], current_val_loss: float
+    ) -> Tuple[bool, Optional[float], bool, int]:
+        if best_val_loss is None or best_val_loss <= 0:
+            frac_improvement = None
+            improved = True
+        else:
+            frac_improvement = (best_val_loss - current_val_loss) / best_val_loss
+            improved = frac_improvement > self.delta
+
+        if improved:
+            self.no_improve_evals = 0
+        else:
+            self.no_improve_evals += 1
+
+        should_stop = self.no_improve_evals >= self.patience
+        return improved, frac_improvement, should_stop, self.no_improve_evals
+
+
 class Trainer:
     def __init__(
         self,
@@ -27,20 +104,12 @@ class Trainer:
         self.dataModule = dataModule
         print("CONFIG DUMP:", cfg)
         self.optimizer = torch.optim.AdamW(model.parameters(),lr=cfg.learningRate,weight_decay=cfg.weightDecay)
-        warmupSteps = max(1, int(0.1 * cfg.maxSteps))
-        totalSteps = max(cfg.maxSteps, warmupSteps + 1)
-
-        def lr_lambda(current_step: int) -> float:
-            if current_step < warmupSteps:
-                return float(current_step + 1) / float(warmupSteps)
-
-            progress = (current_step - warmupSteps) / float(max(1, totalSteps - warmupSteps))
-            return 0.5 * (1.0 + math.cos(math.pi * progress))
-
-        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+        self.lrStrategy = WarmupCosineStrategy(
             self.optimizer,
-            lr_lambda=lr_lambda,
+            max_steps=cfg.maxSteps,
+            warmup_frac=cfg.warmupFrac,
         )
+        self.earlyStopping = EarlyStopping(cfg.earlyStopPatience, cfg.earlyStopDelta)
         self.checkpoints = CheckpointManager(cfg)
 
         self.globalStep: int = 0
@@ -50,8 +119,6 @@ class Trainer:
         self.generator = torch.Generator()
         self.generator.manual_seed(1337)
 
-        self.noImproveEvals: int = 0
-
     @dataclass
     class EvalResult:
         step: int
@@ -59,18 +126,17 @@ class Trainer:
         val_loss: float
         frac_improvement: Optional[float]
         improved: bool
+        should_stop: bool
+        no_improve_evals: int
 
     def evaluate(self, step: int) -> "Trainer.EvalResult":
         losses = self.estimateLoss()
         trainLoss = losses["train"]
         valLoss = losses["val"]
 
-        if self.bestValLoss is None or self.bestValLoss <= 0:
-            frac_improvement = None
-            improved = True
-        else:
-            frac_improvement = (self.bestValLoss - valLoss) / self.bestValLoss
-            improved = frac_improvement > self.cfg.earlyStopDelta
+        improved, frac_improvement, should_stop, no_improve = self.earlyStopping.check(
+            self.bestValLoss, valLoss
+        )
 
         return Trainer.EvalResult(
             step=step,
@@ -78,17 +144,19 @@ class Trainer:
             val_loss=valLoss,
             frac_improvement=frac_improvement,
             improved=improved,
+            should_stop=should_stop,
+            no_improve_evals=no_improve,
         )
 
     def loadCheckpointIfExists(self) -> None:
         step, best, schedulerRestored = self.checkpoints.load(
-            self.model, self.optimizer, self.scheduler
+            self.model, self.optimizer, self.lrStrategy
         )
         self.globalStep = step
         self.bestValLoss = best
-        if not schedulerRestored and step > 0:
-            self.scheduler.last_epoch = step - 1
-            self.scheduler.step()
+        if not schedulerRestored:
+            self.lrStrategy.align_after_resume(step)
+        self.earlyStopping.reset()
 
     def estimateLoss(self) -> Dict[str, float]:
         self.model.eval()
@@ -111,9 +179,6 @@ class Trainer:
     def train(self) -> None:
         print(f"Using device: {self.cfg.device}", flush=True)
         print("Starting training loop...", flush=True)
-
-        # Early stopping counters
-        self.noImproveEvals = 0
 
         for step in range(self.globalStep, self.cfg.maxSteps):
             self.globalStep = step
@@ -140,14 +205,13 @@ class Trainer:
 
                 if evalResult.improved:
                     self.bestValLoss = evalResult.val_loss
-                    self.noImproveEvals = 0
 
                     self.checkpoints.save(
                         self.model,
                         self.optimizer,
                         step,
                         self.bestValLoss,
-                        self.scheduler,
+                        self.lrStrategy.state_dict(),
                     )
 
                     print(
@@ -155,18 +219,17 @@ class Trainer:
                         flush=True,
                     )
                 else:
-                    self.noImproveEvals += 1
                     print(
                         f"[step {step}] No val improvement for "
-                        f"{self.noImproveEvals} evals.",
+                        f"{evalResult.no_improve_evals} evals.",
                         flush=True,
                     )
 
-                    if self.noImproveEvals >= self.cfg.earlyStopPatience:
+                    if evalResult.should_stop:
                         print(
                             f"[step {step}] Early stopping triggered: "
                             f"no val improvement for "
-                            f"{self.noImproveEvals} evals.",
+                            f"{evalResult.no_improve_evals} evals.",
                             flush=True,
                         )
                         break
@@ -182,7 +245,7 @@ class Trainer:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
-            self.scheduler.step()
+            self.lrStrategy.step()
 
         print("Training loop finished.", flush=True)
         print(f"Best validation loss: {self.bestValLoss}", flush=True)

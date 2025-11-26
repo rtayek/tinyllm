@@ -20,6 +20,7 @@ class ModelConfig:
     # training
     batchSize: int = 32
     learningRate: float = 5e-5
+    warmupFrac: float = 0.1
     maxSteps: int = 5000
     evalInterval: int = 100
     evalIters: int = 100

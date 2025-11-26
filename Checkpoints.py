@@ -25,7 +25,7 @@ class CheckpointManager:
         optimizer: torch.optim.Optimizer,
         step: int,
         bestValLoss: Optional[float],
-        scheduler: torch.optim.lr_scheduler.LRScheduler,
+        lrStrategyState: Optional[Dict[str, Any]] = None,
     ) -> None:
         checkpoint: Dict[str, Any] = {
             "modelState": model.state_dict(),
@@ -34,14 +34,15 @@ class CheckpointManager:
             "bestValLoss": bestValLoss,
             "config": self.cfg.__dict__,
         }
-        checkpoint["schedulerState"] = scheduler.state_dict()
+        if lrStrategyState is not None:
+            checkpoint["lrStrategyState"] = lrStrategyState
         torch.save(checkpoint, self.cfg.ckptPath)
 
     def load(
         self,
         model: TinyGpt,
         optimizer: torch.optim.Optimizer,
-        scheduler: Optional[torch.optim.lr_scheduler.LRScheduler] = None,
+        lrStrategy: Optional[Any] = None,
     ) -> Tuple[int, Optional[float], bool]:
         if not os.path.exists(self.cfg.ckptPath):
             return 0, None, False
@@ -53,10 +54,10 @@ class CheckpointManager:
         bestValLoss = checkpoint.get("bestValLoss", None)
 
         schedulerRestored = False
-        if scheduler is not None:
-            schedState = checkpoint.get("schedulerState", None)
+        if lrStrategy is not None:
+            schedState = checkpoint.get("lrStrategyState", None)
             if schedState is not None:
-                scheduler.load_state_dict(schedState)
+                lrStrategy.load_state_dict(schedState)
                 schedulerRestored = True
 
         return step, bestValLoss, schedulerRestored
