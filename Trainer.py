@@ -12,7 +12,7 @@ import torch
 from Config import ModelConfig, TrainConfig
 from Model import TinyGpt
 from DataModule import ByteDataModule
-from Checkpoints import CheckpointManager
+from Checkpoints import CheckpointManager, CHECKPOINT_VERSION
 from tensor_utils import tensor_to_int_list
 from plot_utils import plot_training_curve
 
@@ -206,14 +206,21 @@ class Trainer:
         )
 
     def loadCheckpointIfExists(self) -> None:
-        step, best, lr_state_restored, version = self.checkpoints.load(
+        step, best, lr_state_restored, version, version_matches = self.checkpoints.load(
             self.model, self.optimizer, self.lrStrategy
         )
         self.globalStep = step
         self.bestValLoss = best
         if not lr_state_restored:
             self.lrStrategy.align_after_resume(step)
-        self.logger.info("Loaded checkpoint version %s", version)
+        if not version_matches:
+            self.logger.warning(
+                "Checkpoint version %s does not match expected %s; LR state not restored.",
+                version,
+                CHECKPOINT_VERSION,
+            )
+        else:
+            self.logger.info("Loaded checkpoint version %s", version)
         self.earlyStopping.reset()
 
     def estimateLoss(self) -> Dict[str, float]:
@@ -283,6 +290,9 @@ class Trainer:
         
 
     def plotTrainingCurve(self) -> None:
+        if not self.trainCfg.plotCurve:
+            self.logger.info("Plotting disabled by config.")
+            return
         if not self.trainingCurve:
             self.logger.info("No trainingCurve data to plot.")
             return

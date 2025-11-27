@@ -29,6 +29,7 @@ class TrainConfig:
     weightDecay: float = 0.02
     earlyStopPatience: int = 2      # number of evals
     earlyStopDelta: float = 0.003  # minimum improvement in val loss
+    plotCurve: bool = True
 
     # paths
     ckptPath: str = "checkpoints/tiny_llm.pt"
@@ -36,3 +37,9 @@ class TrainConfig:
 
     # hardware
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+@dataclass(frozen=True)
+class RunConfig:
+    model: ModelConfig = ModelConfig()
+    train: TrainConfig = TrainConfig()

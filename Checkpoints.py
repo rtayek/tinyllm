@@ -46,9 +46,9 @@ class CheckpointManager:
         model: TinyGpt,
         optimizer: torch.optim.Optimizer,
         lrStrategy: Optional[Any] = None,
-    ) -> Tuple[int, Optional[float], bool, int]:
+    ) -> Tuple[int, Optional[float], bool, int, bool]:
         if not os.path.exists(self.trainCfg.ckptPath):
-            return 0, None, False, CHECKPOINT_VERSION
+            return 0, None, False, CHECKPOINT_VERSION, True
 
         checkpoint = cast(
             Dict[str, Any],
@@ -62,13 +62,14 @@ class CheckpointManager:
         step = int(checkpoint.get("step", 0))
         bestValLoss = checkpoint.get("bestValLoss", None)
 
+        version = int(checkpoint.get("version", CHECKPOINT_VERSION))
+        version_matches = version == CHECKPOINT_VERSION
+
         lr_state_restored = False
-        if lrStrategy is not None:
+        if lrStrategy is not None and version_matches:
             schedState = checkpoint.get("lrStrategyState", None)
             if schedState is not None:
                 lrStrategy.load_state_dict(schedState)
                 lr_state_restored = True
 
-        version = int(checkpoint.get("version", CHECKPOINT_VERSION))
-
-        return step, bestValLoss, lr_state_restored, version
+        return step, bestValLoss, lr_state_restored, version, version_matches

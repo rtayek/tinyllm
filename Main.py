@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import torch
 
-from Config import ModelConfig, TrainConfig
+from Config import RunConfig
 from DataModule import ByteDataModule
 from Model import TinyGpt
 from Trainer import Trainer
@@ -29,14 +29,14 @@ def manual_seed(seed: int) -> torch.Generator:
 
 
 def build_trainer(
-    model_cfg: ModelConfig | None = None,
-    train_cfg: TrainConfig | None = None,
+    run_cfg: RunConfig | None = None,
     log: logging.Logger | None = None,
 ) -> Trainer:
     manual_seed(1337)
 
-    model_cfg = model_cfg or ModelConfig()
-    train_cfg = train_cfg or TrainConfig()
+    run_cfg = run_cfg or RunConfig()
+    model_cfg = run_cfg.model
+    train_cfg = run_cfg.train
 
     active_logger = log or logger
 
@@ -49,8 +49,8 @@ def build_trainer(
     return Trainer(model_cfg, train_cfg, model, data_module)
 
 
-def main() -> None:
-    active_logger = setup_logging()
+def main(log_level: int = logging.INFO) -> None:
+    active_logger = setup_logging(level=log_level)
     trainer = build_trainer(log=active_logger)
 
     active_logger.info("Loading checkpoint (if any)...")
