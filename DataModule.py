@@ -1,10 +1,9 @@
 # DataModule.py
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 
 from __future__ import annotations
 
 import os
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, cast
 
 import torch
 from torch import Tensor
@@ -62,9 +61,10 @@ class ByteDataModule:
         xList: List[Tensor] = []
         yList: List[Tensor] = []
 
-        for start in indices.tolist():
-            xList.append(source[start : start + modelCfg.blockSize])
-            yList.append(source[start + 1 : start + 1 + modelCfg.blockSize])
+        start_indices: List[int] = cast(List[int], indices.tolist())  # type: ignore[reportUnknownMemberType]
+        for start_idx in start_indices:
+            xList.append(source[start_idx : start_idx + modelCfg.blockSize])
+            yList.append(source[start_idx + 1 : start_idx + 1 + modelCfg.blockSize])
 
         batchX = torch.stack(xList).to(trainCfg.device)
         batchY = torch.stack(yList).to(trainCfg.device)

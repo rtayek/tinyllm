@@ -1,5 +1,4 @@
 # Main.py
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 
 from __future__ import annotations
 
@@ -28,7 +27,7 @@ def build_trainer(
     train_cfg: TrainConfig | None = None,
     log: logging.Logger | None = None,
 ) -> Trainer:
-    torch.manual_seed(1337)
+    torch.manual_seed(1337)  # type: ignore[reportUnknownMemberType]
 
     model_cfg = model_cfg or ModelConfig()
     train_cfg = train_cfg or TrainConfig()

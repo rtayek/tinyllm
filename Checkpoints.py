@@ -1,10 +1,9 @@
 # Checkpoints.py
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 
 from __future__ import annotations
 
 import os
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any, cast
 
 import torch
 
@@ -40,7 +39,7 @@ class CheckpointManager:
             "trainConfig": self.trainCfg.__dict__,
             "lrStrategyState": lrStrategyState,
         }
-        torch.save(checkpoint, self.trainCfg.ckptPath)
+        torch.save(checkpoint, self.trainCfg.ckptPath)  # type: ignore[reportUnknownMemberType]
 
     def load(
         self,
@@ -51,7 +50,13 @@ class CheckpointManager:
         if not os.path.exists(self.trainCfg.ckptPath):
             return 0, None, False
 
-        checkpoint = torch.load(self.trainCfg.ckptPath, map_location=self.trainCfg.device)
+        checkpoint = cast(
+            Dict[str, Any],
+            torch.load(  # type: ignore[reportUnknownMemberType]
+                self.trainCfg.ckptPath,
+                map_location=self.trainCfg.device,
+            ),
+        )
         model.load_state_dict(checkpoint["modelState"])
         optimizer.load_state_dict(checkpoint["optimizerState"])
         step = int(checkpoint.get("step", 0))

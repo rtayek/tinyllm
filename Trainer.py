@@ -1,9 +1,8 @@
 # Trainer.py
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingImports=false
 
 from __future__ import annotations
 
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple, Any, cast
 from dataclasses import dataclass
 import logging
 import math
@@ -109,7 +108,7 @@ class Trainer:
 
         self.logger.info("MODEL CONFIG: %s", modelCfg)
         self.logger.info("TRAIN CONFIG: %s", trainCfg)
-        self.optimizer = torch.optim.AdamW(
+        self.optimizer: torch.optim.Optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=trainCfg.learningRate,
             weight_decay=trainCfg.weightDecay,
@@ -284,6 +283,7 @@ class Trainer:
 
         try:
             import matplotlib.pyplot as plt  # type: ignore[import]
+            plt = cast(Any, plt)
             import os
             from datetime import datetime
 
@@ -345,11 +345,11 @@ class Trainer:
         start = torch.zeros((1, 1), dtype=torch.long, device=self.trainCfg.device)
 
         with torch.no_grad():
-            generated = self.model.generate(start, maxNewTokens=maxNewTokens)
+            generated: torch.Tensor = self.model.generate(start, maxNewTokens=maxNewTokens)
 
-        firstSeq = generated[0]
-        rawList = firstSeq.tolist()
-        outBytes = bytes(int(v) for v in rawList)
+        firstSeq: torch.Tensor = generated[0]
+        rawList: List[int] = cast(List[int], firstSeq.to(dtype=torch.long).view(-1).tolist())  # type: ignore[reportUnknownMemberType]
+        outBytes = bytes(rawList)
         decoded = outBytes.decode("utf-8", errors="ignore")
 
         self.logger.info("\nSampled text:")
