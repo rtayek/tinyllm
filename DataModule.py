@@ -69,4 +69,6 @@ class ByteDataModule:
 
         batchX = torch.stack(xList).to(trainCfg.device)
         batchY = torch.stack(yList).to(trainCfg.device)
+        assert batchX.shape == (trainCfg.batchSize, modelCfg.blockSize)
+        assert batchY.shape == (trainCfg.batchSize, modelCfg.blockSize)
         return batchX, batchY

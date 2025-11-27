@@ -37,6 +37,10 @@ class Trainer:
             lr=trainCfg.learningRate,
             weight_decay=trainCfg.weightDecay,
         )
+        assert trainCfg.batchSize > 0
+        assert self.modelCfg.blockSize > 0
+        assert trainCfg.learningRate > 0
+        assert 0 <= trainCfg.warmupFrac <= 1
         self.lrStrategy = WarmupCosineStrategy(
             self.optimizer,
             max_steps=trainCfg.maxSteps,
@@ -141,6 +145,10 @@ class Trainer:
                 self.logger.info("[step %s] Running evaluation...", step)
 
                 evalResult = self.evaluator.evaluate(step, self.bestValLoss)
+                if not torch.isfinite(torch.tensor(evalResult.train_loss)) or not torch.isfinite(
+                    torch.tensor(evalResult.val_loss)
+                ):
+                    raise RuntimeError("Non-finite evaluation loss encountered")
                 self.trainingCurve.append(
                     (step, evalResult.train_loss, evalResult.val_loss)
                 )
@@ -165,7 +173,9 @@ class Trainer:
                         break
 
             # ---- Training step ----
-            _ = self._train_step()
+            loss_val = self._train_step()
+            if not torch.isfinite(torch.tensor(loss_val)):
+                raise RuntimeError("Non-finite training loss encountered")
 
         self.logger.info("Training loop finished.")
         self.logger.info("Best validation loss: %s", self.bestValLoss)
