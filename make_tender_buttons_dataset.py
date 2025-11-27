@@ -10,10 +10,8 @@ Download and prepare a Tender Buttons dataset for the tiny LLM.
 
 from __future__ import annotations
 
-import os
 import pathlib
 import textwrap
-from typing import Tuple
 
 import urllib.request
 
@@ -69,9 +67,9 @@ def normalize_whitespace(text: str) -> str:
     """
     text = text.replace("\r\n", "\n").replace("\r", "\n")
 
-    lines = [ln.rstrip(" \t") for ln in text.split("\n")]
+    lines: list[str] = [ln.rstrip(" \t") for ln in text.split("\n")]
 
-    cleaned_lines = []
+    cleaned_lines: list[str] = []
     blank_run = 0
     for ln in lines:
         if ln.strip() == "":

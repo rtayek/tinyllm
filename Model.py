@@ -102,7 +102,7 @@ class TinyGpt(nn.Module):
         if indices.dim() != 2:
             raise ValueError(f"indices must be 2D (batch, time), got {indices.shape}")
 
-        batch, time = indices.shape
+        _batch, time = indices.shape
         if time > self.cfg.blockSize:
             raise ValueError(f"Sequence length {time} exceeds blockSize {self.cfg.blockSize}")
 

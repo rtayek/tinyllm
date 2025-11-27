@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import logging
-logger = logging.getLogger(__name__)
 import torch
 
 from Config import ModelConfig, TrainConfig
@@ -12,30 +11,44 @@ from DataModule import ByteDataModule
 from Model import TinyGpt
 from Trainer import Trainer
 
+logger = logging.getLogger(__name__)
+
+
+def setup_logging(level: int = logging.INFO) -> logging.Logger:
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    return logging.getLogger(__name__)
+
 
 def build_trainer(
     model_cfg: ModelConfig | None = None,
     train_cfg: TrainConfig | None = None,
+    log: logging.Logger | None = None,
 ) -> Trainer:
     torch.manual_seed(1337)
 
     model_cfg = model_cfg or ModelConfig()
     train_cfg = train_cfg or TrainConfig()
 
-    logger.info("Loading data module...")
+    active_logger = log or logger
+
+    active_logger.info("Loading data module...")
     data_module = ByteDataModule(model_cfg, train_cfg)
 
-    logger.info("Building model...")
+    active_logger.info("Building model...")
     model = TinyGpt(model_cfg).to(train_cfg.device)
 
     return Trainer(model_cfg, train_cfg, model, data_module)
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO)
-    trainer = build_trainer()
+    active_logger = setup_logging()
+    trainer = build_trainer(log=active_logger)
 
-    logger.info("Loading checkpoint (if any)...")
+    active_logger.info("Loading checkpoint (if any)...")
     trainer.loadCheckpointIfExists()
 
     trainer.train()

@@ -1,0 +1,24 @@
+{
+  "include": ["."],
+  "exclude": [
+    "**/__pycache__",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    ".git/**",
+    ".pytest_cache"
+  ],
+  "typeCheckingMode": "strict",
+  "venvPath": "C:/Users/ray/miniconda3/envs",
+  "venv": "tinyllm",
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": "warning",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "pythonVersion": "3.10",
+      "pythonPlatform": "Windows"
+    }
+  ]
+}

@@ -11,6 +11,8 @@ import torch
 from Config import ModelConfig, TrainConfig
 from Model import TinyGpt
 
+CHECKPOINT_VERSION = 1
+
 
 class CheckpointManager:
     def __init__(self, modelCfg: ModelConfig, trainCfg: TrainConfig) -> None:
@@ -29,15 +31,15 @@ class CheckpointManager:
         lrStrategyState: Optional[Dict[str, Any]] = None,
     ) -> None:
         checkpoint: Dict[str, Any] = {
+            "version": CHECKPOINT_VERSION,
             "modelState": model.state_dict(),
             "optimizerState": optimizer.state_dict(),
             "step": step,
             "bestValLoss": bestValLoss,
             "modelConfig": self.modelCfg.__dict__,
             "trainConfig": self.trainCfg.__dict__,
+            "lrStrategyState": lrStrategyState,
         }
-        if lrStrategyState is not None:
-            checkpoint["lrStrategyState"] = lrStrategyState
         torch.save(checkpoint, self.trainCfg.ckptPath)
 
     def load(
@@ -55,11 +57,11 @@ class CheckpointManager:
         step = int(checkpoint.get("step", 0))
         bestValLoss = checkpoint.get("bestValLoss", None)
 
-        schedulerRestored = False
+        lr_state_restored = False
         if lrStrategy is not None:
             schedState = checkpoint.get("lrStrategyState", None)
             if schedState is not None:
                 lrStrategy.load_state_dict(schedState)
-                schedulerRestored = True
+                lr_state_restored = True
 
-        return step, bestValLoss, schedulerRestored
+        return step, bestValLoss, lr_state_restored

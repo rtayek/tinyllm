@@ -129,6 +129,34 @@ class Trainer:
         self.generator = torch.Generator()
         self.generator.manual_seed(1337)
 
+    def _save_checkpoint(self, step: int) -> None:
+        if self.bestValLoss is None:
+            return
+        self.checkpoints.save(
+            self.model,
+            self.optimizer,
+            step,
+            self.bestValLoss,
+            self.lrStrategy.state_dict(),
+        )
+        self.logger.info("[step %s] Checkpoint saved (improved validation loss).", step)
+
+    def _log_eval(self, step: int, evalResult: "Trainer.EvalResult") -> None:
+        self.logger.info(
+            "[step %s] train loss %.4f, val loss %.4f",
+            step,
+            evalResult.train_loss,
+            evalResult.val_loss,
+        )
+
+        if evalResult.frac_improvement is not None:
+            self.logger.info(
+                "[step %s] fractional improvement: %.4f (need > %.4f)",
+                step,
+                evalResult.frac_improvement,
+                self.trainCfg.earlyStopDelta,
+            )
+
     @dataclass
     class EvalResult:
         step: int
@@ -199,34 +227,11 @@ class Trainer:
 
                 evalResult = self.evaluate(step)
                 self.trainingCurve.append((step, evalResult.train_loss, evalResult.val_loss))
-
-                self.logger.info(
-                    "[step %s] train loss %.4f, val loss %.4f",
-                    step,
-                    evalResult.train_loss,
-                    evalResult.val_loss,
-                )
-
-                if evalResult.frac_improvement is not None:
-                    self.logger.info(
-                        "[step %s] fractional improvement: %.4f (need > %.4f)",
-                        step,
-                        evalResult.frac_improvement,
-                        self.trainCfg.earlyStopDelta,
-                    )
+                self._log_eval(step, evalResult)
 
                 if evalResult.improved:
                     self.bestValLoss = evalResult.val_loss
-
-                    self.checkpoints.save(
-                        self.model,
-                        self.optimizer,
-                        step,
-                        self.bestValLoss,
-                        self.lrStrategy.state_dict(),
-                    )
-
-                    self.logger.info("[step %s] Checkpoint saved (improved validation loss).", step)
+                    self._save_checkpoint(step)
                 else:
                     self.logger.info(
                         "[step %s] No val improvement for %s evals.",
