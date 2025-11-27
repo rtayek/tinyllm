@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Dict, List, Tuple, Any, cast
+from typing import Optional, Dict, List, Tuple
 from dataclasses import dataclass
 import logging
 import math
@@ -14,6 +14,7 @@ from Model import TinyGpt
 from DataModule import ByteDataModule
 from Checkpoints import CheckpointManager
 from tensor_utils import tensor_to_int_list
+from plot_utils import plot_training_curve
 
 
 class LRScheduleStrategy:
@@ -287,62 +288,13 @@ class Trainer:
             return
 
         try:
-            import matplotlib.pyplot as plt  # type: ignore[import]
-            plt = cast(Any, plt)
-            import os
-            from datetime import datetime
-
-            # Create output directory
-            out_dir = "plots"
-            os.makedirs(out_dir, exist_ok=True)
-
-            # Build a short name from config
-            cfg = self.trainCfg
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-            # Filename encodes key hyperparameters
-            filename = (
-                f"plot_lr{cfg.learningRate}_wd{cfg.weightDecay}"
-                f"_bs{cfg.batchSize}_"
-                f"{timestamp}.png"
+            filepath, config_dump_path = plot_training_curve(
+                self.trainingCurve,
+                self.modelCfg,
+                self.trainCfg,
             )
-            filepath = os.path.join(out_dir, filename)
-
-            # Dump config to text file
-            config_dump_path = os.path.join(
-                out_dir, f"config_{timestamp}.txt"
-            )
-            with open(config_dump_path, "w", encoding="utf-8") as f:
-                f.write("MODEL CONFIGURATION:\n")
-                for field, value in vars(self.modelCfg).items():
-                    f.write(f"{field} = {value}\n")
-                f.write("\nTRAINING CONFIGURATION:\n")
-                for field, value in vars(cfg).items():
-                    f.write(f"{field} = {value}\n")
-
-            # Extract curve data
-            steps = [x[0] for x in self.trainingCurve]
-            trainLosses = [x[1] for x in self.trainingCurve]
-            valLosses = [x[2] for x in self.trainingCurve]
-
-            # Plot
-            plt.figure(figsize=(10, 5))
-            plt.plot(steps, trainLosses, label="train loss")
-            plt.plot(steps, valLosses, label="val loss")
-            plt.xlabel("step")
-            plt.ylabel("loss")
-            plt.title("Training Curve")
-            plt.legend()
-            plt.grid(True)
-
-            # Save plot
-            plt.savefig(filepath, dpi=150)
             self.logger.info("[plot] Saved plot to %s", filepath)
             self.logger.info("[plot] Saved config to %s", config_dump_path)
-
-            # Optionally show it live
-            plt.show()
-
         except Exception as e:
             self.logger.info("Could not plot training curve: %s", e)
 

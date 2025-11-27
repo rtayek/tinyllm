@@ -39,7 +39,7 @@ class CheckpointManager:
             "trainConfig": self.trainCfg.__dict__,
             "lrStrategyState": lrStrategyState,
         }
-        torch.save(checkpoint, self.trainCfg.ckptPath)  # type: ignore[reportUnknownMemberType]
+        torch.save(checkpoint, self.trainCfg.ckptPath)
 
     def load(
         self,
@@ -52,7 +52,7 @@ class CheckpointManager:
 
         checkpoint = cast(
             Dict[str, Any],
-            torch.load(  # type: ignore[reportUnknownMemberType]
+            torch.load(
                 self.trainCfg.ckptPath,
                 map_location=self.trainCfg.device,
             ),

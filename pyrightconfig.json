@@ -10,6 +10,7 @@
     ".pytest_cache"
   ],
   "typeCheckingMode": "strict",
+  "reportUnknownMemberType": "none",
   "venvPath": "C:/Users/ray/miniconda3/envs",
   "venv": "tinyllm",
   "reportMissingImports": "warning",

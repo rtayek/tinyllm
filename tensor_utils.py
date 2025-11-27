@@ -11,5 +11,5 @@ def tensor_to_int_list(tensor: torch.Tensor) -> List[int]:
     Centralizes the cast to keep type checkers happy.
     """
     flat = tensor.view(-1).to(dtype=torch.long)
-    flat_list: List[int] = cast(List[int], flat.tolist())  # type: ignore[reportUnknownMemberType]
+    flat_list: List[int] = cast(List[int], flat.tolist())
     return [int(v) for v in flat_list]
