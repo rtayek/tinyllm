@@ -208,13 +208,14 @@ class Trainer:
         )
 
     def loadCheckpointIfExists(self) -> None:
-        step, best, schedulerRestored = self.checkpoints.load(
+        step, best, lr_state_restored, version = self.checkpoints.load(
             self.model, self.optimizer, self.lrStrategy
         )
         self.globalStep = step
         self.bestValLoss = best
-        if not schedulerRestored:
+        if not lr_state_restored:
             self.lrStrategy.align_after_resume(step)
+        self.logger.info("Loaded checkpoint version %s", version)
         self.earlyStopping.reset()
 
     def estimateLoss(self) -> Dict[str, float]:
@@ -359,5 +360,5 @@ class Trainer:
         outBytes = bytes(rawList)
         decoded = outBytes.decode("utf-8", errors="ignore")
 
-        self.logger.info("\nSampled text:")
+        self.logger.info("Sampled text:")
         self.logger.info(decoded)

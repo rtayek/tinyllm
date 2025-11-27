@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Tuple, List, Optional, cast
+from typing import Tuple, List, Optional
 
 import torch
 from torch import Tensor
@@ -61,7 +61,7 @@ class ByteDataModule:
         xList: List[Tensor] = []
         yList: List[Tensor] = []
 
-        start_indices: List[int] = cast(List[int], indices.tolist())  # type: ignore[reportUnknownMemberType]
+        start_indices: List[int] = [int(v) for v in indices.view(-1).tolist()]  # type: ignore[reportUnknownMemberType]
         for start_idx in start_indices:
             xList.append(source[start_idx : start_idx + modelCfg.blockSize])
             yList.append(source[start_idx + 1 : start_idx + 1 + modelCfg.blockSize])
