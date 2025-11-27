@@ -49,9 +49,9 @@ class CheckpointManager:
         model: TinyGpt,
         optimizer: torch.optim.Optimizer,
         lrStrategy: Optional[Any] = None,
-    ) -> Tuple[int, Optional[float], bool, int, bool]:
+    ) -> Tuple[int, Optional[float], bool, int, bool, Dict[str, Dict[str, Any]]]:
         if not os.path.exists(self.trainCfg.ckptPath):
-            return 0, None, False, CHECKPOINT_VERSION, True
+            return 0, None, False, CHECKPOINT_VERSION, True, {}
 
         checkpoint = cast(
             Dict[str, Any],
@@ -75,4 +75,20 @@ class CheckpointManager:
                 lrStrategy.load_state_dict(schedState)
                 lr_state_restored = True
 
-        return step, bestValLoss, lr_state_restored, version, version_matches
+        config_drift: Dict[str, Dict[str, Any]] = {}
+        saved_model_cfg = checkpoint.get("modelConfig", None)
+        saved_train_cfg = checkpoint.get("trainConfig", None)
+        if saved_model_cfg is not None:
+            config_drift["model"] = {
+                k: v
+                for k, v in saved_model_cfg.items()
+                if k in self.modelCfg.__dict__ and self.modelCfg.__dict__[k] != v
+            }
+        if saved_train_cfg is not None:
+            config_drift["train"] = {
+                k: v
+                for k, v in saved_train_cfg.items()
+                if k in self.trainCfg.__dict__ and self.trainCfg.__dict__[k] != v
+            }
+
+        return step, bestValLoss, lr_state_restored, version, version_matches, config_drift
