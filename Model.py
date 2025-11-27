@@ -15,7 +15,7 @@ from Config import ModelConfig
 
 class MultiHeadSelfAttention(nn.Module):
     def __init__(self, nEmbed: int, nHead: int, dropout: float, blockSize: int) -> None:
-        super().__init__()
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]
         if nEmbed % nHead != 0:
             raise ValueError("nEmbed must be divisible by nHead")
         self.nHead = nHead
@@ -52,7 +52,7 @@ class MultiHeadSelfAttention(nn.Module):
 
 class Block(nn.Module):
     def __init__(self, nEmbed: int, nHead: int, dropout: float, blockSize: int) -> None:
-        super().__init__()
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]
         self.selfAttention = MultiHeadSelfAttention(nEmbed, nHead, dropout, blockSize)
         self.layerNorm1 = nn.LayerNorm(nEmbed)
         self.layerNorm2 = nn.LayerNorm(nEmbed)
@@ -72,7 +72,7 @@ class Block(nn.Module):
 
 class TinyGpt(nn.Module):
     def __init__(self, cfg: ModelConfig) -> None:
-        super().__init__()
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]
         self.cfg = cfg
 
         self.tokenEmbedding = nn.Embedding(cfg.vocabSize, cfg.nEmbed)

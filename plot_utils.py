@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Tuple, Any, cast
 
 import matplotlib.pyplot as plt  # type: ignore[import]
 
@@ -37,14 +37,15 @@ def plot_training_curve(
         for field, value in vars(train_cfg).items():
             f.write(f"{field} = {value}\n")
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(steps, train_losses, label="train loss")
-    plt.plot(steps, val_losses, label="val loss")
-    plt.xlabel("step")
-    plt.ylabel("loss")
-    plt.title("Training Curve")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(filepath, dpi=150)
-    plt.show()
+    plt_mod: Any = cast(Any, plt)
+    plt_mod.figure(figsize=(10, 5))
+    plt_mod.plot(steps, train_losses, label="train loss")
+    plt_mod.plot(steps, val_losses, label="val loss")
+    plt_mod.xlabel("step")
+    plt_mod.ylabel("loss")
+    plt_mod.title("Training Curve")
+    plt_mod.legend()
+    plt_mod.grid(True)
+    plt_mod.savefig(filepath, dpi=150)
+    plt_mod.show()
     return filepath, config_dump_path
