@@ -9,6 +9,7 @@ from Config import ModelConfig, TrainConfig
 from DataModule import ByteDataModule
 from Model import TinyGpt
 from Trainer import Trainer
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +23,17 @@ def setup_logging(level: int = logging.INFO) -> logging.Logger:
     return logging.getLogger(__name__)
 
 
+def manual_seed(seed: int) -> torch.Generator:
+    seed_fn: Callable[[int], torch.Generator] = torch.manual_seed  # type: ignore[reportUnknownMemberType]
+    return seed_fn(seed)
+
+
 def build_trainer(
     model_cfg: ModelConfig | None = None,
     train_cfg: TrainConfig | None = None,
     log: logging.Logger | None = None,
 ) -> Trainer:
-    torch.manual_seed(1337)  # type: ignore[reportUnknownMemberType]
+    manual_seed(1337)
 
     model_cfg = model_cfg or ModelConfig()
     train_cfg = train_cfg or TrainConfig()

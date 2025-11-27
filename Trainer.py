@@ -155,6 +155,13 @@ class Trainer:
         )
         self.logger.info("[step %s] Checkpoint saved (improved validation loss).", step)
 
+    def _tensor_to_int_list(self, tensor: torch.Tensor) -> List[int]:
+        if tensor.dtype != torch.long:
+            tensor = tensor.to(dtype=torch.long)
+        flat = tensor.view(-1)
+        flat_list: List[int] = cast(List[int], flat.tolist())  # type: ignore[reportUnknownMemberType]
+        return [int(v) for v in flat_list]
+
     def _log_eval(self, step: int, evalResult: "Trainer.EvalResult") -> None:
         self.logger.info(
             "[step %s] train loss %.4f, val loss %.4f",
@@ -348,7 +355,7 @@ class Trainer:
             generated: torch.Tensor = self.model.generate(start, maxNewTokens=maxNewTokens)
 
         firstSeq: torch.Tensor = generated[0]
-        rawList: List[int] = cast(List[int], firstSeq.to(dtype=torch.long).view(-1).tolist())  # type: ignore[reportUnknownMemberType]
+        rawList = self._tensor_to_int_list(firstSeq.to(dtype=torch.long).view(-1))
         outBytes = bytes(rawList)
         decoded = outBytes.decode("utf-8", errors="ignore")
 
