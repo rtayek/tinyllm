@@ -129,6 +129,21 @@ class Trainer:
         self.generator = torch.Generator()
         self.generator.manual_seed(1337)
 
+    def _train_step(self) -> float:
+        batchX, batchY = self.dataModule.getBatch("train", self.generator)
+        _, loss = self.model(batchX, batchY)
+
+        if loss is None:
+            raise RuntimeError("Loss is None during training")
+
+        self.optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+        self.optimizer.step()
+        self.lrStrategy.step()
+
+        return float(loss.item())
+
     def _save_checkpoint(self, step: int) -> None:
         if self.bestValLoss is None:
             return
@@ -248,17 +263,7 @@ class Trainer:
                         break
 
             # ---- Training step ----
-            batchX, batchY = self.dataModule.getBatch("train", self.generator)
-            _, loss = self.model(batchX, batchY)
-
-            if loss is None:
-                raise RuntimeError("Loss is None during training")
-
-            self.optimizer.zero_grad(set_to_none=True)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            self.optimizer.step()
-            self.lrStrategy.step()
+            _ = self._train_step()
 
         self.logger.info("Training loop finished.")
         self.logger.info("Best validation loss: %s", self.bestValLoss)
