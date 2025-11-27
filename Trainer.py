@@ -13,6 +13,7 @@ from Config import ModelConfig, TrainConfig
 from Model import TinyGpt
 from DataModule import ByteDataModule
 from Checkpoints import CheckpointManager
+from tensor_utils import tensor_to_int_list
 
 
 class LRScheduleStrategy:
@@ -156,11 +157,7 @@ class Trainer:
         self.logger.info("[step %s] Checkpoint saved (improved validation loss).", step)
 
     def _tensor_to_int_list(self, tensor: torch.Tensor) -> List[int]:
-        if tensor.dtype != torch.long:
-            tensor = tensor.to(dtype=torch.long)
-        flat = tensor.view(-1)
-        flat_list: List[int] = cast(List[int], flat.tolist())  # type: ignore[reportUnknownMemberType]
-        return [int(v) for v in flat_list]
+        return tensor_to_int_list(tensor)
 
     def _log_eval(self, step: int, evalResult: "Trainer.EvalResult") -> None:
         self.logger.info(

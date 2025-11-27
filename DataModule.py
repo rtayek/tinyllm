@@ -9,6 +9,7 @@ import torch
 from torch import Tensor
 
 from Config import ModelConfig, TrainConfig
+from tensor_utils import tensor_to_int_list
 
 
 class ByteDataModule:
@@ -61,7 +62,7 @@ class ByteDataModule:
         xList: List[Tensor] = []
         yList: List[Tensor] = []
 
-        start_indices: List[int] = [int(v) for v in indices.view(-1).tolist()]  # type: ignore[reportUnknownMemberType]
+        start_indices: List[int] = tensor_to_int_list(indices)
         for start_idx in start_indices:
             xList.append(source[start_idx : start_idx + modelCfg.blockSize])
             yList.append(source[start_idx + 1 : start_idx + 1 + modelCfg.blockSize])
