@@ -1,15 +1,16 @@
-# Main.py
-
 from __future__ import annotations
 
 import logging
 import torch
 
+from typing import Callable
+
 from Config import RunConfig
 from DataModule import ByteDataModule
 from Model import TinyGpt
 from Trainer import Trainer
-from typing import Callable
+from TextGenerator import TextGenerator
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,10 @@ def main(log_level: int = logging.INFO) -> None:
 
     trainer.train()
     trainer.plotTrainingCurve()
-    trainer.printSample(maxNewTokens=200)
+
+    # Sampling handled by TextGenerator, not Trainer
+    text_gen = TextGenerator(trainer.model, trainer.trainCfg, active_logger)
+    text_gen.log_sample(maxNewTokens=200)
 
 
 if __name__ == "__main__":

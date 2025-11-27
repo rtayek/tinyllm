@@ -13,8 +13,6 @@ from Config import ModelConfig, TrainConfig
 from Model import TinyGpt
 from DataModule import ByteDataModule
 from Checkpoints import CheckpointManager, CHECKPOINT_VERSION
-from tensor_utils import tensor_to_int_list
-from plot_utils import plot_training_curve
 
 
 class LRScheduleStrategy:
@@ -76,7 +74,9 @@ class EarlyStopping:
         self.no_improve_evals = 0
 
     def check(
-        self, best_val_loss: Optional[float], current_val_loss: float
+        self,
+        best_val_loss: Optional[float],
+        current_val_loss: float,
     ) -> Tuple[bool, Optional[float], bool, int]:
         if best_val_loss is None or best_val_loss <= 0:
             frac_improvement = None
@@ -120,7 +120,10 @@ class Trainer:
             max_steps=trainCfg.maxSteps,
             warmup_frac=trainCfg.warmupFrac,
         )
-        self.earlyStopping = EarlyStopping(trainCfg.earlyStopPatience, trainCfg.earlyStopDelta)
+        self.earlyStopping = EarlyStopping(
+            trainCfg.earlyStopPatience,
+            trainCfg.earlyStopDelta,
+        )
         self.checkpoints = CheckpointManager(modelCfg, trainCfg)
 
         self.globalStep: int = 0
@@ -157,9 +160,6 @@ class Trainer:
         )
         self.logger.info("[step %s] Checkpoint saved (improved validation loss).", step)
 
-    def _tensor_to_int_list(self, tensor: torch.Tensor) -> List[int]:
-        return tensor_to_int_list(tensor)
-
     def _log_eval(self, step: int, evalResult: "Trainer.EvalResult") -> None:
         self.logger.info(
             "[step %s] train loss %.4f, val loss %.4f",
@@ -192,7 +192,8 @@ class Trainer:
         valLoss = losses["val"]
 
         improved, frac_improvement, should_stop, no_improve = self.earlyStopping.check(
-            self.bestValLoss, valLoss
+            self.bestValLoss,
+            valLoss,
         )
 
         return Trainer.EvalResult(
@@ -207,7 +208,9 @@ class Trainer:
 
     def loadCheckpointIfExists(self) -> None:
         step, best, lr_state_restored, version, version_matches = self.checkpoints.load(
-            self.model, self.optimizer, self.lrStrategy
+            self.model,
+            self.optimizer,
+            self.lrStrategy,
         )
         self.globalStep = step
         self.bestValLoss = best
@@ -253,7 +256,9 @@ class Trainer:
                 self.logger.info("[step %s] Running evaluation...", step)
 
                 evalResult = self.evaluate(step)
-                self.trainingCurve.append((step, evalResult.train_loss, evalResult.val_loss))
+                self.trainingCurve.append(
+                    (step, evalResult.train_loss, evalResult.val_loss)
+                )
                 self._log_eval(step, evalResult)
 
                 if evalResult.improved:
@@ -287,8 +292,6 @@ class Trainer:
         for step, tr, va in self.trainingCurve[-5:]:
             self.logger.info("  %6d: %.4f, %.4f", step, tr, va)
 
-        
-
     def plotTrainingCurve(self) -> None:
         if not self.trainCfg.plotCurve:
             self.logger.info("Plotting disabled by config.")
@@ -298,6 +301,8 @@ class Trainer:
             return
 
         try:
+            from plot_utils import plot_training_curve
+
             filepath, config_dump_path = plot_training_curve(
                 self.trainingCurve,
                 self.modelCfg,
@@ -309,15 +314,7 @@ class Trainer:
             self.logger.info("Could not plot training curve: %s", e)
 
     def printSample(self, maxNewTokens: int = 200) -> None:
-        start = torch.zeros((1, 1), dtype=torch.long, device=self.trainCfg.device)
+        from TextGenerator import TextGenerator
 
-        with torch.no_grad():
-            generated: torch.Tensor = self.model.generate(start, maxNewTokens=maxNewTokens)
-
-        firstSeq: torch.Tensor = generated[0]
-        rawList = self._tensor_to_int_list(firstSeq.to(dtype=torch.long).view(-1))
-        outBytes = bytes(rawList)
-        decoded = outBytes.decode("utf-8", errors="ignore")
-
-        self.logger.info("Sampled text:")
-        self.logger.info(decoded)
+        generator = TextGenerator(self.model, self.trainCfg, self.logger)
+        generator.log_sample(maxNewTokens=maxNewTokens)
