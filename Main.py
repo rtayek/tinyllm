@@ -52,6 +52,7 @@ def build_trainer(
 
 def main(log_level: int = logging.INFO) -> None:
     active_logger = setup_logging(level=log_level)
+    active_logger.info("Building trainer...")
     trainer = build_trainer(log=active_logger)
 
     active_logger.info("Loading checkpoint (if any)...")
@@ -60,9 +61,9 @@ def main(log_level: int = logging.INFO) -> None:
     trainer.train()
     trainer.plotTrainingCurve()
 
-    # Sampling handled by TextGenerator, not Trainer
+    # Sampling handled by TextGenerator
     text_gen = TextGenerator(trainer.model, trainer.trainCfg, active_logger)
-    text_gen.log_sample(maxNewTokens=200)
+    text_gen.log_sample(maxNewTokens=200, prompt="")
 
 
 if __name__ == "__main__":

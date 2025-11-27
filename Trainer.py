@@ -208,8 +208,8 @@ class Trainer:
         except Exception as e:
             self.logger.info("Could not plot training curve: %s", e)
 
-    def printSample(self, maxNewTokens: int = 200) -> None:
+    def printSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
         from TextGenerator import TextGenerator
 
         generator = TextGenerator(self.model, self.trainCfg, self.logger)
-        generator.log_sample(maxNewTokens=maxNewTokens)
+        generator.log_sample(maxNewTokens=maxNewTokens, prompt=prompt)

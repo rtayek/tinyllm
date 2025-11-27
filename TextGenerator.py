@@ -22,12 +22,16 @@ class TextGenerator:
         self.trainCfg = trainCfg
         self.logger = logger or logging.getLogger(__name__)
 
-    def generate_bytes(self, maxNewTokens: int = 200) -> bytes:
-        start = torch.zeros((1, 1), dtype=torch.long, device=self.trainCfg.device)
+    def generate_bytes(self, maxNewTokens: int = 200, prompt: str = "") -> bytes:
+        if prompt:
+            prompt_bytes = prompt.encode("utf-8")
+            prompt_tensor = torch.tensor(list(prompt_bytes), dtype=torch.long, device=self.trainCfg.device).unsqueeze(0)
+        else:
+            prompt_tensor = torch.zeros((1, 1), dtype=torch.long, device=self.trainCfg.device)
 
         with torch.no_grad():
             generated: torch.Tensor = self.model.generate(
-                start,
+                prompt_tensor,
                 maxNewTokens=maxNewTokens,
             )
 
@@ -41,11 +45,12 @@ class TextGenerator:
         self,
         maxNewTokens: int = 200,
         errors: str = "ignore",
+        prompt: str = "",
     ) -> str:
-        data = self.generate_bytes(maxNewTokens=maxNewTokens)
+        data = self.generate_bytes(maxNewTokens=maxNewTokens, prompt=prompt)
         return data.decode("utf-8", errors=errors)
 
-    def log_sample(self, maxNewTokens: int = 200) -> None:
-        text = self.generate_text(maxNewTokens=maxNewTokens)
+    def log_sample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
+        text = self.generate_text(maxNewTokens=maxNewTokens, prompt=prompt)
         self.logger.info("Sampled text:")
         self.logger.info(text)
