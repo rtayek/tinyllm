@@ -30,15 +30,13 @@ def main() -> None:
     train_cfg = run_cfg.train
 
     if args.command == "export-model":
-        ckpt_mgr = CheckpointManager(model_cfg, train_cfg)
-        if args.ckpt:
-            ckpt_mgr.trainCfg = type(train_cfg)(**{**train_cfg.__dict__, "ckptPath": args.ckpt})  # type: ignore[arg-type]
-        ckpt_mgr.exportModel(args.out)
+        ckpt_mgr = CheckpointManager(model_cfg, train_cfg, trainCkptPath=args.ckpt or None)
+        ckpt_mgr.saveModel(args.out)
         print(f"Exported model weights to {args.out}")
     elif args.command == "load-model":
         model = TinyGpt(model_cfg)
-        ckpt_mgr = CheckpointManager(model_cfg, train_cfg)
-        ckpt_mgr.load_model_only(model, args.model)
+        ckpt_mgr = CheckpointManager(model_cfg, train_cfg, modelCkptPath=args.model)
+        ckpt_mgr.loadModel(model, args.model)
         # Save the loaded state_dict to the provided output path
         import torch
 

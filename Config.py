@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Dict, Any, cast
 import torch
 
 
@@ -15,6 +16,12 @@ class ModelConfig:
     nHead: int = 4
     nLayer: int = 4
     dropout: float = 0.2
+    def toDict(self) -> Dict[str, Any]:
+        return dict(self.__dict__)
+
+    @classmethod
+    def fromDict(cls, data: Dict[str, Any]) -> "ModelConfig":
+        return cls(**data)  # type: ignore[arg-type]
 
 
 @dataclass(frozen=True)
@@ -30,6 +37,12 @@ class TrainConfig:
     earlyStopPatience: int = 2      # number of evals
     earlyStopDelta: float = 0.003  # minimum improvement in val loss
     plotCurve: bool = True
+    def toDict(self) -> Dict[str, Any]:
+        return dict(self.__dict__)
+
+    @classmethod
+    def fromDict(cls, data: Dict[str, Any]) -> "TrainConfig":
+        return cls(**data)  # type: ignore[arg-type]
 
     # paths
     ckptPath: str = "checkpoints/tiny_llm.pt"
@@ -43,3 +56,13 @@ class TrainConfig:
 class RunConfig:
     model: ModelConfig = ModelConfig()
     train: TrainConfig = TrainConfig()
+    def toDict(self) -> Dict[str, Any]:
+        return {"model": self.model.toDict(), "train": self.train.toDict()}
+
+    @classmethod
+    def fromDict(cls, data: Dict[str, Any]) -> "RunConfig":
+        model_data = data.get("model", {})
+        train_data = data.get("train", {})
+        model_cfg = ModelConfig.fromDict(cast(Dict[str, Any], model_data)) if isinstance(model_data, dict) else ModelConfig()
+        train_cfg = TrainConfig.fromDict(cast(Dict[str, Any], train_data)) if isinstance(train_data, dict) else TrainConfig()
+        return cls(model=model_cfg, train=train_cfg)

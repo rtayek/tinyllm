@@ -31,7 +31,7 @@ def main() -> None:
     ckpt_mgr = CheckpointManager(model_cfg, train_cfg)
 
     # Load checkpoint (no LR strategy needed for inference)
-    step, best_val, _lr_restored, version, version_matches, config_drift = ckpt_mgr.load(
+    step, best_val, _lr_restored, version, version_matches, config_drift = ckpt_mgr.loadCheckpoint(
         model=model,
         optimizer=optimizer,
         lrStrategy=None,

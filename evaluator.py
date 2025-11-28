@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 
 import torch
 
@@ -20,6 +20,21 @@ class EvalResult:
     improved: bool
     should_stop: bool
     no_improve_evals: int
+
+    def toDict(self) -> Dict[str, Any]:
+        return dict(self.__dict__)
+
+    @classmethod
+    def fromDict(cls, data: Dict[str, Any]) -> "EvalResult":
+        return cls(
+            step=int(data.get("step", 0)),
+            train_loss=float(data.get("train_loss", 0.0)),
+            val_loss=float(data.get("val_loss", 0.0)),
+            frac_improvement=data.get("frac_improvement", None),
+            improved=bool(data.get("improved", False)),
+            should_stop=bool(data.get("should_stop", False)),
+            no_improve_evals=int(data.get("no_improve_evals", 0)),
+        )
 
 
 class Evaluator:

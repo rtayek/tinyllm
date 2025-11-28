@@ -84,12 +84,12 @@ class Trainer:
     def _save_checkpoint(self, step: int) -> None:
         if self.bestValLoss is None:
             return
-        self.checkpoints.save(
+        self.checkpoints.saveCheckpoint(
             self.model,
             self.optimizer,
+            self.lrStrategy.state_dict(),
             step,
             self.bestValLoss,
-            self.lrStrategy.state_dict(),
         )
         self.logger.info("[step %s] Checkpoint saved (improved validation loss).", step)
 
@@ -110,7 +110,7 @@ class Trainer:
             )
 
     def loadCheckpointIfExists(self) -> None:
-        step, best, lr_state_restored, version, version_matches, config_drift = self.checkpoints.load(
+        step, best, lr_state_restored, version, version_matches, config_drift = self.checkpoints.loadCheckpoint(
             self.model,
             self.optimizer,
             self.lrStrategy,
