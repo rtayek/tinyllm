@@ -30,40 +30,40 @@ def manual_seed(seed: int) -> torch.Generator:
 
 
 def build_trainer(
-    run_cfg: RunConfig | None = None,
+    runConfig : RunConfig | None = None,
     log: logging.Logger | None = None,
 ) -> Trainer:
     manual_seed(1337)
 
-    run_cfg = run_cfg or RunConfig()
-    model_cfg = run_cfg.model
-    train_cfg = run_cfg.train
+    runConfig  = runConfig  or RunConfig()
+    modelConfig = runConfig .model
+    train_cfg = runConfig .train
 
-    active_logger = log or logger
+    activeLogger = log or logger
 
-    active_logger.info("Loading data module...")
-    data_module = ByteDataModule(model_cfg, train_cfg)
+    activeLogger.info("Loading data module...")
+    dataModule = ByteDataModule(modelConfig, train_cfg)
 
-    active_logger.info("Building model...")
-    model = TinyGpt(model_cfg).to(train_cfg.device)
+    activeLogger.info("Building model...")
+    model = TinyGpt(modelConfig).to(train_cfg.device)
 
-    return Trainer(model_cfg, train_cfg, model, data_module)
+    return Trainer(modelConfig, train_cfg, model, dataModule)
 
 
 def main(log_level: int = logging.INFO) -> None:
-    active_logger = setup_logging(level=log_level)
-    active_logger.info("Building trainer...")
-    trainer = build_trainer(log=active_logger)
+    activeLogger = setup_logging(level=log_level)
+    activeLogger.info("Building trainer...")
+    trainer = build_trainer(log=activeLogger)
 
-    active_logger.info("Loading checkpoint (if any)...")
+    activeLogger.info("Loading checkpoint (if any)...")
     trainer.loadCheckpointIfExists()
 
     trainer.train()
     trainer.plotTrainingCurve()
 
     # Sampling handled by TextGenerator
-    text_gen = TextGenerator(trainer.model, trainer.trainCfg.device, active_logger)
-    text_gen.log_sample(maxNewTokens=200, prompt="")
+    textGenerator = TextGenerator(trainer.model, trainer.trainCfg.device, activeLogger)
+    textGenerator.log_sample(maxNewTokens=200, prompt="")
 
 
 if __name__ == "__main__":
