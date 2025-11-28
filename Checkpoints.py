@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from typing import Optional, Tuple, Dict, Any, cast
+from dataclasses import dataclass
 
 import torch
 
@@ -11,6 +12,78 @@ from Config import ModelConfig, TrainConfig
 from Model import TinyGpt
 
 CHECKPOINT_VERSION = 1
+
+
+@dataclass
+class Checkpoint:
+    version: int
+    modelState: Dict[str, Any]
+    optimizerState: Dict[str, Any]
+    step: int
+    bestValLoss: Optional[float]
+    modelConfig: Dict[str, Any]
+    trainConfig: Dict[str, Any]
+    lrStrategyState: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        data: Dict[str, Any] = {
+            "version": self.version,
+            "modelState": self.modelState,
+            "optimizerState": self.optimizerState,
+            "step": self.step,
+            "bestValLoss": self.bestValLoss,
+            "modelConfig": self.modelConfig,
+            "trainConfig": self.trainConfig,
+        }
+        if self.lrStrategyState is not None:
+            data["lrStrategyState"] = self.lrStrategyState
+        return data
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "Checkpoint":
+        return Checkpoint(
+            version=int(data.get("version", CHECKPOINT_VERSION)),
+            modelState=cast(Dict[str, Any], data["modelState"]),
+            optimizerState=cast(Dict[str, Any], data["optimizerState"]),
+            step=int(data.get("step", 0)),
+            bestValLoss=data.get("bestValLoss", None),
+            modelConfig=cast(Dict[str, Any], data.get("modelConfig", {})),
+            trainConfig=cast(Dict[str, Any], data.get("trainConfig", {})),
+            lrStrategyState=cast(Optional[Dict[str, Any]], data.get("lrStrategyState", None)),
+        )
+
+    def save_to_file(self, path: str, device: str | torch.device) -> None:
+        torch.save(self.to_dict(), path)  # pyright: ignore[reportUnknownMemberType]
+
+    @staticmethod
+    def load_from_file(path: str, device: str | torch.device) -> "Checkpoint":
+        data = cast(
+            Dict[str, Any],
+            torch.load(path, map_location=device),  # pyright: ignore[reportUnknownMemberType]
+        )
+        return Checkpoint.from_dict(data)
+
+    @staticmethod
+    def from_training_state(
+        model: TinyGpt,
+        optimizer: torch.optim.Optimizer,
+        modelCfg: ModelConfig,
+        trainCfg: TrainConfig,
+        step: int,
+        bestValLoss: Optional[float],
+        lrStrategyState: Optional[Dict[str, Any]] = None,
+        version: int = CHECKPOINT_VERSION,
+    ) -> "Checkpoint":
+        return Checkpoint(
+            version=version,
+            modelState=model.state_dict(),
+            optimizerState=optimizer.state_dict(),
+            step=step,
+            bestValLoss=bestValLoss,
+            modelConfig=modelCfg.__dict__,
+            trainConfig=trainCfg.__dict__,
+            lrStrategyState=lrStrategyState,
+        )
 
 
 class CheckpointManager:
@@ -29,20 +102,17 @@ class CheckpointManager:
         bestValLoss: Optional[float],
         lrStrategyState: Optional[Dict[str, Any]] = None,
     ) -> None:
-        checkpoint: Dict[str, Any] = {
-            "version": CHECKPOINT_VERSION,
-            "modelState": model.state_dict(),
-            "optimizerState": optimizer.state_dict(),
-            "step": step,
-            "bestValLoss": bestValLoss,
-            "modelConfig": self.modelCfg.__dict__,
-            "trainConfig": self.trainCfg.__dict__,
-            "lrStrategyState": lrStrategyState,
-        }
-        torch.save(  # pyright: ignore[reportUnknownMemberType]
-            checkpoint,
-            self.trainCfg.ckptPath,
+        checkpoint: Checkpoint = Checkpoint.from_training_state(
+            model=model,
+            optimizer=optimizer,
+            modelCfg=self.modelCfg,
+            trainCfg=self.trainCfg,
+            step=step,
+            bestValLoss=bestValLoss,
+            lrStrategyState=lrStrategyState,
+            version=CHECKPOINT_VERSION,
         )
+        checkpoint.save_to_file(self.trainCfg.ckptPath, self.trainCfg.device)
 
     def load(
         self,
@@ -53,38 +123,32 @@ class CheckpointManager:
         if not os.path.exists(self.trainCfg.ckptPath):
             return 0, None, False, CHECKPOINT_VERSION, True, {}
 
-        checkpoint = cast(
-            Dict[str, Any],
-            torch.load(  # pyright: ignore[reportUnknownMemberType]
-                self.trainCfg.ckptPath,
-                map_location=self.trainCfg.device,
-            ),
-        )
-        model.load_state_dict(checkpoint["modelState"])
-        optimizer.load_state_dict(checkpoint["optimizerState"])
-        step = int(checkpoint.get("step", 0))
-        bestValLoss = checkpoint.get("bestValLoss", None)
+        checkpoint = Checkpoint.load_from_file(self.trainCfg.ckptPath, self.trainCfg.device)
+        model.load_state_dict(checkpoint.modelState)
+        optimizer.load_state_dict(checkpoint.optimizerState)
+        step = checkpoint.step
+        bestValLoss = checkpoint.bestValLoss
 
-        version = int(checkpoint.get("version", CHECKPOINT_VERSION))
+        version = checkpoint.version
         version_matches = version == CHECKPOINT_VERSION
 
         lr_state_restored = False
         if lrStrategy is not None and version_matches:
-            schedState = checkpoint.get("lrStrategyState", None)
+            schedState = checkpoint.lrStrategyState
             if schedState is not None:
                 lrStrategy.load_state_dict(schedState)
                 lr_state_restored = True
 
         config_drift: Dict[str, Dict[str, Any]] = {}
-        saved_model_cfg = checkpoint.get("modelConfig", None)
-        saved_train_cfg = checkpoint.get("trainConfig", None)
-        if saved_model_cfg is not None:
+        saved_model_cfg = checkpoint.modelConfig
+        saved_train_cfg = checkpoint.trainConfig
+        if saved_model_cfg:
             config_drift["model"] = {
                 k: v
                 for k, v in saved_model_cfg.items()
                 if k in self.modelCfg.__dict__ and self.modelCfg.__dict__[k] != v
             }
-        if saved_train_cfg is not None:
+        if saved_train_cfg:
             config_drift["train"] = {
                 k: v
                 for k, v in saved_train_cfg.items()
