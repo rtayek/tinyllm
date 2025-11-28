@@ -1,5 +1,5 @@
 {
-  "include": ["."],
+  "include": ["src", "tests"],
   "exclude": [
     "**/__pycache__",
     ".venv",
@@ -18,7 +18,8 @@
     {
       "root": ".",
       "pythonVersion": "3.10",
-      "pythonPlatform": "Windows"
+      "pythonPlatform": "Windows",
+      "extraPaths": ["./src"]
     }
   ]
 }
