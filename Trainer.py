@@ -211,5 +211,5 @@ class Trainer:
     def printSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
         from TextGenerator import TextGenerator
 
-        generator = TextGenerator(self.model, self.trainCfg, self.logger)
+        generator = TextGenerator(self.model, self.trainCfg.device, self.logger)
         generator.log_sample(maxNewTokens=maxNewTokens, prompt=prompt)

@@ -62,7 +62,7 @@ def main(log_level: int = logging.INFO) -> None:
     trainer.plotTrainingCurve()
 
     # Sampling handled by TextGenerator
-    text_gen = TextGenerator(trainer.model, trainer.trainCfg, active_logger)
+    text_gen = TextGenerator(trainer.model, trainer.trainCfg.device, active_logger)
     text_gen.log_sample(maxNewTokens=200, prompt="")
 
 

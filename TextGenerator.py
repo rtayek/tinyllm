@@ -6,7 +6,6 @@ import logging
 
 import torch
 
-from Config import TrainConfig
 from Model import TinyGpt
 from tensor_utils import tensor_to_int_list
 
@@ -15,19 +14,19 @@ class TextGenerator:
     def __init__(
         self,
         model: TinyGpt,
-        trainCfg: TrainConfig,
+        device: str,
         logger: Optional[logging.Logger] = None,
     ) -> None:
         self.model = model
-        self.trainCfg = trainCfg
+        self.device = device
         self.logger = logger or logging.getLogger(__name__)
 
     def generate_bytes(self, maxNewTokens: int = 200, prompt: str = "") -> bytes:
         if prompt:
             prompt_bytes = prompt.encode("utf-8")
-            prompt_tensor = torch.tensor(list(prompt_bytes), dtype=torch.long, device=self.trainCfg.device).unsqueeze(0)
+            prompt_tensor = torch.tensor(list(prompt_bytes), dtype=torch.long, device=self.device).unsqueeze(0)
         else:
-            prompt_tensor = torch.zeros((1, 1), dtype=torch.long, device=self.trainCfg.device)
+            prompt_tensor = torch.zeros((1, 1), dtype=torch.long, device=self.device)
 
         with torch.no_grad():
             generated: torch.Tensor = self.model.generate(

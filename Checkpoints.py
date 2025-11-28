@@ -92,3 +92,35 @@ class CheckpointManager:
             }
 
         return step, bestValLoss, lr_state_restored, version, version_matches, config_drift
+
+    def export_model(self, out_path: str) -> None:
+        """
+        Extract model weights from the existing checkpoint and save them to a separate file.
+        """
+        if not os.path.exists(self.trainCfg.ckptPath):
+            raise FileNotFoundError(self.trainCfg.ckptPath)
+
+        checkpoint = torch.load(  # pyright: ignore[reportUnknownMemberType]
+            self.trainCfg.ckptPath,
+            map_location=self.trainCfg.device,
+        )
+        model_state = checkpoint.get("modelState", None)
+        if model_state is None:
+            raise KeyError("modelState not found in checkpoint")
+        torch.save(model_state, out_path)  # pyright: ignore[reportUnknownMemberType]
+
+    def load_model_only(self, model: TinyGpt, model_path: str) -> None:
+        """
+        Load model weights from a model-only checkpoint file.
+        Accepts either a pure state_dict or a full checkpoint containing 'modelState'.
+        """
+        state = torch.load(  # pyright: ignore[reportUnknownMemberType]
+            model_path,
+            map_location=self.trainCfg.device,
+        )
+        model_state: Dict[str, Any]
+        if isinstance(state, dict) and "modelState" in state:
+            model_state = cast(Dict[str, Any], state["modelState"])
+        else:
+            model_state = cast(Dict[str, Any], state)
+        model.load_state_dict(model_state)

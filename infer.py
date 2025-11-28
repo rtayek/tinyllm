@@ -48,7 +48,7 @@ def main() -> None:
 
     # Generate text
     logger = logging.getLogger("infer")
-    text_gen = TextGenerator(model, train_cfg, logger)
+    text_gen = TextGenerator(model, train_cfg.device, logger)
 
     text = text_gen.generate_text(maxNewTokens=400)
 
