@@ -36,7 +36,7 @@ def main() -> None:
     elif args.command == "load-model":
         model = TinyGpt(model_cfg)
         ckpt_mgr = CheckpointManager(model_cfg, train_cfg, modelCkptPath=args.model)
-        ckpt_mgr.loadModel(model, args.model)
+        ckpt_mgr.loadModel(model, args.model)  # pyright: ignore[reportUnknownMemberType]
         # Save the loaded state_dict to the provided output path
         import torch
 

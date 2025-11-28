@@ -53,6 +53,9 @@ class Checkpoint:
     def save(self, path: str, device: str | torch.device) -> None:
         torch.save(self.toDict(), path)  # pyright: ignore[reportUnknownMemberType]
 
+    def exportModel(self, out_path: str) -> None:
+        torch.save(self.modelState, out_path)  # pyright: ignore[reportUnknownMemberType]
+
     @staticmethod
     def load(path: str, device: str | torch.device) -> "Checkpoint":
         data = cast(
@@ -61,28 +64,27 @@ class Checkpoint:
         )
         return Checkpoint.fromDict(data)
 
-    def exportModel(self, out_path: str) -> None:
-        torch.save(self.modelState, out_path)  # pyright: ignore[reportUnknownMemberType]
-
     @staticmethod
     def fromTrainingState(
         model: TinyGpt,
         optimizer: torch.optim.Optimizer,
-        modelConfig: ModelConfig,
-        trainConfig: TrainConfig,
+        modelConfig: Optional[ModelConfig],
+        trainConfig: Optional[TrainConfig],
         step: int,
         bestValLoss: Optional[float],
         lrStrategyState: Optional[Dict[str, Any]] = None,
         version: int = CHECKPOINT_VERSION,
     ) -> "Checkpoint":
+        model_cfg_dict = modelConfig.__dict__ if modelConfig is not None else {}
+        train_cfg_dict = trainConfig.__dict__ if trainConfig is not None else {}
         return Checkpoint(
             version=version,
             modelState=model.state_dict(),
             optimizerState=optimizer.state_dict(),
             step=step,
             bestValLoss=bestValLoss,
-            modelConfig=modelConfig.__dict__,
-            trainConfig=trainConfig.__dict__,
+            modelConfig=model_cfg_dict,
+            trainConfig=train_cfg_dict,
             lrStrategyState=lrStrategyState,
         )
 
@@ -169,22 +171,14 @@ class CheckpointManager:
         return step, bestValLoss, lr_state_restored, version, version_matches, config_drift
 
     def saveModel(self, out_path: Optional[str] = None) -> None:
-        """
-        Extract model weights from the training checkpoint and save them to a separate file.
-        """
-        path = out_path or self.modelCkptPath
         if not os.path.exists(self.trainCkptPath):
             raise FileNotFoundError(self.trainCkptPath)
 
         checkpoint = Checkpoint.load(self.trainCkptPath, self.trainCfg.device)
-        checkpoint.exportModel(path)
+        checkpoint.exportModel(out_path or self.modelCkptPath)
 
-    def loadModel(self, model: TinyGpt, model_path: str) -> None:
-        """
-        Load model weights from a model-only checkpoint file.
-        Accepts either a pure state_dict or a full checkpoint containing 'modelState'.
-        """
-        path = model_path or self.modelCkptPath
+    def loadModel(self, model: TinyGpt, modelPath: Optional[str] = None) -> None:
+        path = modelPath or self.modelCkptPath
         if not os.path.exists(path):
             # Fallback to training checkpoint if model-only not present
             if os.path.exists(self.trainCkptPath):
