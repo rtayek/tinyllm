@@ -46,7 +46,7 @@ class TrainConfig:
 
     # paths
     ckptPath: str = "checkpoints/tiny_llm.pt"
-    dataPath: str = "testData/input.txt"
+    dataPath: str = "fixtureData/input.txt"
 
     # hardware
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
