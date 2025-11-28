@@ -11,7 +11,7 @@ from Config import ModelConfig, TrainConfig
 from Model import TinyGpt
 from DataModule import ByteDataModule
 from Checkpoint import CheckpointManager, CHECKPOINT_VERSION
-from lr_strategy import WarmupCosineStrategy
+from LRScheduleStrateg import WarmupCosineStrategy
 from EarlyStopping import EarlyStopping
 from evaluator import Evaluator, EvalResult
 
