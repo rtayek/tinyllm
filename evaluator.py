@@ -8,7 +8,7 @@ import torch
 from Config import TrainConfig
 from Model import TinyGpt
 from DataModule import ByteDataModule
-from early_stopping import EarlyStopping
+from EarlyStopping import EarlyStopping
 
 
 @dataclass
