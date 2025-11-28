@@ -75,16 +75,14 @@ class Checkpoint:
         lrStrategyState: Optional[Dict[str, Any]] = None,
         version: int = CHECKPOINT_VERSION,
     ) -> "Checkpoint":
-        model_cfg_dict = modelConfig.__dict__ if modelConfig is not None else {}
-        train_cfg_dict = trainConfig.__dict__ if trainConfig is not None else {}
         return Checkpoint(
             version=version,
             modelState=model.state_dict(),
             optimizerState=optimizer.state_dict(),
             step=step,
             bestValLoss=bestValLoss,
-            modelConfig=model_cfg_dict,
-            trainConfig=train_cfg_dict,
+            modelConfig=modelConfig.__dict__ if modelConfig is not None else {},
+            trainConfig=trainConfig.__dict__ if trainConfig is not None else {},
             lrStrategyState=lrStrategyState,
         )
 

@@ -5,7 +5,7 @@ import logging
 
 from Config import RunConfig
 from Model import TinyGpt
-from Checkpoints import CheckpointManager
+from Checkpoint import CheckpointManager
 from TextGenerator import TextGenerator
 
 

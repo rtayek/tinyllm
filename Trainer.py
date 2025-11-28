@@ -10,7 +10,7 @@ import torch
 from Config import ModelConfig, TrainConfig
 from Model import TinyGpt
 from DataModule import ByteDataModule
-from Checkpoints import CheckpointManager, CHECKPOINT_VERSION
+from Checkpoint import CheckpointManager, CHECKPOINT_VERSION
 from lr_strategy import WarmupCosineStrategy
 from early_stopping import EarlyStopping
 from evaluator import Evaluator, EvalResult

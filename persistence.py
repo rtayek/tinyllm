@@ -5,7 +5,7 @@ import sys
 
 from Config import RunConfig
 from Model import TinyGpt
-from Checkpoints import CheckpointManager
+from Checkpoint import CheckpointManager
 
 
 def parse_args() -> argparse.Namespace:
