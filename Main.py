@@ -15,7 +15,7 @@ from TextGenerator import TextGenerator
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(level: int = logging.INFO) -> logging.Logger:
+def setupLogging(level: int = logging.INFO) -> logging.Logger:
     logging.basicConfig(
         level=level,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -29,7 +29,7 @@ def manual_seed(seed: int) -> torch.Generator:
     return seed_fn(seed)
 
 
-def build_trainer(
+def buildTrainer(
     runConfig : RunConfig | None = None,
     log: logging.Logger | None = None,
 ) -> Trainer:
@@ -51,9 +51,9 @@ def build_trainer(
 
 
 def main(log_level: int = logging.INFO) -> None:
-    activeLogger = setup_logging(level=log_level)
+    activeLogger = setupLogging(level=log_level)
     activeLogger.info("Building trainer...")
-    trainer = build_trainer(log=activeLogger)
+    trainer = buildTrainer(log=activeLogger)
 
     activeLogger.info("Loading checkpoint (if any)...")
     trainer.loadCheckpointIfExists()

@@ -61,8 +61,8 @@ class RunConfig:
 
     @classmethod
     def fromDict(cls, data: Dict[str, Any]) -> "RunConfig":
-        model_data = data.get("model", {})
-        train_data = data.get("train", {})
-        model_cfg = ModelConfig.fromDict(cast(Dict[str, Any], model_data)) if isinstance(model_data, dict) else ModelConfig()
-        train_cfg = TrainConfig.fromDict(cast(Dict[str, Any], train_data)) if isinstance(train_data, dict) else TrainConfig()
-        return cls(model=model_cfg, train=train_cfg)
+        modelData = data.get("model", {})
+        trainData = data.get("train", {})
+        modelConfig = ModelConfig.fromDict(cast(Dict[str, Any], modelData)) if isinstance(modelData, dict) else ModelConfig()
+        trainConfig = TrainConfig.fromDict(cast(Dict[str, Any], trainData)) if isinstance(trainData, dict) else TrainConfig()
+        return cls(model=modelConfig, train=trainConfig)
