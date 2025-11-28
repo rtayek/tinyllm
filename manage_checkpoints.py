@@ -33,7 +33,7 @@ def main() -> None:
         ckpt_mgr = CheckpointManager(model_cfg, train_cfg)
         if args.ckpt:
             ckpt_mgr.trainCfg = type(train_cfg)(**{**train_cfg.__dict__, "ckptPath": args.ckpt})  # type: ignore[arg-type]
-        ckpt_mgr.export_model(args.out)
+        ckpt_mgr.exportModel(args.out)
         print(f"Exported model weights to {args.out}")
     elif args.command == "load-model":
         model = TinyGpt(model_cfg)
