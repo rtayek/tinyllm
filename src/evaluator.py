@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, Optional, List, Any
+import logging
 
 import torch
 
@@ -45,12 +46,14 @@ class Evaluator:
         train_cfg: TrainConfig,
         early_stopping: EarlyStopping,
         generator: Optional[torch.Generator] = None,
+        logger: Optional[logging.Logger] = None,
     ) -> None:
         self.model = model
         self.data_module = data_module
         self.train_cfg = train_cfg
         self.early_stopping = early_stopping
         self.generator = generator or torch.Generator()
+        self.logger = logger or logging.getLogger(__name__)
 
     def estimate_loss(self) -> Dict[str, float]:
         self.model.eval()

@@ -30,24 +30,24 @@ def manual_seed(seed: int) -> torch.Generator:
 
 
 def buildTrainer(
-    runConfig : RunConfig | None = None,
+    runConfig: RunConfig | None = None,
     log: logging.Logger | None = None,
 ) -> Trainer:
     manual_seed(1337)
 
-    runConfig  = runConfig  or RunConfig()
-    modelConfig = runConfig .model
-    train_cfg = runConfig .train
+    runConfig = runConfig or RunConfig()
+    modelConfig = runConfig.model
+    train_cfg = runConfig.train
 
     activeLogger = log or logger
 
     activeLogger.info("Loading data module...")
-    dataModule = ByteDataModule(modelConfig, train_cfg)
+    dataModule = ByteDataModule(modelConfig, train_cfg, logger=activeLogger)
 
     activeLogger.info("Building model...")
     model = TinyGpt(modelConfig).to(train_cfg.device)
 
-    return Trainer(modelConfig, train_cfg, model, dataModule)
+    return Trainer(modelConfig, train_cfg, model, dataModule, logger=activeLogger)
 
 
 def main(log_level: int = logging.INFO) -> None:

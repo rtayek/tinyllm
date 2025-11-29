@@ -23,12 +23,13 @@ class Trainer:
         trainCfg: TrainConfig,
         model: TinyGpt,
         dataModule: ByteDataModule,
+        logger: Optional[logging.Logger] = None,
     ) -> None:
         self.modelCfg = modelCfg
         self.trainCfg = trainCfg
         self.model = model
         self.dataModule = dataModule
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
 
         self.logger.info("MODEL CONFIG: %s", modelCfg)
         self.logger.info("TRAIN CONFIG: %s", trainCfg)
@@ -50,7 +51,7 @@ class Trainer:
             trainCfg.earlyStopPatience,
             trainCfg.earlyStopDelta,
         )
-        self.checkpoints = CheckpointManager(modelCfg, trainCfg)
+        self.checkpoints = CheckpointManager(modelCfg, trainCfg, logger=self.logger)
 
         self.globalStep: int = 0
         self.bestValLoss: Optional[float] = None
@@ -64,6 +65,7 @@ class Trainer:
             self.trainCfg,
             self.earlyStopping,
             self.generator,
+            logger=self.logger,
         )
 
     def _trainStep(self) -> float:

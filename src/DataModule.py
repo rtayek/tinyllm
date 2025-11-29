@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from typing import Tuple, List, Optional
+import logging
 
 import torch
 from torch import Tensor
@@ -13,9 +14,15 @@ from tensor_utils import tensor_to_int_list
 
 
 class ByteDataModule:
-    def __init__(self, modelCfg: ModelConfig, trainCfg: TrainConfig) -> None:
+    def __init__(
+        self,
+        modelCfg: ModelConfig,
+        trainCfg: TrainConfig,
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
         self.modelCfg = modelCfg
         self.trainCfg = trainCfg
+        self.logger = logger or logging.getLogger(__name__)
         self.trainData: Tensor
         self.valData: Tensor
 

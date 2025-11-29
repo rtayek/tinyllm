@@ -20,14 +20,14 @@ def main() -> None:
     model = TinyGpt(model_cfg).to(device)
 
     # Checkpoint manager
-    checkpointManager = CheckpointManager(model_cfg, train_cfg)
+    logger = logging.getLogger("infer")
+    checkpointManager = CheckpointManager(model_cfg, train_cfg, logger=logger)
 
     # Load model-only checkpoint (or fall back to training checkpoint)
     checkpointManager.loadModel(model, None)
     print("Model weights loaded for inference.")
 
     # Generate text
-    logger = logging.getLogger("infer")
     textGenerator = TextGenerator(model, train_cfg.device, logger)
 
     text = textGenerator.generateText(maxNewTokens=400)

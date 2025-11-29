@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from typing import Optional, Tuple, Dict, Any, cast
+import logging
 from dataclasses import dataclass
 
 import torch
@@ -94,11 +95,13 @@ class CheckpointManager:
         trainCfg: TrainConfig,
         trainCkptPath: Optional[str] = None,
         modelCkptPath: Optional[str] = None,
+        logger: Optional[logging.Logger] = None,
     ) -> None:
         self.modelCfg = modelCfg
         self.trainCfg = trainCfg
         self.trainCkptPath = trainCkptPath or trainCfg.ckptPath or "checkpoints/tiny_train.pt"
         self.modelCkptPath = modelCkptPath or "checkpoints/tiny_model.pt"
+        self.logger = logger or logging.getLogger(__name__)
 
         for path in (self.trainCkptPath, self.modelCkptPath):
             ckptDir = os.path.dirname(path)
