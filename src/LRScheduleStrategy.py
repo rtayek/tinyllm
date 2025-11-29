@@ -22,15 +22,15 @@ class LRScheduleStrategy:
 class WarmupCosineStrategy(LRScheduleStrategy):
     def __init__(self, optimizer: torch.optim.Optimizer, max_steps: int, warmup_frac: float) -> None:
         self.optimizer = optimizer
-        self.warmup_steps = max(1, int(warmup_frac * max_steps))
-        self.total_steps = max(max_steps, self.warmup_steps + 1)
+        self.warmupSteps = max(1, int(warmup_frac * max_steps))
+        self.totalSteps = max(max_steps, self.warmupSteps + 1)
 
         def lr_lambda(current_step: int) -> float:
-            if current_step < self.warmup_steps:
-                return float(current_step + 1) / float(self.warmup_steps)
+            if current_step < self.warmupSteps:
+                return float(current_step + 1) / float(self.warmupSteps)
 
-            progress = (current_step - self.warmup_steps) / float(
-                max(1, self.total_steps - self.warmup_steps)
+            progress = (current_step - self.warmupSteps) / float(
+                max(1, self.totalSteps - self.warmupSteps)
             )
             return 0.5 * (1.0 + math.cos(math.pi * progress))
 

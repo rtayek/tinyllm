@@ -21,35 +21,35 @@ class TextGenerator:
         self.device = device
         self.logger = logger or logging.getLogger(__name__)
 
-    def generate_bytes(self, maxNewTokens: int = 200, prompt: str = "") -> bytes:
+    def generateBytes(self, maxNewTokens: int = 200, prompt: str = "") -> bytes:
         if prompt:
-            prompt_bytes = prompt.encode("utf-8")
-            prompt_tensor = torch.tensor(list(prompt_bytes), dtype=torch.long, device=self.device).unsqueeze(0)
+            promptBytes = prompt.encode("utf-8")
+            promptTensor = torch.tensor(list(promptBytes), dtype=torch.long, device=self.device).unsqueeze(0)
         else:
-            prompt_tensor = torch.zeros((1, 1), dtype=torch.long, device=self.device)
+            promptTensor = torch.zeros((1, 1), dtype=torch.long, device=self.device)
 
         with torch.no_grad():
             generated: torch.Tensor = self.model.generate(
-                prompt_tensor,
+                promptTensor,
                 maxNewTokens=maxNewTokens,
             )
 
-        first_seq: torch.Tensor = generated[0]
+        firstSeq: torch.Tensor = generated[0]
         raw_list: List[int] = tensor_to_int_list(
-            first_seq.to(dtype=torch.long).view(-1)
+            firstSeq.to(dtype=torch.long).view(-1)
         )
         return bytes(raw_list)
 
-    def generate_text(
+    def generateText(
         self,
         maxNewTokens: int = 200,
         errors: str = "ignore",
         prompt: str = "",
     ) -> str:
-        data = self.generate_bytes(maxNewTokens=maxNewTokens, prompt=prompt)
+        data = self.generateBytes(maxNewTokens=maxNewTokens, prompt=prompt)
         return data.decode("utf-8", errors=errors)
 
     def log_sample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
-        text = self.generate_text(maxNewTokens=maxNewTokens, prompt=prompt)
+        text = self.generateText(maxNewTokens=maxNewTokens, prompt=prompt)
         self.logger.info("Sampled text:")
         self.logger.info(text)

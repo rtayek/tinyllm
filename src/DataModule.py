@@ -62,10 +62,10 @@ class ByteDataModule:
         xList: List[Tensor] = []
         yList: List[Tensor] = []
 
-        start_indices: List[int] = tensor_to_int_list(indices)
-        for start_idx in start_indices:
-            xList.append(source[start_idx : start_idx + modelCfg.blockSize])
-            yList.append(source[start_idx + 1 : start_idx + 1 + modelCfg.blockSize])
+        startIndices: List[int] = tensor_to_int_list(indices)
+        for startIndex in startIndices:
+            xList.append(source[startIndex : startIndex + modelCfg.blockSize])
+            yList.append(source[startIndex + 1 : startIndex + 1 + modelCfg.blockSize])
 
         batchX = torch.stack(xList).to(trainCfg.device)
         batchY = torch.stack(yList).to(trainCfg.device)

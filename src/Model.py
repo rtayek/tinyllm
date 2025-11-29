@@ -109,8 +109,8 @@ class TinyGpt(nn.Module):
             indices = indices.long()
 
         tokenEmb = self.tokenEmbedding(indices)
-        posIdx = torch.arange(time, device=indices.device)
-        posEmb = self.positionEmbedding(posIdx).unsqueeze(0)
+        posIndex = torch.arange(time, device=indices.device)
+        posEmb = self.positionEmbedding(posIndex).unsqueeze(0)
 
         x = tokenEmb + posEmb
         for block in self.blocks:

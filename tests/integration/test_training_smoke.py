@@ -44,7 +44,7 @@ def test_training_smoke(tmp_path: Path) -> None:
         device="cpu",
     )
 
-    torch.manual_seed(42)
+    torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
     dataModule = ByteDataModule(modelCfg, trainCfg)
     model = TinyGpt(modelCfg).to(trainCfg.device)
     trainer = Trainer(modelCfg, trainCfg, model, dataModule)

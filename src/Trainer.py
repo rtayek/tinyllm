@@ -11,7 +11,7 @@ from Config import ModelConfig, TrainConfig
 from Model import TinyGpt
 from DataModule import ByteDataModule
 from Checkpoint import CheckpointManager, CHECKPOINT_VERSION
-from LRScheduleStrateg import WarmupCosineStrategy
+from LRScheduleStrategy import WarmupCosineStrategy
 from EarlyStopping import EarlyStopping
 from evaluator import Evaluator, EvalResult
 
@@ -66,7 +66,7 @@ class Trainer:
             self.generator,
         )
 
-    def _train_step(self) -> float:
+    def _trainStep(self) -> float:
         batchX, batchY = self.dataModule.getBatch("train", self.generator)
         _, loss = self.model(batchX, batchY)
 
@@ -81,7 +81,7 @@ class Trainer:
 
         return float(loss.item())
 
-    def _save_checkpoint(self, step: int) -> None:
+    def _saveCheckpoint(self, step: int) -> None:
         if self.bestValLoss is None:
             return
         self.checkpoints.saveCheckpoint(
@@ -110,14 +110,14 @@ class Trainer:
             )
 
     def loadCheckpointIfExists(self) -> None:
-        step, best, lr_state_restored, version, version_matches, config_drift = self.checkpoints.loadCheckpoint(
+        step, best, lrStateRestored, version, version_matches, config_drift = self.checkpoints.loadCheckpoint(
             self.model,
             self.optimizer,
             self.lrStrategy,
         )
         self.globalStep = step
         self.bestValLoss = best
-        if not lr_state_restored:
+        if not lrStateRestored:
             self.lrStrategy.align_after_resume(step)
         if not version_matches:
             self.logger.warning(
@@ -156,7 +156,7 @@ class Trainer:
 
                 if evalResult.improved:
                     self.bestValLoss = evalResult.val_loss
-                    self._save_checkpoint(step)
+                    self._saveCheckpoint(step)
                 else:
                     self.logger.info(
                         "[step %s] No val improvement for %s evals.",
@@ -173,16 +173,19 @@ class Trainer:
                         break
 
             # ---- Training step ----
-            loss_val = self._train_step()
-            if not torch.isfinite(torch.tensor(loss_val)):
+            lossValue = self._trainStep()
+            if not torch.isfinite(torch.tensor(lossValue)):
                 raise RuntimeError("Non-finite training loss encountered")
 
         self.logger.info("Training loop finished.")
-        self.logger.info("Best validation loss: %s", self.bestValLoss)
-        self.logger.info(
-            "Training done. Best val loss %.4f reached at some earlier step (see checkpoint metadata).",
-            self.bestValLoss,
-        )
+        if self.bestValLoss is not None:
+            self.logger.info("Best validation loss: %s", self.bestValLoss)
+            self.logger.info(
+                "Training done. Best val loss %.4f reached at some earlier step (see checkpoint metadata).",
+                self.bestValLoss,
+            )
+        else:
+            self.logger.info("No validation loss recorded; training exited before evaluation.")
         self.logger.info("Last few evals (step, train, val):")
         for step, tr, va in self.trainingCurve[-5:]:
             self.logger.info("  %6d: %.4f, %.4f", step, tr, va)

@@ -143,30 +143,30 @@ class CheckpointManager:
         version = checkpoint.version
         version_matches = version == CHECKPOINT_VERSION
 
-        lr_state_restored = False
+        lrStateRestored = False
         if lrStrategy is not None and version_matches:
             schedState = checkpoint.lrStrategyState
             if schedState is not None:
                 lrStrategy.load_state_dict(schedState)
-                lr_state_restored = True
+                lrStateRestored = True
 
-        config_drift: Dict[str, Dict[str, Any]] = {}
-        saved_model_cfg = checkpoint.modelConfig
+        configDrift: Dict[str, Dict[str, Any]] = {}
+        savedModelConfig = checkpoint.modelConfig
         saved_train_cfg = checkpoint.trainConfig
-        if saved_model_cfg:
-            config_drift["model"] = {
+        if savedModelConfig:
+            configDrift["model"] = {
                 k: v
-                for k, v in saved_model_cfg.items()
+                for k, v in savedModelConfig.items()
                 if k in self.modelCfg.__dict__ and self.modelCfg.__dict__[k] != v
             }
         if saved_train_cfg:
-            config_drift["train"] = {
+            configDrift["train"] = {
                 k: v
                 for k, v in saved_train_cfg.items()
                 if k in self.trainCfg.__dict__ and self.trainCfg.__dict__[k] != v
             }
 
-        return step, bestValLoss, lr_state_restored, version, version_matches, config_drift
+        return step, bestValLoss, lrStateRestored, version, version_matches, configDrift
 
     def saveModel(self, out_path: Optional[str] = None) -> None:
         if not os.path.exists(self.trainCkptPath):

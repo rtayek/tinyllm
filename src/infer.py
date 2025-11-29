@@ -30,7 +30,7 @@ def main() -> None:
     logger = logging.getLogger("infer")
     textGenerator = TextGenerator(model, train_cfg.device, logger)
 
-    text = textGenerator.generate_text(maxNewTokens=400)
+    text = textGenerator.generateText(maxNewTokens=400)
 
     print("\n=== GENERATED TEXT ===\n")
     print(text)

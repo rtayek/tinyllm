@@ -12,13 +12,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Manage checkpoints (export/load model weights).")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    export_parser = subparsers.add_parser("export-model", help="Export model weights from a checkpoint.")
-    export_parser.add_argument("--ckpt", type=str, default=None, help="Path to checkpoint (defaults to config).")
-    export_parser.add_argument("--out", type=str, required=True, help="Output path for model weights.")
+    saveParser = subparsers.add_parser("export-model", help="Export model weights from a checkpoint.")
+    saveParser.add_argument("--ckpt", type=str, default=None, help="Path to checkpoint (defaults to config).")
+    saveParser.add_argument("--out", type=str, required=True, help="Output path for model weights.")
 
-    load_parser = subparsers.add_parser("load-model", help="Load model weights into a fresh model and save state.")
-    load_parser.add_argument("--model", type=str, required=True, help="Path to model-only weights or checkpoint.")
-    load_parser.add_argument("--out", type=str, required=True, help="Output path to save loaded model state_dict.")
+    loadParser = subparsers.add_parser("load-model", help="Load model weights into a fresh model and save state.")
+    loadParser.add_argument("--model", type=str, required=True, help="Path to model-only weights or checkpoint.")
+    loadParser.add_argument("--out", type=str, required=True, help="Output path to save loaded model state_dict.")
 
     return parser.parse_args()
 
