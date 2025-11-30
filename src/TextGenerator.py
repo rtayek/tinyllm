@@ -11,12 +11,7 @@ from tensor_utils import tensor_to_int_list
 
 
 class TextGenerator:
-    def __init__(
-        self,
-        model: TinyGpt,
-        device: str,
-        logger: Optional[logging.Logger] = None,
-    ) -> None:
+    def __init__(self, model: TinyGpt, device: str, logger: Optional[logging.Logger] = None) -> None:
         self.model = model
         self.device = device
         self.logger = logger or logging.getLogger(__name__)
@@ -40,12 +35,7 @@ class TextGenerator:
         )
         return bytes(raw_list)
 
-    def generateText(
-        self,
-        maxNewTokens: int = 200,
-        errors: str = "ignore",
-        prompt: str = "",
-    ) -> str:
+    def generateText(self, maxNewTokens: int = 200, errors: str = "ignore", prompt: str = "") -> str:
         data = self.generateBytes(maxNewTokens=maxNewTokens, prompt=prompt)
         return data.decode("utf-8", errors=errors)
 

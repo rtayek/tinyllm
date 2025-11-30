@@ -18,12 +18,7 @@ from evaluator import Evaluator, EvalResult
 
 class Trainer:
     def __init__(
-        self,
-        modelCfg: ModelConfig,
-        trainCfg: TrainConfig,
-        model: TinyGpt,
-        dataModule: ByteDataModule,
-        logger: Optional[logging.Logger] = None,
+        self, modelCfg: ModelConfig, trainCfg: TrainConfig, model: TinyGpt, dataModule: ByteDataModule, logger: Optional[logging.Logger] = None
     ) -> None:
         self.modelCfg = modelCfg
         self.trainCfg = trainCfg
@@ -33,24 +28,13 @@ class Trainer:
 
         self.logger.info("MODEL CONFIG: %s", modelCfg)
         self.logger.info("TRAIN CONFIG: %s", trainCfg)
-        self.optimizer: torch.optim.Optimizer = torch.optim.AdamW(
-            model.parameters(),
-            lr=trainCfg.learningRate,
-            weight_decay=trainCfg.weightDecay,
-        )
+        self.optimizer: torch.optim.Optimizer = torch.optim.AdamW(model.parameters(), lr=trainCfg.learningRate, weight_decay=trainCfg.weightDecay)
         assert trainCfg.batchSize > 0
         assert self.modelCfg.blockSize > 0
         assert trainCfg.learningRate > 0
         assert 0 <= trainCfg.warmupFrac <= 1
-        self.lrStrategy = WarmupCosineStrategy(
-            self.optimizer,
-            max_steps=trainCfg.maxSteps,
-            warmup_frac=trainCfg.warmupFrac,
-        )
-        self.earlyStopping = EarlyStopping(
-            trainCfg.earlyStopPatience,
-            trainCfg.earlyStopDelta,
-        )
+        self.lrStrategy = WarmupCosineStrategy(self.optimizer, max_steps=trainCfg.maxSteps, warmup_frac=trainCfg.warmupFrac)
+        self.earlyStopping = EarlyStopping(trainCfg.earlyStopPatience, trainCfg.earlyStopDelta)
         self.checkpoints = CheckpointManager(modelCfg, trainCfg, logger=self.logger)
 
         self.globalStep: int = 0
@@ -59,14 +43,7 @@ class Trainer:
 
         self.generator = torch.Generator()
         self.generator.manual_seed(1337)
-        self.evaluator = Evaluator(
-            self.model,
-            self.dataModule,
-            self.trainCfg,
-            self.earlyStopping,
-            self.generator,
-            logger=self.logger,
-        )
+        self.evaluator = Evaluator(self.model, self.dataModule, self.trainCfg, self.earlyStopping, self.generator, logger=self.logger)
 
     def _trainStep(self) -> float:
         batchX, batchY = self.dataModule.getBatch("train", self.generator)
@@ -78,7 +55,6 @@ class Trainer:
         self.optimizer.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-        # Step scheduler before optimizer so step 0 honors warmup
         self.optimizer.step()
         self.lrStrategy.step()
 
@@ -163,9 +139,7 @@ class Trainer:
                     torch.tensor(evalResult.val_loss)
                 ):
                     raise RuntimeError("Non-finite evaluation loss encountered")
-                self.trainingCurve.append(
-                    (step, evalResult.train_loss, evalResult.val_loss)
-                )
+                self.trainingCurve.append((step, evalResult.train_loss, evalResult.val_loss))
                 self._log_eval(step, evalResult)
 
                 if evalResult.improved:
@@ -215,11 +189,7 @@ class Trainer:
         try:
             from plot_utils import plot_training_curve
 
-            filepath, config_dump_path = plot_training_curve(
-                self.trainingCurve,
-                self.modelCfg,
-                self.trainCfg,
-            )
+            filepath, config_dump_path = plot_training_curve(self.trainingCurve, self.modelCfg, self.trainCfg)
             self.logger.info("[plot] Saved plot to %s", filepath)
             self.logger.info("[plot] Saved config to %s", config_dump_path)
         except Exception as e:

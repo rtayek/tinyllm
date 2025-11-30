@@ -78,9 +78,7 @@ class TinyGpt(nn.Module):
         self.tokenEmbedding = nn.Embedding(cfg.vocabSize, cfg.nEmbed)
         self.positionEmbedding = nn.Embedding(cfg.blockSize, cfg.nEmbed)
 
-        self.blocks = nn.ModuleList(
-            [Block(cfg.nEmbed, cfg.nHead, cfg.dropout, cfg.blockSize) for _ in range(cfg.nLayer)]
-        )
+        self.blocks = nn.ModuleList([Block(cfg.nEmbed, cfg.nHead, cfg.dropout, cfg.blockSize) for _ in range(cfg.nLayer)])
 
         self.finalLayerNorm = nn.LayerNorm(cfg.nEmbed)
         self.outputHead = nn.Linear(cfg.nEmbed, cfg.vocabSize, bias=False)
@@ -93,11 +91,7 @@ class TinyGpt(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(
-        self,
-        indices: Tensor,
-        targets: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    def forward(self, indices: Tensor, targets: Optional[Tensor] = None) -> Tuple[Tensor, Optional[Tensor]]:
         if indices.dim() != 2:
             raise ValueError(f"indices must be 2D (batch, time), got {indices.shape}")
 

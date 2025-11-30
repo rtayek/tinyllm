@@ -14,12 +14,7 @@ from tensor_utils import tensor_to_int_list
 
 
 class ByteDataModule:
-    def __init__(
-        self,
-        modelConfig: ModelConfig,
-        trainConfig: TrainConfig,
-        logger: Optional[logging.Logger] = None,
-    ) -> None:
+    def __init__(self, modelConfig: ModelConfig, trainConfig: TrainConfig, logger: Optional[logging.Logger] = None) -> None:
         self.modelConfig = modelConfig
         self.trainConfig = trainConfig
         self.logger = logger or logging.getLogger(__name__)
@@ -48,11 +43,7 @@ class ByteDataModule:
             self.trainConfig.dataPath,
         )
 
-    def getBatch(
-        self,
-        split: str,
-        generator: Optional[torch.Generator] = None,
-    ) -> Tuple[Tensor, Tensor]:
+    def getBatch(self, split: str, generator: Optional[torch.Generator] = None) -> Tuple[Tensor, Tensor]:
         if split == "train":
             source = self.trainData
         elif split == "val":

@@ -29,10 +29,7 @@ def manual_seed(seed: int) -> torch.Generator:
     return seed_fn(seed)
 
 
-def buildTrainer(
-    runConfig: RunConfig | None = None,
-    log: logging.Logger | None = None,
-) -> Trainer:
+def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None = None) -> Trainer:
     manual_seed(1337)
 
     runConfig = runConfig or RunConfig()

@@ -62,10 +62,11 @@ class Checkpoint:
 
     @staticmethod
     def load(path: str, device: str | torch.device) -> "Checkpoint":
-        data = cast(
-            Dict[str, Any],
-            torch.load(path, map_location=device),  # pyright: ignore[reportUnknownMemberType]
-        )
+        try:
+            data = cast(Dict[str, Any], torch.load(path, map_location=device, weights_only=False))  # pyright: ignore[reportUnknownMemberType]
+        except TypeError:
+            # Fallback for torch versions without weights_only
+            data = cast(Dict[str, Any], torch.load(path, map_location=device))  # pyright: ignore[reportUnknownMemberType]
         return Checkpoint.fromDict(data)
 
     @staticmethod

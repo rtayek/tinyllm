@@ -34,10 +34,7 @@ class WarmupCosineStrategy(LRScheduleStrategy):
             )
             return 0.5 * (1.0 + math.cos(math.pi * progress))
 
-        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self.optimizer,
-            lr_lambda=lr_lambda,
-        )
+        self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lr_lambda)
 
     def step(self) -> None:
         self.scheduler.step()
