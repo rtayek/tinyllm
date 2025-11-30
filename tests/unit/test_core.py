@@ -66,21 +66,37 @@ def test_checkpoint_roundtrip(tmp_path: Path) -> None:
 
     model = TinyGpt(modelCfg)
     optimizer = torch.optim.AdamW(model.parameters(), lr=trainCfg.learningRate, weight_decay=trainCfg.weightDecay)
+    generator = torch.Generator()
+    generator.manual_seed(123)
 
     manager = CheckpointManager(modelCfg, trainCfg)
-    manager.saveCheckpoint(model, optimizer, lrStrategyState=None, step=10, bestValLoss=0.5)
+    manager.saveCheckpoint(
+        model,
+        optimizer,
+        lrStrategyState=None,
+        step=10,
+        bestValLoss=0.5,
+        generatorState=generator.get_state(),
+    )
 
     newModel = TinyGpt(modelCfg)
     newOptimizer = torch.optim.AdamW(newModel.parameters(), lr=trainCfg.learningRate, weight_decay=trainCfg.weightDecay)
 
-    step, bestValLoss, lrRestored, _version, versionMatches, drift = manager.loadCheckpoint(
-        newModel, newOptimizer, lrStrategy=None
-    )
+    (
+        step,
+        bestValLoss,
+        lrRestored,
+        _version,
+        versionMatches,
+        drift,
+        generator_state,
+    ) = manager.loadCheckpoint(newModel, newOptimizer, lrStrategy=None)
 
     assert step == 10
     assert bestValLoss == 0.5
     assert lrRestored is False
     assert versionMatches is True
     assert drift["model"] == {} and drift["train"] == {}
+    assert generator_state is not None
     for pOld, pNew in zip(model.parameters(), newModel.parameters()):
         assert torch.equal(pOld, pNew)

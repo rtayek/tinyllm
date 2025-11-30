@@ -78,6 +78,7 @@ class Trainer:
         self.optimizer.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+        # Step scheduler before optimizer so step 0 honors warmup
         self.optimizer.step()
         self.lrStrategy.step()
 
@@ -92,6 +93,7 @@ class Trainer:
             self.lrStrategy.state_dict(),
             step,
             self.bestValLoss,
+            generatorState=self.generator.get_state(),
         )
         self.logger.info("[step %s] Checkpoint saved (improved validation loss).", step)
 
@@ -112,13 +114,23 @@ class Trainer:
             )
 
     def loadCheckpointIfExists(self) -> None:
-        step, best, lrStateRestored, version, version_matches, config_drift = self.checkpoints.loadCheckpoint(
+        (
+            step,
+            best,
+            lrStateRestored,
+            version,
+            version_matches,
+            config_drift,
+            generator_state,
+        ) = self.checkpoints.loadCheckpoint(
             self.model,
             self.optimizer,
             self.lrStrategy,
         )
         self.globalStep = step
         self.bestValLoss = best
+        if generator_state is not None:
+            self.generator.set_state(generator_state)
         if not lrStateRestored:
             self.lrStrategy.align_after_resume(step)
         if not version_matches:

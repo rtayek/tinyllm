@@ -47,5 +47,4 @@ def plot_training_curve(
     plt_mod.legend()
     plt_mod.grid(True)
     plt_mod.savefig(filepath, dpi=150)
-    plt_mod.show()
     return filepath, config_dump_path

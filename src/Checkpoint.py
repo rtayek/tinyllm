@@ -25,6 +25,7 @@ class Checkpoint:
     modelConfig: Dict[str, Any]
     trainConfig: Dict[str, Any]
     lrStrategyState: Optional[Dict[str, Any]] = None
+    generatorState: Optional[Any] = None
 
     def toDict(self) -> Dict[str, Any]:
         return {
@@ -36,6 +37,7 @@ class Checkpoint:
             "modelConfig": self.modelConfig,
             "trainConfig": self.trainConfig,
             "lrStrategyState": self.lrStrategyState,
+            "generatorState": self.generatorState,
         }
 
     @staticmethod
@@ -49,6 +51,7 @@ class Checkpoint:
             modelConfig=cast(Dict[str, Any], data.get("modelConfig", {})),
             trainConfig=cast(Dict[str, Any], data.get("trainConfig", {})),
             lrStrategyState=cast(Optional[Dict[str, Any]], data.get("lrStrategyState", None)),
+            generatorState=data.get("generatorState", None),
         )
 
     def save(self, path: str, device: str | torch.device) -> None:
@@ -74,6 +77,7 @@ class Checkpoint:
         step: int,
         bestValLoss: Optional[float],
         lrStrategyState: Optional[Dict[str, Any]] = None,
+        generatorState: Optional[Any] = None,
         version: int = CHECKPOINT_VERSION,
     ) -> "Checkpoint":
         return Checkpoint(
@@ -85,6 +89,7 @@ class Checkpoint:
             modelConfig=modelConfig.__dict__ if modelConfig is not None else {},
             trainConfig=trainConfig.__dict__ if trainConfig is not None else {},
             lrStrategyState=lrStrategyState,
+            generatorState=generatorState,
         )
 
 
@@ -115,6 +120,7 @@ class CheckpointManager:
         lrStrategyState: Optional[Dict[str, Any]],
         step: int,
         bestValLoss: Optional[float],
+        generatorState: Optional[Any] = None,
     ) -> None:
         checkpoint: Checkpoint = Checkpoint.fromTrainingState(
             model=model,
@@ -124,6 +130,7 @@ class CheckpointManager:
             step=step,
             bestValLoss=bestValLoss,
             lrStrategyState=lrStrategyState,
+            generatorState=generatorState,
             version=CHECKPOINT_VERSION,
         )
         checkpoint.save(self.trainCkptPath, self.trainCfg.device)
@@ -133,9 +140,9 @@ class CheckpointManager:
         model: TinyGpt,
         optimizer: torch.optim.Optimizer,
         lrStrategy: Optional[Any] = None,
-    ) -> Tuple[int, Optional[float], bool, int, bool, Dict[str, Dict[str, Any]]]:
+    ) -> Tuple[int, Optional[float], bool, int, bool, Dict[str, Dict[str, Any]], Optional[Any]]:
         if not os.path.exists(self.trainCkptPath):
-            return 0, None, False, CHECKPOINT_VERSION, True, {}
+            return 0, None, False, CHECKPOINT_VERSION, True, {}, None
 
         checkpoint = Checkpoint.load(self.trainCkptPath, self.trainCfg.device)
         model.load_state_dict(checkpoint.modelState)
@@ -145,6 +152,7 @@ class CheckpointManager:
 
         version = checkpoint.version
         version_matches = version == CHECKPOINT_VERSION
+        generator_state = checkpoint.generatorState
 
         lrStateRestored = False
         if lrStrategy is not None and version_matches:
@@ -169,7 +177,7 @@ class CheckpointManager:
                 if k in self.trainCfg.__dict__ and self.trainCfg.__dict__[k] != v
             }
 
-        return step, bestValLoss, lrStateRestored, version, version_matches, configDrift
+        return step, bestValLoss, lrStateRestored, version, version_matches, configDrift, generator_state
 
     def saveModel(self, out_path: Optional[str] = None) -> None:
         if not os.path.exists(self.trainCkptPath):

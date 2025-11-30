@@ -16,12 +16,12 @@ from tensor_utils import tensor_to_int_list
 class ByteDataModule:
     def __init__(
         self,
-        modelCfg: ModelConfig,
-        trainCfg: TrainConfig,
+        modelConfig: ModelConfig,
+        trainConfig: TrainConfig,
         logger: Optional[logging.Logger] = None,
     ) -> None:
-        self.modelCfg = modelCfg
-        self.trainCfg = trainCfg
+        self.modelConfig = modelConfig
+        self.trainConfig = trainConfig
         self.logger = logger or logging.getLogger(__name__)
         self.trainData: Tensor
         self.valData: Tensor
@@ -29,16 +29,24 @@ class ByteDataModule:
         self.loadAndSplit()
 
     def loadAndSplit(self) -> None:
-        if not os.path.exists(self.trainCfg.dataPath):
-            raise FileNotFoundError(self.trainCfg.dataPath)
+        self.logger.info("Loading dataset from %s", self.trainConfig.dataPath)
+        if not os.path.exists(self.trainConfig.dataPath):
+            raise FileNotFoundError(self.trainConfig.dataPath)
 
-        with open(self.trainCfg.dataPath, "rb") as f:
+        with open(self.trainConfig.dataPath, "rb") as f:
             dataBytes = f.read()
 
         data = torch.tensor(list(dataBytes), dtype=torch.long)
         boundary = int(0.9 * len(data))
         self.trainData = data[:boundary]
         self.valData = data[boundary:]
+        self.logger.info(
+            "Loaded %d bytes (%d train, %d val) from %s",
+            len(data),
+            self.trainData.size(0),
+            self.valData.size(0),
+            self.trainConfig.dataPath,
+        )
 
     def getBatch(
         self,
@@ -52,8 +60,14 @@ class ByteDataModule:
         else:
             raise ValueError(f"Unknown split: {split}")
 
-        modelCfg = self.modelCfg
-        trainCfg = self.trainCfg
+        modelConfig = self.modelConfig
+        trainConfig = self.trainConfig
+        min_required = modelConfig.blockSize + 2  # need at least one start index
+        if len(source) < min_required:
+            raise ValueError(
+                f"Dataset split '{split}' is too small for blockSize={modelConfig.blockSize}; "
+                f"need at least {min_required} bytes, got {len(source)}."
+            )
 
         if generator is None:
             generator = torch.Generator()
@@ -61,8 +75,8 @@ class ByteDataModule:
 
         indices = torch.randint(
             low=0,
-            high=len(source) - modelCfg.blockSize - 1,
-            size=(trainCfg.batchSize,),
+            high=len(source) - modelConfig.blockSize - 1,
+            size=(trainConfig.batchSize,),
             generator=generator,
         )
 
@@ -71,11 +85,11 @@ class ByteDataModule:
 
         startIndices: List[int] = tensor_to_int_list(indices)
         for startIndex in startIndices:
-            xList.append(source[startIndex : startIndex + modelCfg.blockSize])
-            yList.append(source[startIndex + 1 : startIndex + 1 + modelCfg.blockSize])
+            xList.append(source[startIndex : startIndex + modelConfig.blockSize])
+            yList.append(source[startIndex + 1 : startIndex + 1 + modelConfig.blockSize])
 
-        batchX = torch.stack(xList).to(trainCfg.device)
-        batchY = torch.stack(yList).to(trainCfg.device)
-        assert batchX.shape == (trainCfg.batchSize, modelCfg.blockSize)
-        assert batchY.shape == (trainCfg.batchSize, modelCfg.blockSize)
+        batchX = torch.stack(xList).to(trainConfig.device)
+        batchY = torch.stack(yList).to(trainConfig.device)
+        assert batchX.shape == (trainConfig.batchSize, modelConfig.blockSize)
+        assert batchY.shape == (trainConfig.batchSize, modelConfig.blockSize)
         return batchX, batchY
