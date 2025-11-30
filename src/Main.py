@@ -5,11 +5,11 @@ import torch
 
 from typing import Callable
 
-from Config import RunConfig
-from DataModule import ByteDataModule
-from Model import TinyGpt
-from Trainer import Trainer
-from TextGenerator import TextGenerator
+from llm.Config import RunConfig
+from llm.DataModule import ByteDataModule
+from llm.Model import TinyGpt
+from llm.Trainer import Trainer
+from llm.TextGenerator import TextGenerator
 
 
 logger = logging.getLogger(__name__)

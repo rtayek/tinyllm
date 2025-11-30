@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 import torch
 
-from Config import ModelConfig, TrainConfig
-from Model import TinyGpt
+from .Config import ModelConfig, TrainConfig
+from .Model import TinyGpt
 
 CHECKPOINT_VERSION = 1
 

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tinyllm"
+version = "0.0.1"
+description = "Tiny byte-level GPT in PyTorch"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Ray" }]
+dependencies = [
+  "torch>=2.0.0",
+  "matplotlib>=3.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.4",
+  "pyright>=1.1.0",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

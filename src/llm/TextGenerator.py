@@ -5,8 +5,8 @@ import logging
 
 import torch
 
-from Model import TinyGpt
-from tensor_utils import tensor_to_int_list
+from .Model import TinyGpt
+from .tensor_utils import tensor_to_int_list
 
 
 class TextGenerator:

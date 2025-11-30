@@ -1,19 +1,11 @@
-import sys
 from pathlib import Path
 import torch
 
-ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src"
-for candidate in (SRC, ROOT, ROOT.parent):
-    path_str = str(candidate)
-    if path_str not in sys.path:
-        sys.path.insert(0, path_str)
-
-from Config import ModelConfig, TrainConfig
-from DataModule import ByteDataModule
-from EarlyStopping import EarlyStopping
-from Model import TinyGpt
-from Checkpoint import CheckpointManager
+from llm.Config import ModelConfig, TrainConfig
+from llm.DataModule import ByteDataModule
+from llm.EarlyStopping import EarlyStopping
+from llm.Model import TinyGpt
+from llm.Checkpoint import CheckpointManager
 
 
 def test_data_module_batch_shapes(tmp_path: Path) -> None:

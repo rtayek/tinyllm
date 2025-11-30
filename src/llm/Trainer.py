@@ -5,13 +5,13 @@ import logging
 
 import torch
 
-from Config import ModelConfig, TrainConfig
-from Model import TinyGpt
-from DataModule import ByteDataModule
-from Checkpoint import CheckpointManager, CHECKPOINT_VERSION
-from LRScheduleStrategy import WarmupCosineStrategy
-from EarlyStopping import EarlyStopping
-from evaluator import Evaluator, EvalResult
+from .Config import ModelConfig, TrainConfig
+from .Model import TinyGpt
+from .DataModule import ByteDataModule
+from .Checkpoint import CheckpointManager, CHECKPOINT_VERSION
+from .LRScheduleStrategy import WarmupCosineStrategy
+from .EarlyStopping import EarlyStopping
+from .evaluator import Evaluator, EvalResult
 
 
 class Trainer:

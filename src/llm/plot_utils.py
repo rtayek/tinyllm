@@ -6,7 +6,7 @@ from typing import List, Tuple, Any, cast
 
 import matplotlib.pyplot as plt  # type: ignore[import]
 
-from Config import ModelConfig, TrainConfig
+from .Config import ModelConfig, TrainConfig
 
 
 def plot_training_curve(training_curve: List[Tuple[int, float, float]], modelConfig: ModelConfig, trainConfig: TrainConfig) -> Tuple[str, str]:

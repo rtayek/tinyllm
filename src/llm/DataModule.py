@@ -7,8 +7,8 @@ import logging
 import torch
 from torch import Tensor
 
-from Config import ModelConfig, TrainConfig
-from tensor_utils import tensor_to_int_list
+from .Config import ModelConfig, TrainConfig
+from .tensor_utils import tensor_to_int_list
 
 
 class ByteDataModule:

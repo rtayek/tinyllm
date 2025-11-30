@@ -6,10 +6,10 @@ import logging
 
 import torch
 
-from Config import TrainConfig
-from Model import TinyGpt
-from DataModule import ByteDataModule
-from EarlyStopping import EarlyStopping
+from .Config import TrainConfig
+from .Model import TinyGpt
+from .DataModule import ByteDataModule
+from .EarlyStopping import EarlyStopping
 
 
 @dataclass

@@ -3,9 +3,9 @@ from __future__ import annotations
 import argparse
 import sys
 
-from Config import RunConfig
-from Model import TinyGpt
-from Checkpoint import CheckpointManager
+from .Config import RunConfig
+from .Model import TinyGpt
+from .Checkpoint import CheckpointManager
 
 
 def parse_args() -> argparse.Namespace:

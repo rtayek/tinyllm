@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from Config import ModelConfig
+from .Config import ModelConfig
 
 
 class MultiHeadSelfAttention(nn.Module):

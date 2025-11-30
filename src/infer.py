@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import logging
 
-from Config import RunConfig
-from Model import TinyGpt
-from Checkpoint import CheckpointManager
-from TextGenerator import TextGenerator
+from llm.Config import RunConfig
+from llm.Model import TinyGpt
+from llm.Checkpoint import CheckpointManager
+from llm.TextGenerator import TextGenerator
 
 
 def main() -> None:
