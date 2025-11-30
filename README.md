@@ -1,10 +1,36 @@
 # Tiny LLM Project (Byte-Level GPT in PyTorch)
 
-Tiny byte-level GPT in PyTorch with checkpointing (`src/Checkpoint.py`) and a simple trainer/inference flow.
+Tiny byte-level GPT in PyTorch packaged under `llm/` with checkpointing, training, and inference scripts.
 
-## Quickstart
-1) Ensure training text exists (defaults to `fixtureData/input.txt`; you can generate a fresh corpus with `src/make_tender_buttons_dataset.py` which writes `data/input.txt`).
-2) Train: `python Main.py`
-3) Infer (after training writes checkpoints): `python src/infer.py`
+## Install
+Create/activate your env and install the package (editable for dev):
+```sh
+pip install -e .
+```
+Runtime deps: `torch`, `matplotlib`. Dev extras in `pyproject.toml` (`pytest`, `pyright`).
 
-Checkpoints live under `checkpoints/` by default. The trainer saves a plot to `plots/` without opening a GUI window.
+## Data
+Training text defaults to `fixtureData/input.txt`. You can fetch a sample corpus:
+```sh
+python src/make_tender_buttons_dataset.py
+```
+This writes `data/input.txt`; point the config to your desired file.
+
+## Train
+```sh
+python src/Main.py
+```
+Checkpoints are written under `checkpoints/`. Plots go to `plots/` (no blocking GUI).
+
+## Infer
+After training (or with a saved checkpoint):
+```sh
+python src/infer.py
+```
+This loads the latest checkpoint and prints generated text.
+
+## Imports
+Library components are under `llm`, e.g.:
+```python
+from llm import RunConfig, TinyGpt, Trainer, ByteDataModule
+```
