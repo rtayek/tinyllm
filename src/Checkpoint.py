@@ -1,5 +1,3 @@
-# Checkpoints.py
-
 from __future__ import annotations
 
 import os
@@ -164,17 +162,17 @@ class CheckpointManager:
 
         configDrift: Dict[str, Dict[str, Any]] = {}
         savedModelConfig = checkpoint.modelConfig
-        saved_train_cfg = checkpoint.trainConfig
+        savedTrainConfig = checkpoint.trainConfig
         if savedModelConfig:
             configDrift["model"] = {
                 k: v
                 for k, v in savedModelConfig.items()
                 if k in self.modelCfg.__dict__ and self.modelCfg.__dict__[k] != v
             }
-        if saved_train_cfg:
+        if savedTrainConfig:
             configDrift["train"] = {
                 k: v
-                for k, v in saved_train_cfg.items()
+                for k, v in savedTrainConfig.items()
                 if k in self.trainCfg.__dict__ and self.trainCfg.__dict__[k] != v
             }
 

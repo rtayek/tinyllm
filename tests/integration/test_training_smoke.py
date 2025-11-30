@@ -22,7 +22,7 @@ def test_training_smoke(tmp_path: Path) -> None:
 
     ckptPath = tmp_path / "ckpt.pt"
 
-    modelCfg = ModelConfig(
+    modelConfig = ModelConfig(
         blockSize=8,
         vocabSize=256,
         nEmbed=16,
@@ -30,7 +30,7 @@ def test_training_smoke(tmp_path: Path) -> None:
         nLayer=1,
         dropout=0.0,
     )
-    trainCfg = TrainConfig(
+    trainConfig = TrainConfig(
         batchSize=2,
         learningRate=1e-3,
         warmupFrac=0.1,
@@ -45,9 +45,9 @@ def test_training_smoke(tmp_path: Path) -> None:
     )
 
     torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
-    dataModule = ByteDataModule(modelCfg, trainCfg)
-    model = TinyGpt(modelCfg).to(trainCfg.device)
-    trainer = Trainer(modelCfg, trainCfg, model, dataModule)
+    dataModule = ByteDataModule(modelConfig, trainConfig)
+    model = TinyGpt(modelConfig).to(trainConfig.device)
+    trainer = Trainer(modelConfig, trainConfig, model, dataModule)
 
     trainer.loadCheckpointIfExists()
     trainer.train()

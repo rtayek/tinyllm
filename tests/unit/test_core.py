@@ -21,25 +21,25 @@ def test_data_module_batch_shapes(tmp_path: Path) -> None:
     dataPath: Path = tmp_path / "input.txt"
     dataPath.write_bytes(b"abcdefghijklmnopqrstuvwxyz")
 
-    modelCfg = ModelConfig(blockSize=4, vocabSize=256)
-    trainCfg = TrainConfig(batchSize=2, dataPath=str(dataPath))
+    modelConfig = ModelConfig(blockSize=4, vocabSize=256)
+    trainConfig = TrainConfig(batchSize=2, dataPath=str(dataPath))
 
-    dataModule = ByteDataModule(modelCfg, trainCfg)
+    dataModule = ByteDataModule(modelConfig, trainConfig)
     batchX, batchY = dataModule.getBatch("train")
 
-    assert batchX.shape == (trainCfg.batchSize, modelCfg.blockSize)
-    assert batchY.shape == (trainCfg.batchSize, modelCfg.blockSize)
-    assert batchX.device.type == trainCfg.device
+    assert batchX.shape == (trainConfig.batchSize, modelConfig.blockSize)
+    assert batchY.shape == (trainConfig.batchSize, modelConfig.blockSize)
+    assert batchX.device.type == trainConfig.device
 
 
 def test_model_forward_shapes() -> None:
-    modelCfg = ModelConfig(blockSize=4, vocabSize=32, nEmbed=16, nHead=4, nLayer=2, dropout=0.0)
-    model = TinyGpt(modelCfg)
-    indices = torch.randint(0, modelCfg.vocabSize, (2, modelCfg.blockSize))
+    modelConfig = ModelConfig(blockSize=4, vocabSize=32, nEmbed=16, nHead=4, nLayer=2, dropout=0.0)
+    model = TinyGpt(modelConfig)
+    indices = torch.randint(0, modelConfig.vocabSize, (2, modelConfig.blockSize))
 
     logits, loss = model(indices, indices)
 
-    assert logits.shape == (2, modelCfg.blockSize, modelCfg.vocabSize)
+    assert logits.shape == (2, modelConfig.blockSize, modelConfig.vocabSize)
     assert loss is not None
     assert torch.isfinite(loss)
 
@@ -61,15 +61,15 @@ def test_early_stopping_logic() -> None:
 
 def test_checkpoint_roundtrip(tmp_path: Path) -> None:
     trainCkptPath: Path = tmp_path / "ckpt.pt"
-    modelCfg = ModelConfig(blockSize=4, vocabSize=32, nEmbed=16, nHead=4, nLayer=2, dropout=0.0)
-    trainCfg = TrainConfig(batchSize=2, ckptPath=str(trainCkptPath))
+    modelConfig = ModelConfig(blockSize=4, vocabSize=32, nEmbed=16, nHead=4, nLayer=2, dropout=0.0)
+    trainConfig = TrainConfig(batchSize=2, ckptPath=str(trainCkptPath))
 
-    model = TinyGpt(modelCfg)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=trainCfg.learningRate, weight_decay=trainCfg.weightDecay)
+    model = TinyGpt(modelConfig)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=trainConfig.learningRate, weight_decay=trainConfig.weightDecay)
     generator = torch.Generator()
     generator.manual_seed(123)
 
-    manager = CheckpointManager(modelCfg, trainCfg)
+    manager = CheckpointManager(modelConfig, trainConfig)
     manager.saveCheckpoint(
         model,
         optimizer,
@@ -79,8 +79,8 @@ def test_checkpoint_roundtrip(tmp_path: Path) -> None:
         generatorState=generator.get_state(),
     )
 
-    newModel = TinyGpt(modelCfg)
-    newOptimizer = torch.optim.AdamW(newModel.parameters(), lr=trainCfg.learningRate, weight_decay=trainCfg.weightDecay)
+    newModel = TinyGpt(modelConfig)
+    newOptimizer = torch.optim.AdamW(newModel.parameters(), lr=trainConfig.learningRate, weight_decay=trainConfig.weightDecay)
 
     (
         step,

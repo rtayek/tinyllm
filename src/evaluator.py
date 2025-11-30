@@ -40,11 +40,11 @@ class EvalResult:
 
 class Evaluator:
     def __init__(
-        self, model: TinyGpt, data_module: ByteDataModule, train_cfg: TrainConfig, early_stopping: EarlyStopping, generator: Optional[torch.Generator] = None, logger: Optional[logging.Logger] = None
+        self, model: TinyGpt, data_module: ByteDataModule, trainConfig: TrainConfig, early_stopping: EarlyStopping, generator: Optional[torch.Generator] = None, logger: Optional[logging.Logger] = None
     ) -> None:
         self.model = model
-        self.data_module = data_module
-        self.train_cfg = train_cfg
+        self.dataModule = data_module
+        self.trainConfig = trainConfig
         self.early_stopping = early_stopping
         self.generator = generator or torch.Generator()
         self.logger = logger or logging.getLogger(__name__)
@@ -56,8 +56,8 @@ class Evaluator:
         with torch.no_grad():
             for split in ("train", "val"):
                 loss_list: List[float] = []
-                for _ in range(self.train_cfg.evalIters):
-                    batchX, batchY = self.data_module.getBatch(split, self.generator)
+                for _ in range(self.trainConfig.evalIters):
+                    batchX, batchY = self.dataModule.getBatch(split, self.generator)
                     _, loss = self.model(batchX, batchY)
                     if loss is None:
                         raise RuntimeError("Loss is None in estimateLoss")
