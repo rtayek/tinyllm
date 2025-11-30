@@ -74,20 +74,10 @@ class Trainer:
         self.logger.info("[step %s] Checkpoint saved (improved validation loss).", step)
 
     def _log_eval(self, step: int, evalResult: EvalResult) -> None:
-        self.logger.info(
-            "[step %s] train loss %.4f, val loss %.4f",
-            step,
-            evalResult.train_loss,
-            evalResult.val_loss,
-        )
+        self.logger.info("[step %s] train loss %.4f, val loss %.4f", step, evalResult.train_loss, evalResult.val_loss)
 
         if evalResult.frac_improvement is not None:
-            self.logger.info(
-                "[step %s] fractional improvement: %.4f (need > %.4f)",
-                step,
-                evalResult.frac_improvement,
-                self.trainCfg.earlyStopDelta,
-            )
+            self.logger.info("[step %s] fractional improvement: %.4f (need > %.4f)", step, evalResult.frac_improvement, self.trainCfg.earlyStopDelta)
 
     def loadCheckpointIfExists(self) -> None:
         (
@@ -146,18 +136,10 @@ class Trainer:
                     self.bestValLoss = evalResult.val_loss
                     self._saveCheckpoint(step)
                 else:
-                    self.logger.info(
-                        "[step %s] No val improvement for %s evals.",
-                        step,
-                        evalResult.no_improve_evals,
-                    )
+                    self.logger.info("[step %s] No val improvement for %s evals.", step, evalResult.no_improve_evals)
 
                     if evalResult.should_stop:
-                        self.logger.info(
-                            "[step %s] Early stopping triggered: no val improvement for %s evals.",
-                            step,
-                            evalResult.no_improve_evals,
-                        )
+                        self.logger.info("[step %s] Early stopping triggered: no val improvement for %s evals.", step, evalResult.no_improve_evals)
                         break
 
             # ---- Training step ----
@@ -168,10 +150,7 @@ class Trainer:
         self.logger.info("Training loop finished.")
         if self.bestValLoss is not None:
             self.logger.info("Best validation loss: %s", self.bestValLoss)
-            self.logger.info(
-                "Training done. Best val loss %.4f reached at some earlier step (see checkpoint metadata).",
-                self.bestValLoss,
-            )
+            self.logger.info("Training done. Best val loss %.4f reached at some earlier step (see checkpoint metadata).", self.bestValLoss)
         else:
             self.logger.info("No validation loss recorded; training exited before evaluation.")
         self.logger.info("Last few evals (step, train, val):")

@@ -72,9 +72,7 @@ class Evaluator:
         trainLoss = losses["train"]
         valueLoss = losses["val"]
 
-        improved, frac_improvement, should_stop, no_improve = self.early_stopping.check(
-            best_val_loss, valueLoss
-        )
+        improved, frac_improvement, should_stop, no_improve = self.early_stopping.check(best_val_loss, valueLoss)
 
         return EvalResult(
             step=step,

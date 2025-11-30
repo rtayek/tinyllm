@@ -35,13 +35,7 @@ class ByteDataModule:
         boundary = int(0.9 * len(data))
         self.trainData = data[:boundary]
         self.valData = data[boundary:]
-        self.logger.info(
-            "Loaded %d bytes (%d train, %d val) from %s",
-            len(data),
-            self.trainData.size(0),
-            self.valData.size(0),
-            self.trainConfig.dataPath,
-        )
+        self.logger.info("Loaded %d bytes (%d train, %d val) from %s", len(data), self.trainData.size(0), self.valData.size(0), self.trainConfig.dataPath)
 
     def getBatch(self, split: str, generator: Optional[torch.Generator] = None) -> Tuple[Tensor, Tensor]:
         if split == "train":

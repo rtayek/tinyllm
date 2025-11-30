@@ -16,11 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def setupLogging(level: int = logging.INFO) -> logging.Logger:
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-        datefmt="%H:%M:%S",
-    )
+    logging.basicConfig(level=level, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", datefmt="%H:%M:%S")
     return logging.getLogger(__name__)
 
 
