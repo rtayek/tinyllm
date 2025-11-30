@@ -31,15 +31,15 @@ class Trainer:
         assert self.modelCfg.blockSize > 0
         assert trainCfg.learningRate > 0
         assert 0 <= trainCfg.warmupFrac <= 1
-        self.lrStrategy = WarmupCosineStrategy(self.optimizer, max_steps=trainCfg.maxSteps, warmup_frac=trainCfg.warmupFrac)
-        self.earlyStopping = EarlyStopping(trainCfg.earlyStopPatience, trainCfg.earlyStopDelta)
+        self.lrStrategy: WarmupCosineStrategy = WarmupCosineStrategy(self.optimizer, max_steps=trainCfg.maxSteps, warmup_frac=trainCfg.warmupFrac)
+        self.earlyStopping: EarlyStopping = EarlyStopping(trainCfg.earlyStopPatience, trainCfg.earlyStopDelta)
         self.checkpoints = CheckpointManager(modelCfg, trainCfg, logger=self.logger)
 
         self.globalStep: int = 0
         self.bestValLoss: Optional[float] = None
         self.trainingCurve: List[Tuple[int, float, float]] = []
 
-        self.generator = torch.Generator()
+        self.generator: torch.Generator = torch.Generator()
         self.generator.manual_seed(1337)
         self.evaluator = Evaluator(self.model, self.dataModule, self.trainCfg, self.earlyStopping, self.generator, logger=self.logger)
 

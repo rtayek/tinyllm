@@ -23,7 +23,7 @@ class Checkpoint:
     modelConfig: Dict[str, Any]
     trainConfig: Dict[str, Any]
     lrStrategyState: Optional[Dict[str, Any]] = None
-    generatorState: Optional[Any] = None
+    generatorState: Optional[torch.Tensor] = None
 
     def toDict(self) -> Dict[str, Any]:
         return {
@@ -75,7 +75,7 @@ class Checkpoint:
         step: int,
         bestValLoss: Optional[float],
         lrStrategyState: Optional[Dict[str, Any]] = None,
-        generatorState: Optional[Any] = None,
+        generatorState: Optional[torch.Tensor] = None,
         version: int = CHECKPOINT_VERSION,
     ) -> "Checkpoint":
         return Checkpoint(
@@ -118,7 +118,7 @@ class CheckpointManager:
         lrStrategyState: Optional[Dict[str, Any]],
         step: int,
         bestValLoss: Optional[float],
-        generatorState: Optional[Any] = None,
+        generatorState: Optional[torch.Tensor] = None,
     ) -> None:
         checkpoint: Checkpoint = Checkpoint.fromTrainingState(
             model=model,
@@ -138,7 +138,7 @@ class CheckpointManager:
         model: TinyGpt,
         optimizer: torch.optim.Optimizer,
         lrStrategy: Optional[Any] = None,
-    ) -> Tuple[int, Optional[float], bool, int, bool, Dict[str, Dict[str, Any]], Optional[Any]]:
+    ) -> Tuple[int, Optional[float], bool, int, bool, Dict[str, Dict[str, Any]], Optional[torch.Tensor]]:
         if not os.path.exists(self.trainCkptPath):
             return 0, None, False, CHECKPOINT_VERSION, True, {}, None
 
