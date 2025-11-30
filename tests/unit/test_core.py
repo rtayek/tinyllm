@@ -50,7 +50,7 @@ def test_early_stopping_logic() -> None:
     improved, _, shouldStop, _ = stopper.check(None, 1.0)
     assert improved is True and shouldStop is False
 
-    stopper.check(1.0, 1.05)  # no improvement
+    stopper.check(1.0, 1.05)
     improved, _, shouldStop, count = stopper.check(1.0, 1.05)
     assert improved is False and count == 2 and shouldStop is True
 

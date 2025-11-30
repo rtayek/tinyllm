@@ -47,5 +47,4 @@ class WarmupCosineStrategy(LRScheduleStrategy):
 
     def align_after_resume(self, step: int) -> None:
         if step > 0:
-            # Position the scheduler so the next step() call will produce LR for this step
             self.scheduler.last_epoch = step - 1

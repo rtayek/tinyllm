@@ -16,7 +16,6 @@ from Trainer import Trainer
 
 
 def test_training_smoke(tmp_path: Path) -> None:
-    # Synthetic dataset
     dataPath = tmp_path / "input.txt"
     dataPath.write_bytes(b"hello tiny llm\n" * 200)
 

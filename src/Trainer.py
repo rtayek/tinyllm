@@ -1,5 +1,3 @@
-# Trainer.py
-
 from __future__ import annotations
 
 from typing import Optional, List, Tuple
@@ -120,7 +118,6 @@ class Trainer:
         for step in range(self.globalStep, self.trainCfg.maxSteps):
             self.globalStep = step
 
-            # ---- Evaluation ----
             if step % self.trainCfg.evalInterval == 0:
                 self.logger.info("[step %s] Running evaluation...", step)
 
@@ -142,7 +139,6 @@ class Trainer:
                         self.logger.info("[step %s] Early stopping triggered: no val improvement for %s evals.", step, evalResult.no_improve_evals)
                         break
 
-            # ---- Training step ----
             lossValue = self._trainStep()
             if not torch.isfinite(torch.tensor(lossValue)):
                 raise RuntimeError("Non-finite training loss encountered")

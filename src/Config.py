@@ -1,5 +1,3 @@
-# Config.py
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,8 +7,7 @@ import torch
 
 @dataclass(frozen=True)
 class ModelConfig:
-    # model
-    vocabSize: int = 256          # byte-level
+    vocabSize: int = 256
     blockSize: int = 128
     nEmbed: int = 256
     nHead: int = 4
@@ -26,7 +23,6 @@ class ModelConfig:
 
 @dataclass(frozen=True)
 class TrainConfig:
-    # training
     batchSize: int = 32
     learningRate: float = 5e-5
     warmupFrac: float = 0.1
@@ -34,8 +30,8 @@ class TrainConfig:
     evalInterval: int = 100
     evalIters: int = 100
     weightDecay: float = 0.02
-    earlyStopPatience: int = 2      # number of evals
-    earlyStopDelta: float = 0.003  # minimum improvement in val loss
+    earlyStopPatience: int = 2
+    earlyStopDelta: float = 0.003
     plotCurve: bool = True
     def toDict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
@@ -44,11 +40,9 @@ class TrainConfig:
     def fromDict(cls, data: Dict[str, Any]) -> "TrainConfig":
         return cls(**data)  # type: ignore[arg-type]
 
-    # paths
     ckptPath: str = "checkpoints/tiny_llm.pt"
     dataPath: str = "fixtureData/input.txt"
 
-    # hardware
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
 

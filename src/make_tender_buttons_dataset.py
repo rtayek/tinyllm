@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Download and prepare a Tender Buttons dataset for the tiny LLM.
 
@@ -18,8 +17,6 @@ import urllib.request
 
 GUTENBERG_URL = "https://www.gutenberg.org/ebooks/15396.txt.utf-8"
 
-# These marker strings appear in the Project Gutenberg file and let us
-# cut off the boilerplate. Keep them short to avoid brittle matching.
 START_MARKER = "*** START OF THE PROJECT GUTENBERG EBOOK TENDER BUTTONS ***"
 END_MARKER = "*** END OF THE PROJECT GUTENBERG EBOOK TENDER BUTTONS ***"
 
@@ -42,7 +39,6 @@ def strip_gutenberg_boilerplate(text: str) -> str:
     if start_idx == -1:
         raise RuntimeError("Could not find START_MARKER in text")
 
-    # Move to the line just after the marker
     start_idx = text.find("\n", start_idx)
     if start_idx == -1:
         raise RuntimeError("Malformed text around START_MARKER")
@@ -74,7 +70,6 @@ def normalize_whitespace(text: str) -> str:
     for ln in lines:
         if ln.strip() == "":
             blank_run += 1
-            # Keep at most 2 consecutive blank lines
             if blank_run <= 2:
                 cleaned_lines.append("")
         else:

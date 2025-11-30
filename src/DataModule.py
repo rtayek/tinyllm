@@ -1,5 +1,3 @@
-# DataModule.py
-
 from __future__ import annotations
 
 import os
@@ -47,7 +45,7 @@ class ByteDataModule:
 
         modelConfig = self.modelConfig
         trainConfig = self.trainConfig
-        min_required = modelConfig.blockSize + 2  # need at least one start index
+        min_required = modelConfig.blockSize + 2
         if len(source) < min_required:
             raise ValueError(
                 f"Dataset split '{split}' is too small for blockSize={modelConfig.blockSize}; "

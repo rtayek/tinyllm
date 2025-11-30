@@ -63,7 +63,6 @@ class Checkpoint:
         try:
             data = cast(Dict[str, Any], torch.load(path, map_location=device, weights_only=False))  # pyright: ignore[reportUnknownMemberType]
         except TypeError:
-            # Fallback for torch versions without weights_only
             data = cast(Dict[str, Any], torch.load(path, map_location=device))  # pyright: ignore[reportUnknownMemberType]
         return Checkpoint.fromDict(data)
 
@@ -188,7 +187,6 @@ class CheckpointManager:
     def loadModel(self, model: TinyGpt, modelPath: Optional[str] = None) -> None:
         path = modelPath or self.modelCkptPath
         if not os.path.exists(path):
-            # Fallback to training checkpoint if model-only not present
             if os.path.exists(self.trainCkptPath):
                 checkpoint = Checkpoint.load(self.trainCkptPath, self.trainCfg.device)
                 checkpoint.exportModel(self.modelCkptPath)

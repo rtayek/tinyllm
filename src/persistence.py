@@ -37,7 +37,6 @@ def main() -> None:
         model = TinyGpt(model_cfg)
         checkpointManager = CheckpointManager(model_cfg, train_cfg, modelCkptPath=args.model)
         checkpointManager.loadModel(model, args.model)  # pyright: ignore[reportUnknownMemberType]
-        # Save the loaded state_dict to the provided output path
         import torch
 
         torch.save(model.state_dict(), args.out)  # pyright: ignore[reportUnknownMemberType]

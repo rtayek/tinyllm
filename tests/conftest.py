@@ -1,10 +1,9 @@
 import sys
 from pathlib import Path
 
-# Ensure project root (tiny/), src/, and parent are on sys.path for imports
-ROOT = Path(__file__).resolve().parent.parent  # .../agents/tiny
+ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
-PARENT = ROOT.parent  # .../agents
+PARENT = ROOT.parent
 for candidate in (SRC, ROOT, PARENT):
     path_str = str(candidate)
     if path_str not in sys.path:
