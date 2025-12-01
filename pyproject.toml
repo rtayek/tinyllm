@@ -21,6 +21,10 @@ dev = [
   "pyright>=1.1.0",
 ]
 
+[project.scripts]
+tinyllm-train = "llm.Main:main"
+tinyllm-infer = "llm.infer:main"
+
 [tool.setuptools]
 package-dir = { "" = "src" }
 

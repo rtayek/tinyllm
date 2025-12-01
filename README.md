@@ -18,14 +18,14 @@ This writes `data/input.txt`; point the config to your desired file.
 
 ## Train
 ```sh
-python src/Main.py
+tinyllm-train
 ```
 Checkpoints are written under `checkpoints/`. Plots go to `plots/` (no blocking GUI).
 
 ## Infer
 After training (or with a saved checkpoint):
 ```sh
-python src/infer.py
+tinyllm-infer
 ```
 This loads the latest checkpoint and prints generated text.
 
