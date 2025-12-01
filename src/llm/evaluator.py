@@ -58,7 +58,7 @@ class Evaluator:
                 loss_list: List[float] = []
                 for _ in range(self.trainConfig.evalIters):
                     batchX, batchY = self.dataModule.getBatch(split, self.generator)
-                    _, loss = self.model(batchX, batchY)
+                    _, loss, _ = self.model(batchX, batchY)
                     if loss is None:
                         raise RuntimeError("Loss is None in estimateLoss")
                     loss_list.append(float(loss.item()))

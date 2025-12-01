@@ -45,7 +45,7 @@ class Trainer:
 
     def _trainStep(self) -> float:
         batchX, batchY = self.dataModule.getBatch("train", self.generator)
-        _, loss = self.model(batchX, batchY)
+        _, loss, _ = self.model(batchX, batchY)
 
         if loss is None:
             raise RuntimeError("Loss is None during training")

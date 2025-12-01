@@ -29,7 +29,7 @@ def test_model_forward_shapes() -> None:
     model = TinyGpt(modelConfig)
     indices = torch.randint(0, modelConfig.vocabSize, (2, modelConfig.blockSize))
 
-    logits, loss = model(indices, indices)
+    logits, loss, _ = model(indices, indices)
 
     assert logits.shape == (2, modelConfig.blockSize, modelConfig.vocabSize)
     assert loss is not None

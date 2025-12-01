@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import Any, Dict
 import math
 import torch
 
@@ -34,16 +34,23 @@ class WarmupCosineStrategy(LRScheduleStrategy):
             )
             return 0.5 * (1.0 + math.cos(math.pi * progress))
 
-        self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lr_lambda)
+        # Use positional arg to satisfy type checkers; LambdaLR supports callable scheduler.
+        self.scheduler: Any = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda)
 
     def step(self) -> None:
         self.scheduler.step()
 
     def state_dict(self) -> Dict[str, float]:
-        return self.scheduler.state_dict()
+        last = getattr(self.scheduler, "last_epoch", -1)
+        return {"last_epoch": int(last)}
 
     def load_state_dict(self, state: Dict[str, float]) -> None:
-        self.scheduler.load_state_dict(state)
+        last = state.get("last_epoch")
+        if last is not None:
+            self.scheduler.last_epoch = int(last)
+            # keep internal step counters aligned to avoid skipping a step
+            if hasattr(self.scheduler, "_step_count"):
+                self.scheduler._step_count = int(last) + 1
 
     def align_after_resume(self, step: int) -> None:
         if step > 0:
