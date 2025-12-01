@@ -192,11 +192,14 @@ class CheckpointManager:
                 checkpoint.exportModel(self.modelCkptPath)
                 path = self.modelCkptPath
             else:
-                raise FileNotFoundError(path)
+                raise FileNotFoundError(
+                    f"Model checkpoint not found at {path} and no training checkpoint at {self.trainCkptPath}"
+                )
 
         state = torch.load(  # pyright: ignore[reportUnknownMemberType]
             path,
             map_location=self.trainCfg.device,
+            weights_only=True,
         )
         model_state: Dict[str, Any]
         if isinstance(state, dict) and "modelState" in state:
