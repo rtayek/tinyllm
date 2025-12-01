@@ -7,7 +7,7 @@ import torch
 
 from .Config import ModelConfig, TrainConfig
 from .Model import TinyGpt
-from .DataModule import ByteDataModule
+from .DataModule import SequenceDataModule
 from .Checkpoint import CheckpointManager, CHECKPOINT_VERSION
 from .LRScheduleStrategy import WarmupCosineStrategy
 from .EarlyStopping import EarlyStopping
@@ -16,7 +16,7 @@ from .evaluator import Evaluator, EvalResult
 
 class Trainer:
     def __init__(
-        self, modelCfg: ModelConfig, trainCfg: TrainConfig, model: TinyGpt, dataModule: ByteDataModule, logger: Optional[logging.Logger] = None
+        self, modelCfg: ModelConfig, trainCfg: TrainConfig, model: TinyGpt, dataModule: SequenceDataModule, logger: Optional[logging.Logger] = None
     ) -> None:
         self.modelCfg = modelCfg
         self.trainCfg = trainCfg
@@ -162,7 +162,7 @@ class Trainer:
             return
 
         try:
-            from plot_utils import plot_training_curve
+            from .plot_utils import plot_training_curve
 
             filepath, config_dump_path = plot_training_curve(self.trainingCurve, self.modelCfg, self.trainCfg)
             self.logger.info("[plot] Saved plot to %s", filepath)
@@ -171,7 +171,7 @@ class Trainer:
             self.logger.info("Could not plot training curve: %s", e)
 
     def printSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
-        from TextGenerator import TextGenerator
+        from .TextGenerator import TextGenerator
 
         generator = TextGenerator(self.model, self.trainCfg.device, self.logger)
         generator.log_sample(maxNewTokens=maxNewTokens, prompt=prompt)

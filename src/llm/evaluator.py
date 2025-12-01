@@ -8,7 +8,7 @@ import torch
 
 from .Config import TrainConfig
 from .Model import TinyGpt
-from .DataModule import ByteDataModule
+from .DataModule import SequenceDataModule
 from .EarlyStopping import EarlyStopping
 
 
@@ -40,7 +40,7 @@ class EvalResult:
 
 class Evaluator:
     def __init__(
-        self, model: TinyGpt, data_module: ByteDataModule, trainConfig: TrainConfig, early_stopping: EarlyStopping, generator: Optional[torch.Generator] = None, logger: Optional[logging.Logger] = None
+        self, model: TinyGpt, data_module: SequenceDataModule, trainConfig: TrainConfig, early_stopping: EarlyStopping, generator: Optional[torch.Generator] = None, logger: Optional[logging.Logger] = None
     ) -> None:
         self.model = model
         self.dataModule = data_module

@@ -1,78 +1,133 @@
 from __future__ import annotations
 
-import os
-from typing import Tuple, List, Optional
+from typing import Sequence
 import logging
-
 import torch
-from torch import Tensor
 
 from .Config import ModelConfig, TrainConfig
 from .tensor_utils import tensor_to_int_list
 
 
-class ByteDataModule:
-    def __init__(self, modelConfig: ModelConfig, trainConfig: TrainConfig, logger: Optional[logging.Logger] = None) -> None:
+class Utf8ByteTokenizer:
+    """Minimal tokenizer that maps UTF-8 bytes to token IDs."""
+
+    vocabSize: int = 256
+
+    def encode(self, text: str) -> list[int]:
+        return [int(b) for b in text.encode("utf-8")]
+
+    def decode(self, ids: Sequence[int]) -> str:
+        return bytes(int(i) for i in ids).decode("utf-8", errors="ignore")
+
+class SequenceDataModule:
+    def __init__(
+        self,
+        modelConfig: ModelConfig,
+        trainConfig: TrainConfig,
+        sequence: torch.Tensor,
+        logger: logging.Logger | None = None,
+    ) -> None:
         self.modelConfig = modelConfig
         self.trainConfig = trainConfig
         self.logger = logger or logging.getLogger(__name__)
-        self.trainData: Tensor
-        self.valData: Tensor
 
-        self.loadAndSplit()
+        splitIndex = int(0.9 * sequence.size(0))
+        self.trainSequence = sequence[:splitIndex]
+        self.valSequence = sequence[splitIndex:]
 
-    def loadAndSplit(self) -> None:
-        self.logger.info("Loading dataset from %s", self.trainConfig.dataPath)
-        if not os.path.exists(self.trainConfig.dataPath):
-            raise FileNotFoundError(self.trainConfig.dataPath)
+        self.logger.info(
+            "Loaded sequence dataset: total=%d, train=%d, val=%d",
+            sequence.size(0),
+            self.trainSequence.size(0),
+            self.valSequence.size(0),
+        )
 
-        with open(self.trainConfig.dataPath, "rb") as f:
-            dataBytes = f.read()
-
-        data = torch.tensor(list(dataBytes), dtype=torch.long)
-        boundary = int(0.9 * len(data))
-        self.trainData = data[:boundary]
-        self.valData = data[boundary:]
-        self.logger.info("Loaded %d bytes (%d train, %d val) from %s", len(data), self.trainData.size(0), self.valData.size(0), self.trainConfig.dataPath)
-
-    def getBatch(self, split: str, generator: Optional[torch.Generator] = None) -> Tuple[Tensor, Tensor]:
+    def _getSource(self, split: str) -> torch.Tensor:
         if split == "train":
-            source = self.trainData
-        elif split == "val":
-            source = self.valData
-        else:
-            raise ValueError(f"Unknown split: {split}")
+            return self.trainSequence
+        if split == "val":
+            return self.valSequence
+        raise ValueError(f"Unknown split: {split}")
 
+    def getBatch(
+        self,
+        split: str,
+        generator: torch.Generator | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         modelConfig = self.modelConfig
         trainConfig = self.trainConfig
-        min_required = modelConfig.blockSize + 2
-        if len(source) < min_required:
+        source = self._getSource(split)
+
+        minRequired = modelConfig.blockSize + 1
+        if source.size(0) < minRequired:
             raise ValueError(
-                f"Dataset split '{split}' is too small for blockSize={modelConfig.blockSize}; "
-                f"need at least {min_required} bytes, got {len(source)}."
+                f"Dataset split '{split}' too small for blockSize {modelConfig.blockSize}"
             )
 
         if generator is None:
             generator = torch.Generator()
             generator.manual_seed(1337)
 
+        high = source.size(0) - modelConfig.blockSize - 1
         indices = torch.randint(
             low=0,
-            high=len(source) - modelConfig.blockSize - 1,
+            high=high,
             size=(trainConfig.batchSize,),
             generator=generator,
         )
 
-        xList: List[Tensor] = []
-        yList: List[Tensor] = []
+        xList: list[torch.Tensor] = []
+        yList: list[torch.Tensor] = []
 
-        startIndices: List[int] = tensor_to_int_list(indices)
-        for startIndex in startIndices:
-            xList.append(source[startIndex : startIndex + modelConfig.blockSize])
-            yList.append(source[startIndex + 1 : startIndex + 1 + modelConfig.blockSize])
+        start_indices = tensor_to_int_list(indices)
+        for start in start_indices:
+            xList.append(
+                source[start : start + modelConfig.blockSize]
+            )
+            yList.append(
+                source[start + 1 : start + 1 + modelConfig.blockSize]
+            )
 
         batchX = torch.stack(xList).to(trainConfig.device)
         batchY = torch.stack(yList).to(trainConfig.device)
-        assert batchX.shape == (trainConfig.batchSize, modelConfig.blockSize)
-        assert batchY.shape == (trainConfig.batchSize, modelConfig.blockSize)
         return batchX, batchY
+
+
+class ByteDataModule(SequenceDataModule):
+    def __init__(
+        self,
+        modelConfig: ModelConfig,
+        trainConfig: TrainConfig,
+        logger: logging.Logger | None = None,
+    ) -> None:
+        with open(trainConfig.dataPath, "rb") as f:
+            data = f.read()
+        sequence = torch.tensor(list(data), dtype=torch.long)
+        super().__init__(modelConfig, trainConfig, sequence, logger)
+
+
+class TokenDataModule(SequenceDataModule):
+    def __init__(
+        self,
+        modelConfig: ModelConfig,
+        trainConfig: TrainConfig,
+        tokenizer: Utf8ByteTokenizer,
+        logger: logging.Logger | None = None,
+    ) -> None:
+        with open(trainConfig.dataPath, "r", encoding="utf-8") as f:
+            text = f.read()
+
+        ids = list(tokenizer.encode(text))
+        if not ids:
+            raise ValueError("Tokenized dataset is empty")
+
+        maxId = max(ids)
+        if maxId >= modelConfig.vocabSize:
+            raise ValueError(
+                f"Token id {maxId} exceeds vocabSize={modelConfig.vocabSize}"
+            )
+
+        sequence = torch.tensor(ids, dtype=torch.long)
+        super().__init__(modelConfig, trainConfig, sequence, logger)
+
+        self.tokenizer: Utf8ByteTokenizer = tokenizer

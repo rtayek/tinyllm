@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
+export PYTHONPATH=src
 rm -f plots/*
 rm -f checkpoints/*
-python src/Main.py
+python -m llm.Main

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
-import torch
-
 from typing import Callable
 
+import torch
+
 from llm.Config import RunConfig
-from llm.DataModule import ByteDataModule
+from llm.DataModule import TokenDataModule, Utf8ByteTokenizer
 from llm.Model import TinyGpt
 from llm.Trainer import Trainer
 from llm.TextGenerator import TextGenerator
@@ -34,8 +34,9 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
 
     activeLogger = log or logger
 
-    activeLogger.info("Loading data module...")
-    dataModule = ByteDataModule(modelConfig, train_cfg, logger=activeLogger)
+    activeLogger.info("Loading data module (tokenized UTF-8 bytes)...")
+    tokenizer = Utf8ByteTokenizer()
+    dataModule = TokenDataModule(modelConfig, train_cfg, tokenizer=tokenizer, logger=activeLogger)
 
     activeLogger.info("Building model...")
     model = TinyGpt(modelConfig).to(train_cfg.device)
