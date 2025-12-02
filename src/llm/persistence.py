@@ -26,8 +26,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     run_cfg = RunConfig()
-    model_cfg = run_cfg.model
-    train_cfg = run_cfg.train
+    model_cfg = run_cfg.modelConfig
+    train_cfg = run_cfg.trainConfig
 
     if args.command == "export-model":
         checkpointManager = CheckpointManager(model_cfg, train_cfg, trainCkptPath=args.ckpt or None)

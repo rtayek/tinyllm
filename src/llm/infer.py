@@ -10,8 +10,8 @@ from llm.TextGenerator import TextGenerator
 
 def main() -> None:
     run_cfg = RunConfig()
-    model_cfg = run_cfg.model
-    train_cfg = run_cfg.train
+    model_cfg = run_cfg.modelConfig
+    train_cfg = run_cfg.trainConfig
     device = train_cfg.device
 
     model = TinyGpt(model_cfg).to(device)

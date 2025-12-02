@@ -33,6 +33,7 @@ class TrainConfig:
     earlyStopPatience: int = 2
     earlyStopDelta: float = 0.003
     plotCurve: bool = True
+    dataModule: str = "token"
     def toDict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
 
@@ -48,10 +49,10 @@ class TrainConfig:
 
 @dataclass(frozen=True)
 class RunConfig:
-    model: ModelConfig = ModelConfig()
-    train: TrainConfig = TrainConfig()
+    modelConfig: ModelConfig = ModelConfig()
+    trainConfig: TrainConfig = TrainConfig()
     def toDict(self) -> Dict[str, Any]:
-        return {"model": self.model.toDict(), "train": self.train.toDict()}
+        return {"model": self.modelConfig.toDict(), "train": self.trainConfig.toDict()}
 
     @classmethod
     def fromDict(cls, data: Dict[str, Any]) -> "RunConfig":
@@ -59,4 +60,4 @@ class RunConfig:
         trainData = data.get("train", {})
         modelConfig = ModelConfig.fromDict(cast(Dict[str, Any], modelData)) if isinstance(modelData, dict) else ModelConfig()
         trainConfig = TrainConfig.fromDict(cast(Dict[str, Any], trainData)) if isinstance(trainData, dict) else TrainConfig()
-        return cls(model=modelConfig, train=trainConfig)
+        return cls(modelConfig=modelConfig, trainConfig=trainConfig)
