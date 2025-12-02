@@ -162,6 +162,7 @@ class TinyGpt(nn.Module):
         return logits, loss, present_key_values if use_cache else None
 
     def generate(self, indices: Tensor, maxNewTokens: int) -> Tensor:
+        was_training = self.training
         self.eval()
         with torch.no_grad():
             past_key_values: Optional[List[Tuple[Tensor, Tensor]]] = None
@@ -172,5 +173,6 @@ class TinyGpt(nn.Module):
                 probs = F.softmax(logitsLast, dim=-1)
                 nextToken = torch.multinomial(probs, num_samples=1)
                 indices = torch.cat((indices, nextToken), dim=1)
-        self.train()
+        if was_training:
+            self.train()
         return indices

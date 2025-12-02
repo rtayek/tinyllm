@@ -50,6 +50,7 @@ class Evaluator:
         self.logger = logger or logging.getLogger(__name__)
 
     def estimate_loss(self) -> Dict[str, float]:
+        was_training = self.model.training
         self.model.eval()
         losses: Dict[str, float] = {}
 
@@ -64,7 +65,8 @@ class Evaluator:
                     loss_list.append(float(loss.item()))
                 losses[split] = sum(loss_list) / float(len(loss_list))
 
-        self.model.train()
+        if was_training:
+            self.model.train()
         return losses
 
     def evaluate(self, step: int, best_val_loss: Optional[float]) -> EvalResult:

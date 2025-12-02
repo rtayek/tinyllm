@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import logging
+from dataclasses import replace
 from typing import Callable
 
 import torch
@@ -59,9 +61,25 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
 
 
 def main(log_level: int = logging.INFO) -> None:
-    activeLogger = setupLogging(level=log_level)
+    parser = argparse.ArgumentParser(description="Train the tiny LLM")
+    parser.add_argument("--corpus", type=str, default=None, help="Path to training corpus (overrides TrainConfig.dataPath)")
+    parser.add_argument("--plot", action="store_true", help="Enable plotting the training curve")
+    parser.add_argument("--log-level", type=str, default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR)")
+    args = parser.parse_args()
+
+    level = getattr(logging, args.log_level.upper(), log_level)
+    activeLogger = setupLogging(level=level)
+
+    runConfig = RunConfig()
+    train_cfg = runConfig.trainConfig
+    if args.corpus:
+        train_cfg = replace(train_cfg, dataPath=args.corpus)
+    if args.plot:
+        train_cfg = replace(train_cfg, plotCurve=True)
+    runConfig = RunConfig(modelConfig=runConfig.modelConfig, trainConfig=train_cfg)
+
     activeLogger.info("Building trainer...")
-    trainer = buildTrainer(log=activeLogger)
+    trainer = buildTrainer(runConfig, log=activeLogger)
 
     activeLogger.info("Loading checkpoint (if any)...")
     trainer.loadCheckpointIfExists()
