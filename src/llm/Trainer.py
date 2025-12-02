@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-from typing import Optional, List, Tuple
+from typing import Any, Optional, List, Tuple, cast
 import logging
 
 import torch
 
-from .Config import ModelConfig, TrainConfig
-from .Model import TinyGpt
-from .DataModule import SequenceDataModule
-from .Checkpoint import CheckpointManager, CHECKPOINT_VERSION
-from .LRScheduleStrategy import WarmupCosineStrategy
-from .EarlyStopping import EarlyStopping
-from .evaluator import Evaluator, EvalResult
+from llm.Config import ModelConfig, TrainConfig
+from llm.Model import TinyGpt
+from llm.DataModule import SequenceDataModule
+from llm.Checkpoint import CheckpointManager, CHECKPOINT_VERSION
+from llm.LRScheduleStrategy import WarmupCosineStrategy
+from llm.EarlyStopping import EarlyStopping
+
+Evaluator = Any
+EvalResult = Any
 
 
 class Trainer:
@@ -41,7 +43,12 @@ class Trainer:
 
         self.generator: torch.Generator = torch.Generator()
         self.generator.manual_seed(1337)
-        self.evaluator = Evaluator(self.model, self.dataModule, self.trainCfg, self.earlyStopping, self.generator, logger=self.logger)
+        import importlib
+
+        evaluator_module: Any = importlib.import_module("llm.Evaluator")
+        self.evaluator = evaluator_module.Evaluator(
+            self.model, self.dataModule, self.trainCfg, self.earlyStopping, self.generator, logger=self.logger  # pyright: ignore[reportUnknownArgumentType]
+        )
 
     def _trainStep(self) -> float:
         batchX, batchY = self.dataModule.getBatch("train", self.generator)
@@ -71,7 +78,7 @@ class Trainer:
         )
         self.logger.info("[step %s] Checkpoint saved (improved validation loss).", step)
 
-    def _log_eval(self, step: int, evalResult: EvalResult) -> None:
+    def _log_eval(self, step: int, evalResult: Any) -> None:
         self.logger.info("[step %s] train loss %.4f, val loss %.4f", step, evalResult.train_loss, evalResult.val_loss)
 
         if evalResult.frac_improvement is not None:
@@ -121,21 +128,23 @@ class Trainer:
             if step % self.trainCfg.evalInterval == 0:
                 self.logger.info("[step %s] Running evaluation...", step)
 
-                evalResult = self.evaluator.evaluate(step, self.bestValLoss)
-                if not torch.isfinite(torch.tensor(evalResult.train_loss)) or not torch.isfinite(
-                    torch.tensor(evalResult.val_loss)
+                evalResult: Any = self.evaluator.evaluate(step, self.bestValLoss)
+                train_loss = float(cast(float, evalResult.train_loss))
+                val_loss = float(cast(float, evalResult.val_loss))
+                if not torch.isfinite(torch.tensor(train_loss)) or not torch.isfinite(
+                    torch.tensor(val_loss)
                 ):
                     raise RuntimeError("Non-finite evaluation loss encountered")
-                self.trainingCurve.append((step, evalResult.train_loss, evalResult.val_loss))
+                self.trainingCurve.append((step, train_loss, val_loss))
                 self._log_eval(step, evalResult)
 
-                if evalResult.improved:
-                    self.bestValLoss = evalResult.val_loss
+                if bool(evalResult.improved):
+                    self.bestValLoss = val_loss
                     self._saveCheckpoint(step)
                 else:
                     self.logger.info("[step %s] No val improvement for %s evals.", step, evalResult.no_improve_evals)
 
-                    if evalResult.should_stop:
+                    if bool(evalResult.should_stop):
                         self.logger.info("[step %s] Early stopping triggered: no val improvement for %s evals.", step, evalResult.no_improve_evals)
                         break
 
