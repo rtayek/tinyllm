@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, Any, cast
-import torch
 
 
 @dataclass(frozen=True)
@@ -44,7 +43,8 @@ class TrainConfig:
     ckptPath: str = "checkpoints/tiny_llm.pt"
     dataPath: str = "fixtureData/input.txt"
 
-    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    device: str = "cuda"  # desired/default device; actual availability is checked at runtime
+
 
 
 @dataclass(frozen=True)

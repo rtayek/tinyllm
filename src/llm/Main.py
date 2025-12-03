@@ -51,6 +51,12 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
 
     activeLogger = log or logger
 
+    # 🔍 Reconcile desired device vs actual availability
+    if trainConfig.device == "cuda" and not torch.cuda.is_available():
+        activeLogger.warning("CUDA requested in TrainConfig, but not available; falling back to cpu")
+        trainConfig = replace(trainConfig, device="cpu")
+        runConfig = RunConfig(modelConfig=modelConfig, trainConfig=trainConfig)
+
     dataModule = build_data_module(modelConfig, trainConfig, activeLogger)
 
     activeLogger.info("Building model...")
