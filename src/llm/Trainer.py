@@ -11,31 +11,30 @@ from llm.DataModule import SequenceDataModule
 from llm.Checkpoint import CheckpointManager, CHECKPOINT_VERSION
 from llm.LRScheduleStrategy import WarmupCosineStrategy
 from llm.EarlyStopping import EarlyStopping
-
-Evaluator = Any
-EvalResult = Any
+from llm.Evaluator import Evaluator # Import EvalResult and Evaluator directly
 
 
 class Trainer:
     def __init__(
-        self, modelCfg: ModelConfig, trainCfg: TrainConfig, model: TinyGpt, dataModule: SequenceDataModule, logger: Optional[logging.Logger] = None
+        self, modelConfig: ModelConfig, trainConfig: TrainConfig, model: TinyGpt, dataModule: SequenceDataModule, logger: Optional[logging.Logger] = None, evaluator: Optional[Evaluator] = None
     ) -> None:
-        self.modelCfg = modelCfg
-        self.trainCfg = trainCfg
+        self.modelConfig = modelConfig
+        self.trainConfig = trainConfig
         self.model = model
         self.dataModule = dataModule
         self.logger = logger or logging.getLogger(__name__)
+        self.evaluator = evaluator
 
-        self.logger.info("MODEL CONFIG: %s", modelCfg)
-        self.logger.info("TRAIN CONFIG: %s", trainCfg)
-        self.optimizer: torch.optim.Optimizer = torch.optim.AdamW(model.parameters(), lr=trainCfg.learningRate, weight_decay=trainCfg.weightDecay)
-        assert trainCfg.batchSize > 0
-        assert self.modelCfg.blockSize > 0
-        assert trainCfg.learningRate > 0
-        assert 0 <= trainCfg.warmupFrac <= 1
-        self.lrStrategy: WarmupCosineStrategy = WarmupCosineStrategy(self.optimizer, max_steps=trainCfg.maxSteps, warmup_frac=trainCfg.warmupFrac)
-        self.earlyStopping: EarlyStopping = EarlyStopping(trainCfg.earlyStopPatience, trainCfg.earlyStopDelta)
-        self.checkpoints = CheckpointManager(modelCfg, trainCfg, logger=self.logger)
+        self.logger.info("MODEL CONFIG: %s", self.modelConfig)
+        self.logger.info("TRAIN CONFIG: %s", self.trainConfig)
+        self.optimizer: torch.optim.Optimizer = torch.optim.AdamW(model.parameters(), lr=self.trainConfig.learningRate, weight_decay=self.trainConfig.weightDecay)
+        assert self.trainConfig.batchSize > 0
+        assert self.modelConfig.blockSize > 0
+        assert self.trainConfig.learningRate > 0
+        assert 0 <= self.trainConfig.warmupFrac <= 1
+        self.lrStrategy: WarmupCosineStrategy = WarmupCosineStrategy(self.optimizer, max_steps=self.trainConfig.maxSteps, warmup_frac=self.trainConfig.warmupFrac)
+        self.earlyStopping: EarlyStopping = EarlyStopping(self.trainConfig.earlyStopPatience, self.trainConfig.earlyStopDelta)
+        self.checkpoints = CheckpointManager(self.modelConfig, self.trainConfig, logger=self.logger)
 
         self.globalStep: int = 0
         self.bestValLoss: Optional[float] = None
@@ -43,12 +42,7 @@ class Trainer:
 
         self.generator: torch.Generator = torch.Generator()
         self.generator.manual_seed(1337)
-        import importlib
 
-        evaluator_module: Any = importlib.import_module("llm.Evaluator")
-        self.evaluator = evaluator_module.Evaluator(
-            self.model, self.dataModule, self.trainCfg, self.earlyStopping, self.generator, logger=self.logger  # pyright: ignore[reportUnknownArgumentType]
-        )
 
     def _trainStep(self) -> float:
         batchX, batchY = self.dataModule.getBatch("train", self.generator)
@@ -82,7 +76,7 @@ class Trainer:
         self.logger.info("[step %s] train loss %.4f, val loss %.4f", step, evalResult.train_loss, evalResult.val_loss)
 
         if evalResult.frac_improvement is not None:
-            self.logger.info("[step %s] fractional improvement: %.4f (need > %.4f)", step, evalResult.frac_improvement, self.trainCfg.earlyStopDelta)
+            self.logger.info("[step %s] fractional improvement: %.4f (need > %.4f)", step, evalResult.frac_improvement, self.trainConfig.earlyStopDelta)
 
     def loadCheckpointIfExists(self) -> None:
         (
@@ -119,15 +113,17 @@ class Trainer:
         self.earlyStopping.reset()
 
     def train(self) -> None:
-        self.logger.info("Using device: %s", self.trainCfg.device)
+        self.logger.info("Using device: %s", self.trainConfig.device)
         self.logger.info("Starting training loop...")
 
-        for step in range(self.globalStep, self.trainCfg.maxSteps):
+        for step in range(self.globalStep, self.trainConfig.maxSteps):
             self.globalStep = step
 
-            if step % self.trainCfg.evalInterval == 0:
+            if step % self.trainConfig.evalInterval == 0:
                 self.logger.info("[step %s] Running evaluation...", step)
 
+                if self.evaluator is None:
+                    raise RuntimeError("Evaluator is not set.")
                 evalResult: Any = self.evaluator.evaluate(step, self.bestValLoss)
                 train_loss = float(cast(float, evalResult.train_loss))
                 val_loss = float(cast(float, evalResult.val_loss))
@@ -163,7 +159,7 @@ class Trainer:
             self.logger.info("  %6d: %.4f, %.4f", step, tr, va)
 
     def plotTrainingCurve(self) -> None:
-        if not self.trainCfg.plotCurve:
+        if not self.trainConfig.plotCurve:
             self.logger.info("Plotting disabled by config.")
             return
         if not self.trainingCurve:
@@ -173,7 +169,7 @@ class Trainer:
         try:
             from .plot_utils import plot_training_curve
 
-            filepath, config_dump_path = plot_training_curve(self.trainingCurve, self.modelCfg, self.trainCfg)
+            filepath, config_dump_path = plot_training_curve(self.trainingCurve, self.modelConfig, self.trainConfig)
             self.logger.info("[plot] Saved plot to %s", filepath)
             self.logger.info("[plot] Saved config to %s", config_dump_path)
         except Exception as e:
@@ -182,5 +178,5 @@ class Trainer:
     def printSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
         from .TextGenerator import TextGenerator
 
-        generator = TextGenerator(self.model, self.trainCfg.device, self.logger)
+        generator = TextGenerator(self.model, self.trainConfig.device, self.logger)
         generator.log_sample(maxNewTokens=maxNewTokens, prompt=prompt)

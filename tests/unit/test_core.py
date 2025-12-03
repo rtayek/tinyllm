@@ -1,6 +1,7 @@
 from pathlib import Path
 import torch
 from unittest.mock import MagicMock
+import logging
 
 from llm.Config import ModelConfig, TrainConfig
 from llm.DataModule import ByteDataModule, SequenceDataModule
@@ -130,11 +131,19 @@ def test_evaluator_estimate_loss_restores_training_state() -> None:
     model.train()
     assert model.training is True
 
+    # Mock logger
+    mock_logger = MagicMock(spec=logging.Logger)
+    # Create a generator
+    generator = torch.Generator()
+    generator.manual_seed(1337)
+
     evaluator = Evaluator(
         model=model,
         data_module=mock_data_module,
         trainConfig=trainConfig,
         early_stopping=mock_early_stopping,
+        generator=generator,
+        logger=mock_logger,
     )
 
     # Estimate loss

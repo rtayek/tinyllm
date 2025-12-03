@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import argparse
 import logging
 from dataclasses import replace
@@ -12,7 +10,8 @@ from llm.DataModule import TokenDataModule, Utf8ByteTokenizer, ByteDataModule, S
 from llm.Model import TinyGpt
 from llm.Trainer import Trainer
 from llm.TextGenerator import TextGenerator
-
+from llm.Evaluator import Evaluator
+from llm.EarlyStopping import EarlyStopping
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +26,11 @@ def manual_seed(seed: int) -> torch.Generator:
     return seed_fn(seed)
 
 
-def build_data_module(modelConfig: ModelConfig, train_cfg: TrainConfig, activeLogger: logging.Logger) -> SequenceDataModule:
-    mode = getattr(train_cfg, "dataModule", "token").lower()
+def build_data_module(modelConfig: ModelConfig, trainConfig: TrainConfig, activeLogger: logging.Logger) -> SequenceDataModule:
+    mode = getattr(trainConfig, "dataModule", "token").lower()
     if mode in ("byte", "bytes"):
         activeLogger.info("Loading data module: raw bytes")
-        return ByteDataModule(modelConfig, train_cfg, logger=activeLogger)
+        return ByteDataModule(modelConfig, trainConfig, logger=activeLogger)
 
     if mode != "token":
         raise ValueError(f"Unknown dataModule '{mode}'; expected 'token' or 'byte'")
@@ -40,7 +39,7 @@ def build_data_module(modelConfig: ModelConfig, train_cfg: TrainConfig, activeLo
     tokenizer = Utf8ByteTokenizer()
     if modelConfig.vocabSize != tokenizer.vocabSize:
         activeLogger.warning("modelConfig.vocabSize (%s) differs from tokenizer vocabSize (%s)", modelConfig.vocabSize, tokenizer.vocabSize)
-    return TokenDataModule(modelConfig, train_cfg, tokenizer=tokenizer, logger=activeLogger)
+    return TokenDataModule(modelConfig, trainConfig, tokenizer=tokenizer, logger=activeLogger)
 
 
 def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None = None) -> Trainer:
@@ -48,16 +47,20 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
 
     runConfig = runConfig or RunConfig()
     modelConfig = runConfig.modelConfig
-    train_cfg = runConfig.trainConfig
+    trainConfig = runConfig.trainConfig
 
     activeLogger = log or logger
 
-    dataModule = build_data_module(modelConfig, train_cfg, activeLogger)
+    dataModule = build_data_module(modelConfig, trainConfig, activeLogger)
 
     activeLogger.info("Building model...")
-    model = TinyGpt(modelConfig).to(train_cfg.device)
+    model = TinyGpt(modelConfig).to(trainConfig.device)
 
-    return Trainer(modelConfig, train_cfg, model, dataModule, logger=activeLogger)
+    # Instantiate EarlyStopping and Evaluator
+    earlyStopping = EarlyStopping(trainConfig.earlyStopPatience, trainConfig.earlyStopDelta)
+    evaluator = Evaluator(model, dataModule, trainConfig, earlyStopping, logger=activeLogger)
+
+    return Trainer(modelConfig, trainConfig, model, dataModule, logger=activeLogger, evaluator=evaluator)
 
 
 def main(log_level: int = logging.INFO) -> None:
@@ -71,12 +74,12 @@ def main(log_level: int = logging.INFO) -> None:
     activeLogger = setupLogging(level=level)
 
     runConfig = RunConfig()
-    train_cfg = runConfig.trainConfig
+    trainConfig = runConfig.trainConfig
     if args.corpus:
-        train_cfg = replace(train_cfg, dataPath=args.corpus)
+        trainConfig = replace(trainConfig, dataPath=args.corpus)
     if args.plot:
-        train_cfg = replace(train_cfg, plotCurve=True)
-    runConfig = RunConfig(modelConfig=runConfig.modelConfig, trainConfig=train_cfg)
+        trainConfig = replace(trainConfig, plotCurve=True)
+    runConfig = RunConfig(modelConfig=runConfig.modelConfig, trainConfig=trainConfig)
 
     activeLogger.info("Building trainer...")
     trainer = buildTrainer(runConfig, log=activeLogger)
@@ -87,7 +90,7 @@ def main(log_level: int = logging.INFO) -> None:
     trainer.train()
     trainer.plotTrainingCurve()
 
-    textGenerator = TextGenerator(trainer.model, trainer.trainCfg.device, activeLogger)
+    textGenerator = TextGenerator(trainer.model, trainer.trainConfig.device, activeLogger)
     textGenerator.log_sample(maxNewTokens=200, prompt="")
 
 

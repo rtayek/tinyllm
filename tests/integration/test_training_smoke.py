@@ -1,10 +1,13 @@
 from pathlib import Path
 import torch
+import logging
 
 from llm.Config import ModelConfig, TrainConfig
 from llm.DataModule import ByteDataModule
 from llm.Model import TinyGpt
 from llm.Trainer import Trainer
+from llm.Evaluator import Evaluator
+from llm.EarlyStopping import EarlyStopping
 
 
 def test_training_smoke(tmp_path: Path) -> None:
@@ -38,7 +41,17 @@ def test_training_smoke(tmp_path: Path) -> None:
     torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
     dataModule = ByteDataModule(modelConfig, trainConfig)
     model = TinyGpt(modelConfig).to(trainConfig.device)
-    trainer = Trainer(modelConfig, trainConfig, model, dataModule)
+
+    mock_logger = logging.getLogger("test_logger")
+    mock_early_stopping = EarlyStopping(patience=1, delta=0.0)
+    evaluator = Evaluator(
+        model=model,
+        data_module=dataModule,
+        trainConfig=trainConfig,
+        early_stopping=mock_early_stopping,
+        logger=mock_logger,
+    )
+    trainer = Trainer(modelConfig, trainConfig, model, dataModule, evaluator=evaluator, logger=mock_logger)
 
     trainer.loadCheckpointIfExists()
     trainer.train()
