@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import math
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
+from .Config import ModelConfig
 
-class MultiHeadSelfAttention(nn.Module):
+
+class CausalSelfAttention(nn.Module):
     def __init__(self, nEmbed: int, nHead: int, dropout: float, blockSize: int) -> None:
         super().__init__()  # pyright: ignore[reportUnknownMemberType]
         if nEmbed % nHead != 0:
@@ -68,10 +70,10 @@ class MultiHeadSelfAttention(nn.Module):
         return out, (k, v)
 
 
-class Block(nn.Module):
+class DecoderBlock(nn.Module):
     def __init__(self, nEmbed: int, nHead: int, dropout: float, blockSize: int) -> None:
         super().__init__()  # pyright: ignore[reportUnknownMemberType]
-        self.selfAttention = MultiHeadSelfAttention(nEmbed, nHead, dropout, blockSize)
+        self.selfAttention = CausalSelfAttention(nEmbed, nHead, dropout, blockSize)
         self.layerNorm1 = nn.LayerNorm(nEmbed)
         self.layerNorm2 = nn.LayerNorm(nEmbed)
 
@@ -87,3 +89,89 @@ class Block(nn.Module):
         x = x + att_out
         x = x + self.mlp(self.layerNorm2(x))
         return x, present
+
+class DecoderCore(nn.Module):
+    """
+    Pure Transformer decoder stack:
+      - token + position embeddings
+      - N Block layers (each with MultiHeadSelfAttention + MLP)
+      - final layer norm
+
+    No lm_head, no loss, no text generation. It just maps
+    token indices → hidden states (and optional kv-cache).
+    """
+
+    def __init__(self, cfg: ModelConfig) -> None:
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]
+        self.cfg = cfg
+
+        # Embeddings
+        self.tokenEmbedding = nn.Embedding(cfg.vocabSize, cfg.nEmbed)
+        self.positionEmbedding = nn.Embedding(cfg.blockSize, cfg.nEmbed)
+
+        # Stack of Transformer blocks
+        self.blocks = nn.ModuleList(
+            [DecoderBlock(cfg.nEmbed, cfg.nHead, cfg.dropout, cfg.blockSize) for _ in range(cfg.nLayer)]
+        )
+
+        # Final layer norm
+        self.finalLayerNorm = nn.LayerNorm(cfg.nEmbed)
+
+    def forward(
+        self,
+        indices: Tensor,
+        past_key_values: Optional[List[Tuple[Tensor, Tensor]]] = None,
+        use_cache: bool = False,
+    ) -> Tuple[Tensor, Optional[List[Tuple[Tensor, Tensor]]]]:
+        """
+        Args:
+            indices: (batch, time) token IDs
+            past_key_values: optional list of (k, v) for each block
+            use_cache: if True, returns new kv-cache for autoregressive generation
+
+        Returns:
+            hidden_states: (batch, time, nEmbed)
+            new_kv: list[(k, v)] or None
+        """
+        if indices.dim() != 2:
+            raise ValueError(f"indices must be 2D (batch, time), got {indices.shape}")
+
+        _batch_size, time = indices.shape
+
+        if time > self.cfg.blockSize:
+            raise ValueError(f"Sequence length {time} exceeds blockSize {self.cfg.blockSize}")
+
+        if indices.dtype != torch.long:
+            indices = indices.long()
+
+        # Validate past_key_values length if provided
+        if past_key_values is not None and len(past_key_values) != len(self.blocks):
+            raise ValueError(
+                f"past_key_values length {len(past_key_values)} does not match number of blocks {len(self.blocks)}"
+            )
+
+        # Compute position embeddings
+        device = indices.device
+        positions = torch.arange(0, time, device=device).unsqueeze(0)  # (1, time)
+
+        tok_emb = self.tokenEmbedding(indices)      # (B, T, nEmbed)
+        pos_emb = self.positionEmbedding(positions) # (1, T, nEmbed)
+        x = tok_emb + pos_emb
+
+        new_kv: Optional[List[Tuple[Tensor, Tensor]]] = [] if use_cache else None
+
+        # Pass through each Transformer block
+        for i, block in enumerate(self.blocks):
+            past = None
+            if past_key_values is not None:
+                past = past_key_values[i]
+
+            x, present = block(x, past_key_value=past)
+
+            if use_cache and new_kv is not None:
+                new_kv.append(present)
+
+        # Final layer norm
+        x = self.finalLayerNorm(x)
+
+        return x, new_kv

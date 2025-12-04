@@ -1,17 +1,17 @@
 """Tiny LLM package."""
 
 from .Config import RunConfig, ModelConfig, TrainConfig
-from .Model import TinyGpt
-from .Trainer import Trainer
+from .Model import TinyGPTLanguageModel
+from .Trainer import LMTrainer
 from .DataModule import ByteDataModule
-from .TextGenerator import TextGenerator
+from .TextGenerator import AutoregressiveGenerator
 
 __all__ = [
     "RunConfig",
     "ModelConfig",
     "TrainConfig",
-    "TinyGpt",
-    "Trainer",
+    "TinyGPTLanguageModel",
+    "LMTrainer",
     "ByteDataModule",
-    "TextGenerator",
+    "AutoregressiveGenerator",
 ]

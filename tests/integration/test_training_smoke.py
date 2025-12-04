@@ -4,8 +4,8 @@ import logging
 
 from llm.Config import ModelConfig, TrainConfig
 from llm.DataModule import ByteDataModule
-from llm.Model import TinyGpt
-from llm.Trainer import Trainer
+from llm.Model import TinyGPTLanguageModel
+from llm.Trainer import LMTrainer
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 
@@ -40,7 +40,7 @@ def test_training_smoke(tmp_path: Path) -> None:
 
     torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
     dataModule = ByteDataModule(modelConfig, trainConfig)
-    model = TinyGpt(modelConfig).to(trainConfig.device)
+    model = TinyGPTLanguageModel(modelConfig).to(trainConfig.device)
 
     mock_logger = logging.getLogger("test_logger")
     mock_early_stopping = EarlyStopping(patience=1, delta=0.0)
@@ -51,7 +51,7 @@ def test_training_smoke(tmp_path: Path) -> None:
         early_stopping=mock_early_stopping,
         logger=mock_logger,
     )
-    trainer = Trainer(modelConfig, trainConfig, model, dataModule, evaluator=evaluator, logger=mock_logger)
+    trainer = LMTrainer(modelConfig, trainConfig, model, dataModule, evaluator=evaluator, logger=mock_logger)
 
     trainer.loadCheckpointIfExists()
     trainer.train()

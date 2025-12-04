@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from .Config import RunConfig
-from .Model import TinyGpt
+from .Model import TinyGPTLanguageModel
 from .Checkpoint import CheckpointManager
 
 
@@ -34,7 +34,7 @@ def main() -> None:
         checkpointManager.saveModel(args.out)
         print(f"Exported model weights to {args.out}")
     elif args.command == "load-model":
-        model = TinyGpt(model_cfg)
+        model = TinyGPTLanguageModel(model_cfg)
         checkpointManager = CheckpointManager(model_cfg, train_cfg, modelCkptPath=args.model)
         checkpointManager.loadModel(model, args.model)  # pyright: ignore[reportUnknownMemberType]
         import torch

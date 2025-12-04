@@ -7,9 +7,9 @@ import torch
 
 from llm.Config import RunConfig, ModelConfig, TrainConfig
 from llm.DataModule import TokenDataModule, Utf8ByteTokenizer, ByteDataModule, SequenceDataModule
-from llm.Model import TinyGpt
-from llm.Trainer import Trainer
-from llm.TextGenerator import TextGenerator
+from llm.Model import TinyGPTLanguageModel
+from llm.Trainer import LMTrainer
+from llm.TextGenerator import AutoregressiveGenerator
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 
@@ -42,7 +42,7 @@ def build_data_module(modelConfig: ModelConfig, trainConfig: TrainConfig, active
     return TokenDataModule(modelConfig, trainConfig, tokenizer=tokenizer, logger=activeLogger)
 
 
-def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None = None) -> Trainer:
+def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None = None) -> LMTrainer:
     manual_seed(1337)
 
     runConfig = runConfig or RunConfig()
@@ -60,13 +60,13 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
     dataModule = build_data_module(modelConfig, trainConfig, activeLogger)
 
     activeLogger.info("Building model...")
-    model = TinyGpt(modelConfig).to(trainConfig.device)
+    model = TinyGPTLanguageModel(modelConfig).to(trainConfig.device)
 
     # Instantiate EarlyStopping and Evaluator
     earlyStopping = EarlyStopping(trainConfig.earlyStopPatience, trainConfig.earlyStopDelta)
     evaluator = Evaluator(model, dataModule, trainConfig, earlyStopping, logger=activeLogger)
 
-    return Trainer(modelConfig, trainConfig, model, dataModule, logger=activeLogger, evaluator=evaluator)
+    return LMTrainer(modelConfig, trainConfig, model, dataModule, logger=activeLogger, evaluator=evaluator)
 
 
 def main(log_level: int = logging.INFO) -> None:
@@ -88,6 +88,7 @@ def main(log_level: int = logging.INFO) -> None:
     runConfig = RunConfig(modelConfig=runConfig.modelConfig, trainConfig=trainConfig)
 
     activeLogger.info("Building trainer...")
+    activeLogger.info("******",runConfig)
     trainer = buildTrainer(runConfig, log=activeLogger)
 
     activeLogger.info("Loading checkpoint (if any)...")
@@ -96,7 +97,7 @@ def main(log_level: int = logging.INFO) -> None:
     trainer.train()
     trainer.plotTrainingCurve()
 
-    textGenerator = TextGenerator(trainer.model, trainer.trainConfig.device, activeLogger)
+    textGenerator = AutoregressiveGenerator(trainer.model, trainer.trainConfig.device, activeLogger)
     textGenerator.log_sample(maxNewTokens=200, prompt="")
 
 

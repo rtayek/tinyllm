@@ -12,6 +12,7 @@ class ModelConfig:
     nHead: int = 4
     nLayer: int = 4
     dropout: float = 0.2
+    use_cache: bool = True
     def toDict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
 

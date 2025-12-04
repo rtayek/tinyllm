@@ -4,8 +4,8 @@ import logging
 
 from llm.Config import ModelConfig, TrainConfig
 from llm.DataModule import ByteDataModule
-from llm.Model import TinyGpt
-from llm.Trainer import Trainer
+from llm.Model import TinyGPTLanguageModel
+from llm.Trainer import LMTrainer
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 
@@ -33,7 +33,7 @@ def test_checkpoint_restores_generator_state(tmp_path: Path) -> None:
 
     torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
     dataModule = ByteDataModule(modelConfig, trainConfig)
-    model = TinyGpt(modelConfig).to(trainConfig.device)
+    model = TinyGPTLanguageModel(modelConfig).to(trainConfig.device)
 
     mock_logger = logging.getLogger("test_logger")
     mock_early_stopping = EarlyStopping(patience=1, delta=0.0)
@@ -44,7 +44,7 @@ def test_checkpoint_restores_generator_state(tmp_path: Path) -> None:
         early_stopping=mock_early_stopping,
         logger=mock_logger,
     )
-    trainer = Trainer(modelConfig, trainConfig, model, dataModule, evaluator=evaluator, logger=mock_logger)
+    trainer = LMTrainer(modelConfig, trainConfig, model, dataModule, evaluator=evaluator, logger=mock_logger)
 
     trainer.loadCheckpointIfExists()
     trainer.train()
@@ -56,7 +56,7 @@ def test_checkpoint_restores_generator_state(tmp_path: Path) -> None:
     assert generatorState is not None
 
     dataModuleTwo = ByteDataModule(modelConfig, trainConfig)
-    modelTwo = TinyGpt(modelConfig).to(trainConfig.device)
+    modelTwo = TinyGPTLanguageModel(modelConfig).to(trainConfig.device)
     evaluatorTwo = Evaluator(
         model=modelTwo,
         data_module=dataModuleTwo,
@@ -64,7 +64,7 @@ def test_checkpoint_restores_generator_state(tmp_path: Path) -> None:
         early_stopping=mock_early_stopping, # Use the same mock early stopping for simplicity
         logger=mock_logger,
     )
-    trainerTwo = Trainer(modelConfig, trainConfig, modelTwo, dataModuleTwo, evaluator=evaluatorTwo, logger=mock_logger)
+    trainerTwo = LMTrainer(modelConfig, trainConfig, modelTwo, dataModuleTwo, evaluator=evaluatorTwo, logger=mock_logger)
     trainerTwo.loadCheckpointIfExists()
 
     assert torch.equal(trainerTwo.generator.get_state(), generatorState)

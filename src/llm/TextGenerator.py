@@ -1,19 +1,20 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 import logging
 
 import torch
 
-from .Model import TinyGpt
 from .tensor_utils import tensor_to_int_list
 
+if TYPE_CHECKING:
+    from .Model import TinyGPTLanguageModel
 
-class TextGenerator:
-    def __init__(self, model: TinyGpt, device: str, logger: Optional[logging.Logger] = None) -> None:
-        self.model = model
-        self.device = device
-        self.logger = logger or logging.getLogger(__name__)
+class AutoregressiveGenerator:
+    def __init__(self, model: "TinyGPTLanguageModel", device: str, logger: Optional[logging.Logger] = None) -> None:
+        self.model: "TinyGPTLanguageModel" = model
+        self.device: str = device
+        self.logger: logging.Logger = logger or logging.getLogger(__name__)
 
     def generateBytes(self, maxNewTokens: int = 200, prompt: str = "") -> bytes:
         if prompt:
@@ -23,10 +24,7 @@ class TextGenerator:
             promptTensor = torch.zeros((1, 1), dtype=torch.long, device=self.device)
 
         with torch.no_grad():
-            generated: torch.Tensor = self.model.generate(
-                promptTensor,
-                maxNewTokens=maxNewTokens,
-            )
+            generated: torch.Tensor = self.model.generate_autoregressive(promptTensor, maxNewTokens=maxNewTokens)
 
         firstSeq: torch.Tensor = generated[0]
         raw_list: List[int] = tensor_to_int_list(

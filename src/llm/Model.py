@@ -9,27 +9,38 @@ import torch.nn.functional as F
 from torch import Tensor
 
 from .Config import ModelConfig
-from .Transformer import Block
+from .Transformer import DecoderCore
 
 
-class TinyGpt(nn.Module):
+class TinyGPTLanguageModel(nn.Module):
+    """
+    Language model built on top of TransformerCore.
+
+    Responsibilities:
+      - hold a TransformerCore
+      - add an lm_head to map hidden states → vocab logits
+      - compute cross-entropy LM loss when targets are provided
+      - implement autoregressive generate(...)
+    """
+
     def __init__(self, cfg: ModelConfig) -> None:
         super().__init__()  # pyright: ignore[reportUnknownMemberType]
         self.cfg = cfg
 
-        self.tokenEmbedding = nn.Embedding(cfg.vocabSize, cfg.nEmbed)
-        self.positionEmbedding = nn.Embedding(cfg.blockSize, cfg.nEmbed)
+        # The pure transformer stack
+        self.core = DecoderCore(cfg)
 
-        self.blocks = nn.ModuleList([Block(cfg.nEmbed, cfg.nHead, cfg.dropout, cfg.blockSize) for _ in range(cfg.nLayer)])
+        # LM head: projects hidden states to vocab logits
+        self.lmHead = nn.Linear(cfg.nEmbed, cfg.vocabSize, bias=False)
 
-        self.finalLayerNorm = nn.LayerNorm(cfg.nEmbed)
-        self.outputHead = nn.Linear(cfg.nEmbed, cfg.vocabSize, bias=False)
-
+        # Weight init for all submodules (core + head)
         self.apply(self.initWeights)
 
     def initWeights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
@@ -40,74 +51,85 @@ class TinyGpt(nn.Module):
         past_key_values: Optional[List[Tuple[Tensor, Tensor]]] = None,
         use_cache: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor], Optional[List[Tuple[Tensor, Tensor]]]]:
+        """
+        Args:
+            indices: (batch, time) token IDs
+            targets: optional (batch, time) for LM loss
+            past_key_values: optional kv-cache for autoregressive decoding
+            use_cache: if True, returns updated kv-cache
+
+        Returns:
+            logits: (batch, time, vocabSize)
+            loss: scalar tensor or None
+            new_kv: list[(k, v)] or None
+        """
+        # Let the core do the transformer work
+        hidden, new_kv = self.core(
+            indices,
+            past_key_values=past_key_values,
+            use_cache=use_cache,
+        )
+
+        # Project hidden states to vocab logits
+        logits = self.lmHead(hidden)
+
+        loss: Optional[Tensor] = None
+        if targets is not None:
+            if targets.shape != indices.shape:
+                raise ValueError(
+                    f"targets shape {targets.shape} must match indices shape {indices.shape}"
+                )
+            B, T, C = logits.shape
+            logits_flat = logits.view(B * T, C)
+            targets_flat = targets.view(B * T)
+            loss = F.cross_entropy(logits_flat, targets_flat)
+
+        return logits, loss, new_kv
+
+    @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
+    def generate_autoregressive(self, indices: Tensor, maxNewTokens: int) -> Tensor:
+        """
+        Autoregressive generation:
+
+        Repeatedly:
+          - run the model on the current context (with kv-cache)
+          - sample the next token from logits
+          - append to the sequence
+        """
         if indices.dim() != 2:
             raise ValueError(f"indices must be 2D (batch, time), got {indices.shape}")
 
-        _batch, time = indices.shape
-        if time > self.cfg.blockSize:
-            raise ValueError(f"Sequence length {time} exceeds blockSize {self.cfg.blockSize}")
-        if past_key_values is not None and len(past_key_values) != len(self.blocks):
-            raise ValueError(f"past_key_values length {len(past_key_values)} does not match number of blocks {len(self.blocks)}")
-
-        if indices.dtype != torch.long:
-            indices = indices.long()
-
-        past_length = 0
-        if past_key_values is not None and past_key_values:
-            past_length = past_key_values[0][0].size(2)
-        total_length = past_length + time
-        if total_length > self.cfg.blockSize:
-            if past_key_values is None:
-                raise ValueError(f"Sequence length {total_length} exceeds blockSize {self.cfg.blockSize}")
-            overflow = total_length - self.cfg.blockSize
-            trimmed: List[Tuple[Tensor, Tensor]] = []
-            for past_k, past_v in past_key_values:
-                trimmed.append((past_k[:, :, overflow:, :], past_v[:, :, overflow:, :]))
-            past_key_values = trimmed
-            past_length = trimmed[0][0].size(2) if trimmed else 0
-            total_length = past_length + time
-
-        tokenEmb = self.tokenEmbedding(indices)
-        posIndex = torch.arange(past_length, past_length + time, device=indices.device)
-        posEmb = self.positionEmbedding(posIndex).unsqueeze(0)
-
-        x = tokenEmb + posEmb
-        present_key_values: List[Tuple[Tensor, Tensor]] = []
-        for i, block in enumerate(self.blocks):
-            past = None if past_key_values is None else past_key_values[i]
-            x, present = block(x, past_key_value=past)
-            if use_cache:
-                present_key_values.append(present)
-        x = self.finalLayerNorm(x)
-        logits = self.outputHead(x)
-
-        if targets is None:
-            return logits, None, present_key_values if use_cache else None
-
-        if targets.shape != indices.shape:
-            raise ValueError(f"targets must have same shape as indices; got {targets.shape} vs {indices.shape}")
-
-        if targets.dtype != torch.long:
-            targets = targets.long()
-
-        loss = F.cross_entropy(
-            logits.view(-1, self.cfg.vocabSize),
-            targets.view(-1),
-        )
-        return logits, loss, present_key_values if use_cache else None
-
-    def generate(self, indices: Tensor, maxNewTokens: int) -> Tensor:
         was_training = self.training
         self.eval()
-        with torch.no_grad():
+        try:
             past_key_values: Optional[List[Tuple[Tensor, Tensor]]] = None
             for _ in range(maxNewTokens):
-                input_indices = indices[:, -self.cfg.blockSize :] if past_key_values is None else indices[:, -1:]
-                logits, _, past_key_values = self(input_indices, past_key_values=past_key_values, use_cache=True)
-                logitsLast = logits[:, -1, :]
+                if self.cfg.use_cache:
+                    # If we have no cache yet, feed last blockSize tokens.
+                    # Once cache exists, we can feed just the last token.
+                    if past_key_values is None:
+                        input_indices = indices[:, -self.cfg.blockSize :]
+                    else:
+                        input_indices = indices[:, -1:]
+                else:
+                    # If caching is disabled, always feed the full context (up to blockSize)
+                    input_indices = indices[:, -self.cfg.blockSize :]
+
+                logits, _, new_past_key_values = self(
+                    input_indices,
+                    past_key_values=past_key_values if self.cfg.use_cache else None,
+                    use_cache=self.cfg.use_cache,
+                )
+
+                if self.cfg.use_cache:
+                    past_key_values = new_past_key_values
+
+                logitsLast = logits[:, -1, :]          # (B, vocab)
                 probs = F.softmax(logitsLast, dim=-1)
-                nextToken = torch.multinomial(probs, num_samples=1)
+                nextToken = torch.multinomial(probs, num_samples=1)  # (B, 1)
                 indices = torch.cat((indices, nextToken), dim=1)
-        if was_training:
-            self.train()
+        finally:
+            if was_training:
+                self.train()
+
         return indices

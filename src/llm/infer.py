@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 
 from llm.Config import RunConfig
-from llm.Model import TinyGpt
+from llm.Model import TinyGPTLanguageModel
 from llm.Checkpoint import CheckpointManager
-from llm.TextGenerator import TextGenerator
+from llm.TextGenerator import AutoregressiveGenerator
 
 
 def main() -> None:
@@ -14,7 +14,7 @@ def main() -> None:
     train_cfg = run_cfg.trainConfig
     device = train_cfg.device
 
-    model = TinyGpt(model_cfg).to(device)
+    model = TinyGPTLanguageModel(model_cfg).to(device)
 
     logger = logging.getLogger("infer")
     checkpointManager = CheckpointManager(model_cfg, train_cfg, logger=logger)
@@ -22,7 +22,7 @@ def main() -> None:
     checkpointManager.loadModel(model, None)
     print("Model weights loaded for inference.")
 
-    textGenerator = TextGenerator(model, train_cfg.device, logger)
+    textGenerator = AutoregressiveGenerator(model, train_cfg.device, logger)
 
     text = textGenerator.generateText(maxNewTokens=400)
 

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import torch
 
 from .Config import ModelConfig, TrainConfig
-from .Model import TinyGpt
+from .Model import TinyGPTLanguageModel
 
 CHECKPOINT_VERSION = 1
 
@@ -68,7 +68,7 @@ class Checkpoint:
 
     @staticmethod
     def fromTrainingState(
-        model: TinyGpt,
+        model: TinyGPTLanguageModel,
         optimizer: torch.optim.Optimizer,
         modelConfig: Optional[ModelConfig],
         trainConfig: Optional[TrainConfig],
@@ -113,7 +113,7 @@ class CheckpointManager:
 
     def saveCheckpoint(
         self,
-        model: TinyGpt,
+        model: TinyGPTLanguageModel,
         optimizer: torch.optim.Optimizer,
         lrStrategyState: Optional[Dict[str, Any]],
         step: int,
@@ -135,7 +135,7 @@ class CheckpointManager:
 
     def loadCheckpoint(
         self,
-        model: TinyGpt,
+        model: TinyGPTLanguageModel,
         optimizer: torch.optim.Optimizer,
         lrStrategy: Optional[Any] = None,
     ) -> Tuple[int, Optional[float], bool, int, bool, Dict[str, Dict[str, Any]], Optional[torch.Tensor]]:
@@ -184,7 +184,7 @@ class CheckpointManager:
         checkpoint = Checkpoint.load(self.trainCkptPath, self.trainCfg.device)
         checkpoint.exportModel(out_path or self.modelCkptPath)
 
-    def loadModel(self, model: TinyGpt, modelPath: Optional[str] = None) -> None:
+    def loadModel(self, model: TinyGPTLanguageModel, modelPath: Optional[str] = None) -> None:
         path = modelPath or self.modelCkptPath
         if not os.path.exists(path):
             if os.path.exists(self.trainCkptPath):

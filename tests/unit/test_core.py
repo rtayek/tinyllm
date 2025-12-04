@@ -6,7 +6,7 @@ import logging
 from llm.Config import ModelConfig, TrainConfig
 from llm.DataModule import ByteDataModule, SequenceDataModule
 from llm.EarlyStopping import EarlyStopping
-from llm.Model import TinyGpt
+from llm.Model import TinyGPTLanguageModel
 from llm.Checkpoint import CheckpointManager
 from llm.Evaluator import Evaluator
 
@@ -29,7 +29,7 @@ def test_data_module_batch_shapes(tmp_path: Path) -> None:
 
 def test_model_forward_shapes() -> None:
     modelConfig = ModelConfig(blockSize=4, vocabSize=32, nEmbed=16, nHead=4, nLayer=2, dropout=0.0)
-    model = TinyGpt(modelConfig)
+    model = TinyGPTLanguageModel(modelConfig)
     indices = torch.randint(0, modelConfig.vocabSize, (2, modelConfig.blockSize))
 
     logits, loss, _ = model(indices, indices)
@@ -59,7 +59,7 @@ def test_checkpoint_roundtrip(tmp_path: Path) -> None:
     modelConfig = ModelConfig(blockSize=4, vocabSize=32, nEmbed=16, nHead=4, nLayer=2, dropout=0.0)
     trainConfig = TrainConfig(batchSize=2, ckptPath=str(trainCkptPath))
 
-    model = TinyGpt(modelConfig)
+    model = TinyGPTLanguageModel(modelConfig)
     optimizer = torch.optim.AdamW(model.parameters(), lr=trainConfig.learningRate, weight_decay=trainConfig.weightDecay)
     generator = torch.Generator()
     generator.manual_seed(123)
@@ -74,7 +74,7 @@ def test_checkpoint_roundtrip(tmp_path: Path) -> None:
         generatorState=generator.get_state(),
     )
 
-    newModel = TinyGpt(modelConfig)
+    newModel = TinyGPTLanguageModel(modelConfig)
     newOptimizer = torch.optim.AdamW(newModel.parameters(), lr=trainConfig.learningRate, weight_decay=trainConfig.weightDecay)
 
     (
@@ -99,14 +99,14 @@ def test_checkpoint_roundtrip(tmp_path: Path) -> None:
 
 def test_model_generate_restores_training_state() -> None:
     modelConfig = ModelConfig(blockSize=8, vocabSize=32, nEmbed=16, nHead=4, nLayer=2, dropout=0.0)
-    model = TinyGpt(modelConfig)
+    model = TinyGPTLanguageModel(modelConfig)
     # Put model into training mode
     model.train()
     assert model.training is True
 
     # Generate text
     initial_indices = torch.randint(0, modelConfig.vocabSize, (1, 4)) # Initial length 4
-    _ = model.generate(initial_indices, maxNewTokens=4) # maxNewTokens = blockSize - initial_indices_length = 8 - 4 = 4
+    _ = model.generate_autoregressive(initial_indices, maxNewTokens=4) # maxNewTokens = blockSize - initial_indices_length = 8 - 4 = 4
 
     # Assert that the model is back in training mode
     assert model.training is True
@@ -126,7 +126,7 @@ def test_evaluator_estimate_loss_restores_training_state() -> None:
     # Mock EarlyStopping
     mock_early_stopping = MagicMock(spec=EarlyStopping)
 
-    model = TinyGpt(modelConfig)
+    model = TinyGPTLanguageModel(modelConfig)
     # Put model into training mode
     model.train()
     assert model.training is True

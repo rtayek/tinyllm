@@ -6,7 +6,7 @@ import logging
 import torch
 
 from llm.Config import ModelConfig, TrainConfig
-from llm.Model import TinyGpt
+from llm.Model import TinyGPTLanguageModel
 from llm.DataModule import SequenceDataModule
 from llm.Checkpoint import CheckpointManager, CHECKPOINT_VERSION
 from llm.LRScheduleStrategy import WarmupCosineStrategy
@@ -14,9 +14,9 @@ from llm.EarlyStopping import EarlyStopping
 from llm.Evaluator import Evaluator # Import EvalResult and Evaluator directly
 
 
-class Trainer:
+class LMTrainer:
     def __init__(
-        self, modelConfig: ModelConfig, trainConfig: TrainConfig, model: TinyGpt, dataModule: SequenceDataModule, logger: Optional[logging.Logger] = None, evaluator: Optional[Evaluator] = None
+        self, modelConfig: ModelConfig, trainConfig: TrainConfig, model: TinyGPTLanguageModel, dataModule: SequenceDataModule, logger: Optional[logging.Logger] = None, evaluator: Optional[Evaluator] = None
     ) -> None:
         self.modelConfig = modelConfig
         self.trainConfig = trainConfig
@@ -176,7 +176,7 @@ class Trainer:
             self.logger.info("Could not plot training curve: %s", e)
 
     def printSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
-        from .TextGenerator import TextGenerator
+        from .TextGenerator import AutoregressiveGenerator
 
-        generator = TextGenerator(self.model, self.trainConfig.device, self.logger)
+        generator = AutoregressiveGenerator(self.model, self.trainConfig.device, self.logger)
         generator.log_sample(maxNewTokens=maxNewTokens, prompt=prompt)

@@ -2,7 +2,7 @@ import torch
 from pathlib import Path
 
 from llm.Config import ModelConfig, TrainConfig
-from llm.Model import TinyGpt
+from llm.Model import TinyGPTLanguageModel
 from llm.Checkpoint import CheckpointManager
 
 
@@ -29,7 +29,7 @@ def test_checkpoint_export_and_load(tmp_path: Path) -> None:
     )
 
     torch.manual_seed(0)  # pyright: ignore[reportUnknownMemberType]
-    model = TinyGpt(modelConfig)
+    model = TinyGPTLanguageModel(modelConfig)
     optimizer = torch.optim.AdamW(model.parameters(), lr=trainConfig.learningRate, weight_decay=trainConfig.weightDecay)
     manager = CheckpointManager(modelConfig, trainConfig)
     manager.saveCheckpoint(model, optimizer, lrStrategyState=None, step=1, bestValLoss=0.5, generatorState=None)
@@ -37,7 +37,7 @@ def test_checkpoint_export_and_load(tmp_path: Path) -> None:
     manager.saveModel(str(modelExport))
     assert modelExport.exists()
 
-    loadedModel = TinyGpt(modelConfig)
+    loadedModel = TinyGPTLanguageModel(modelConfig)
     loader = CheckpointManager(modelConfig, trainConfig, modelCkptPath=str(modelExport))
     loader.loadModel(loadedModel, str(modelExport))
 
