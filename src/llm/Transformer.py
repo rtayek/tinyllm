@@ -77,7 +77,7 @@ class DecoderBlock(nn.Module):
         self.layerNorm1 = nn.LayerNorm(nEmbed)
         self.layerNorm2 = nn.LayerNorm(nEmbed)
 
-        self.mlp = nn.Sequential(
+        self.mlp = nn.Sequential( # multi‑layer perceptron
             nn.Linear(nEmbed, 4 * nEmbed),
             nn.GELU(),
             nn.Linear(4 * nEmbed, nEmbed),

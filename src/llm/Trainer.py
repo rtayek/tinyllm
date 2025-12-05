@@ -179,4 +179,4 @@ class LMTrainer:
         from .TextGenerator import AutoregressiveGenerator
 
         generator = AutoregressiveGenerator(self.model, self.trainConfig.device, self.logger)
-        generator.log_sample(maxNewTokens=maxNewTokens, prompt=prompt)
+        generator.logSample(maxNewTokens=maxNewTokens, prompt=prompt)

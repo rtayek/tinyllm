@@ -98,3 +98,5 @@ ipython_config.py
 .dmypy.json
 dmypy.json
 .pyre/
+/tmp
+

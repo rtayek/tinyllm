@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional, TYPE_CHECKING
 import logging
+import os # Added for path manipulation
 
 import torch
 
@@ -36,7 +37,14 @@ class AutoregressiveGenerator:
         data = self.generateBytes(maxNewTokens=maxNewTokens, prompt=prompt)
         return data.decode("utf-8", errors=errors)
 
-    def log_sample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
+    def logSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
         text = self.generateText(maxNewTokens=maxNewTokens, prompt=prompt)
         self.logger.info("Sampled text:")
         self.logger.info(text)
+
+    def saveSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
+        text = self.generateText(maxNewTokens=maxNewTokens, prompt=prompt)
+        sample_path = os.path.join("tmp", "sample.txt")
+        with open(sample_path, "w", encoding="utf-8") as f:
+            f.write(text)
+        self.logger.info(f"Sampled text saved to {sample_path}")

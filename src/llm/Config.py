@@ -12,7 +12,7 @@ class ModelConfig:
     nHead: int = 4
     nLayer: int = 4
     dropout: float = 0.2
-    use_cache: bool = True
+    use_cache: bool = False
     def toDict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
 
@@ -34,18 +34,16 @@ class TrainConfig:
     earlyStopDelta: float = 0.003
     plotCurve: bool = True
     dataModule: str = "token"
+    ckptPath: str = "checkpoints/tiny_llm.pt"
+    dataPath: str = "fixtureData/input.txt"
+    device: str = "cuda"  # desired/default device; actual availability is checked at runtime
+
     def toDict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
 
     @classmethod
     def fromDict(cls, data: Dict[str, Any]) -> "TrainConfig":
         return cls(**data)  # type: ignore[arg-type]
-
-    ckptPath: str = "checkpoints/tiny_llm.pt"
-    dataPath: str = "fixtureData/input.txt"
-
-    device: str = "cuda"  # desired/default device; actual availability is checked at runtime
-
 
 
 @dataclass(frozen=True)

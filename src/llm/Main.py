@@ -88,7 +88,6 @@ def main(log_level: int = logging.INFO) -> None:
     runConfig = RunConfig(modelConfig=runConfig.modelConfig, trainConfig=trainConfig)
 
     activeLogger.info("Building trainer...")
-    activeLogger.info("******",runConfig)
     trainer = buildTrainer(runConfig, log=activeLogger)
 
     activeLogger.info("Loading checkpoint (if any)...")
@@ -98,7 +97,8 @@ def main(log_level: int = logging.INFO) -> None:
     trainer.plotTrainingCurve()
 
     textGenerator = AutoregressiveGenerator(trainer.model, trainer.trainConfig.device, activeLogger)
-    textGenerator.log_sample(maxNewTokens=200, prompt="")
+    textGenerator.saveSample(maxNewTokens=200, prompt="")
+    #textGenerator.logSample(maxNewTokens=200, prompt="")
 
 
 if __name__ == "__main__":
