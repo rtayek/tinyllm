@@ -1,44 +1,123 @@
-# Tiny LLM Project (Byte-Level GPT in PyTorch)
+# Tiny LLM
 
-Tiny byte-level GPT in PyTorch packaged under `llm/` with checkpointing, training, and inference scripts.
+A small byte-level GPT implemented in PyTorch. The project includes training,
+checkpointing, evaluation, text generation, and prompt-based inference.
 
-## Install
-Create/activate your env and install the package (editable for dev):
+## Installation
+
+Create and activate the environment, then install the package with development
+dependencies:
+
 ```sh
-pip install -e .
+conda activate tinyllm
+pip install -e ".[dev]"
 ```
-Runtime deps: `torch`, `matplotlib`. Dev extras in `pyproject.toml` (`pytest`, `pyright`).
+
+Python 3.10 or newer is required.
 
 ## Data
-Training text defaults to `fixtureData/input.txt`. You can fetch a sample corpus:
-```sh
-python src/make_tender_buttons_dataset.py
-```
-This writes `data/input.txt`; point the config to your desired file.
 
-## Train
+The default training corpus is:
+
+```text
+fixtureData/sherlock.txt
+```
+
+Other bundled corpora include:
+
+```text
+fixtureData/alice.txt
+fixtureData/shakewpeare.txt
+fixtureData/tenderbuttons.txt
+```
+
+Select a different corpus with the training CLI:
+
+```sh
+tinyllm-train --corpus fixtureData/alice.txt
+```
+
+The model uses UTF-8 bytes as tokens and has a vocabulary size of 256.
+
+## Training
+
+Train using the configured defaults:
+
 ```sh
 tinyllm-train
 ```
-Checkpoints are written under `checkpoints/`. Plots go to `plots/` (no blocking GUI).
 
-## Infer
-After training (or with a saved checkpoint):
+Equivalent module invocation:
+
+```sh
+python -m llm.Main
+```
+
+Useful options:
+
+```sh
+tinyllm-train --corpus fixtureData/tenderbuttons.txt
+tinyllm-train --log-level DEBUG
+tinyllm-train --plot
+```
+
+Checkpoints are written to `checkpoints/`, plots to `plots/`, and a generated
+sample to `tmp/sample.txt`.
+
+The convenience script starts a clean training run:
+
+```sh
+sh run.sh
+```
+
+`run.sh` intentionally deletes existing files under `checkpoints/` and
+`plots/` before training.
+
+## Inference
+
+Generate 400 new byte tokens from the unconditional start token:
+
 ```sh
 tinyllm-infer
 ```
-This loads the latest checkpoint and prints generated text.
 
-Pass a prompt and optionally choose how many new byte tokens to generate:
+Generate from a prompt:
+
 ```sh
-sh infer.sh --prompt "Mr. Sherlock Holmes"
-sh infer.sh --prompt "To Sherlock Holmes she is always the woman." --tokens 200
+tinyllm-infer --prompt "Mr. Sherlock Holmes"
+tinyllm-infer --prompt "To Sherlock Holmes she is always the woman." --tokens 200
 ```
 
-Running `sh infer.sh` without a prompt preserves unconditional generation.
+The shell wrapper accepts the same arguments:
 
-## Imports
-Library components are under `llm`, e.g.:
+```sh
+sh infer.sh --prompt "Mr. Sherlock Holmes" --tokens 200
+```
+
+Training and inference use CUDA when configured and available. If CUDA is
+requested but unavailable, both paths fall back to CPU.
+
+## Testing
+
+Run the test suite and strict static type checking:
+
+```sh
+pytest
+pyright
+```
+
+## Library Usage
+
+Public components are available from `llm`:
+
 ```python
-from llm import RunConfig, TinyGpt, Trainer, ByteDataModule
+from llm import (
+    AutoregressiveGenerator,
+    ByteDataModule,
+    LMTrainer,
+    ModelConfig,
+    RunConfig,
+    TinyGPTLanguageModel,
+    TrainConfig,
+)
 ```
