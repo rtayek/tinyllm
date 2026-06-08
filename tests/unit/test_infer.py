@@ -10,10 +10,26 @@ from llm.Model import TinyGPTLanguageModel
 
 
 def test_parse_args_accepts_prompt_and_token_count() -> None:
-    args = parse_args(["--prompt", "Mr. Sherlock Holmes", "--tokens", "25"])
+    args = parse_args(
+        [
+            "--prompt",
+            "Mr. Sherlock Holmes",
+            "--tokens",
+            "25",
+            "--temperature",
+            "0.8",
+            "--top-k",
+            "50",
+            "--seed",
+            "123",
+        ]
+    )
 
     assert args.prompt == "Mr. Sherlock Holmes"
     assert args.tokens == 25
+    assert args.temperature == 0.8
+    assert args.top_k == 50
+    assert args.seed == 123
 
 
 def test_parse_args_preserves_existing_defaults() -> None:
@@ -21,11 +37,29 @@ def test_parse_args_preserves_existing_defaults() -> None:
 
     assert args.prompt == ""
     assert args.tokens == 400
+    assert args.temperature == 1.0
+    assert args.top_k is None
+    assert args.seed is None
 
 
 def test_parse_args_rejects_negative_token_count() -> None:
     with pytest.raises(SystemExit):
         parse_args(["--tokens", "-1"])
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--temperature", "0"],
+        ["--top-k", "0"],
+        ["--seed", "-1"],
+    ],
+)
+def test_parse_args_rejects_invalid_sampling_options(
+    arguments: list[str],
+) -> None:
+    with pytest.raises(SystemExit):
+        parse_args(arguments)
 
 
 def test_build_generator_falls_back_to_cpu(

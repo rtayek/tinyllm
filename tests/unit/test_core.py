@@ -97,6 +97,60 @@ def test_cached_generation_sanity() -> None:
     assert torch.all((generated >= 0) & (generated < modelConfig.vocabSize))
 
 
+def test_generation_seed_is_reproducible() -> None:
+    modelConfig = ModelConfig(
+        blockSize=8,
+        vocabSize=32,
+        nEmbed=16,
+        nHead=4,
+        nLayer=1,
+        dropout=0.0,
+    )
+    model = TinyGPTLanguageModel(modelConfig)
+    prompt = torch.tensor([[1, 2, 3]], dtype=torch.long)
+
+    first = model.generate_autoregressive(
+        prompt,
+        maxNewTokens=8,
+        temperature=0.8,
+        topK=10,
+        seed=123,
+    )
+    second = model.generate_autoregressive(
+        prompt,
+        maxNewTokens=8,
+        temperature=0.8,
+        topK=10,
+        seed=123,
+    )
+
+    assert torch.equal(first, second)
+
+
+def test_top_k_one_uses_greedy_token() -> None:
+    modelConfig = ModelConfig(
+        blockSize=8,
+        vocabSize=32,
+        nEmbed=16,
+        nHead=4,
+        nLayer=1,
+        dropout=0.0,
+    )
+    model = TinyGPTLanguageModel(modelConfig).eval()
+    prompt = torch.tensor([[1, 2, 3]], dtype=torch.long)
+    logits, _, _ = model(prompt)
+    expected = torch.argmax(logits[:, -1], dim=-1, keepdim=True)
+
+    generated = model.generate_autoregressive(
+        prompt,
+        maxNewTokens=1,
+        topK=1,
+        seed=123,
+    )
+
+    assert torch.equal(generated[:, -1:], expected)
+
+
 def test_cached_generation_matches_uncached_across_context_boundary() -> None:
     baseConfig = ModelConfig(
         blockSize=4,

@@ -21,9 +21,33 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=400,
         help="Number of new tokens to generate (default: 400)",
     )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=1.0,
+        help="Sampling temperature (default: 1.0)",
+    )
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=None,
+        help="Sample only from the K most likely tokens",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducible generation",
+    )
     args = parser.parse_args(argv)
     if args.tokens < 0:
         parser.error("--tokens must be non-negative")
+    if args.temperature <= 0:
+        parser.error("--temperature must be greater than zero")
+    if args.top_k is not None and args.top_k <= 0:
+        parser.error("--top-k must be greater than zero")
+    if args.seed is not None and args.seed < 0:
+        parser.error("--seed must be non-negative")
     return args
 
 
@@ -51,7 +75,13 @@ def main(argv: Sequence[str] | None = None) -> None:
     textGenerator, _ = build_generator()
     print("Model weights loaded for inference.")
 
-    text = textGenerator.generateText(maxNewTokens=args.tokens, prompt=args.prompt)
+    text = textGenerator.generateText(
+        maxNewTokens=args.tokens,
+        prompt=args.prompt,
+        temperature=args.temperature,
+        topK=args.top_k,
+        seed=args.seed,
+    )
 
     print("\n=== GENERATED TEXT ===\n")
     print(text)

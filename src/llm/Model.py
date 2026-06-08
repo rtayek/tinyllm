@@ -91,7 +91,14 @@ class TinyGPTLanguageModel(nn.Module):
         return logits, loss, new_kv
 
     @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
-    def generate_autoregressive(self, indices: Tensor, maxNewTokens: int) -> Tensor:
+    def generate_autoregressive(
+        self,
+        indices: Tensor,
+        maxNewTokens: int,
+        temperature: float = 1.0,
+        topK: int | None = None,
+        seed: int | None = None,
+    ) -> Tensor:
         """
         Autoregressive generation:
 
@@ -102,6 +109,17 @@ class TinyGPTLanguageModel(nn.Module):
         """
         if indices.dim() != 2:
             raise ValueError(f"indices must be 2D (batch, time), got {indices.shape}")
+        if temperature <= 0:
+            raise ValueError("temperature must be greater than zero")
+        if topK is not None and topK <= 0:
+            raise ValueError("topK must be greater than zero")
+        if seed is not None and seed < 0:
+            raise ValueError("seed must be non-negative")
+
+        sample_generator: torch.Generator | None = None
+        if seed is not None:
+            sample_generator = torch.Generator(device=indices.device)
+            sample_generator.manual_seed(seed)
 
         was_training = self.training
         self.eval()
@@ -139,9 +157,28 @@ class TinyGPTLanguageModel(nn.Module):
                 if self.cfg.use_cache:
                     past_key_values = new_past_key_values
 
-                logitsLast = logits[:, -1, :]          # (B, vocab)
-                probs = F.softmax(logitsLast, dim=-1)
-                nextToken = torch.multinomial(probs, num_samples=1)  # (B, 1)
+                logitsLast = logits[:, -1, :] / temperature
+                if topK is not None:
+                    effective_top_k = min(topK, logitsLast.size(-1))
+                    top_logits, top_indices = torch.topk(
+                        logitsLast,
+                        effective_top_k,
+                        dim=-1,
+                    )
+                    probs = F.softmax(top_logits, dim=-1)
+                    sampled_index = torch.multinomial(
+                        probs,
+                        num_samples=1,
+                        generator=sample_generator,
+                    )
+                    nextToken = torch.gather(top_indices, -1, sampled_index)
+                else:
+                    probs = F.softmax(logitsLast, dim=-1)
+                    nextToken = torch.multinomial(
+                        probs,
+                        num_samples=1,
+                        generator=sample_generator,
+                    )
                 indices = torch.cat((indices, nextToken), dim=1)
         finally:
             if was_training:

@@ -87,7 +87,14 @@ Generate from a prompt:
 ```sh
 tinyllm-infer --prompt "Mr. Sherlock Holmes"
 tinyllm-infer --prompt "To Sherlock Holmes she is always the woman." --tokens 200
+tinyllm-infer --prompt "Mr. Sherlock Holmes" --temperature 0.8 --top-k 50 --seed 123
 ```
+
+Sampling options:
+
+- `--temperature`: controls randomness; lower values favor likely tokens.
+- `--top-k`: limits sampling to the K most likely next bytes.
+- `--seed`: makes repeated runs reproducible.
 
 The shell wrapper accepts the same arguments:
 

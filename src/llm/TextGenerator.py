@@ -17,7 +17,14 @@ class AutoregressiveGenerator:
         self.device: str = device
         self.logger: logging.Logger = logger or logging.getLogger(__name__)
 
-    def generateBytes(self, maxNewTokens: int = 200, prompt: str = "") -> bytes:
+    def generateBytes(
+        self,
+        maxNewTokens: int = 200,
+        prompt: str = "",
+        temperature: float = 1.0,
+        topK: int | None = None,
+        seed: int | None = None,
+    ) -> bytes:
         if prompt:
             promptBytes = prompt.encode("utf-8")
             promptTensor = torch.tensor(list(promptBytes), dtype=torch.long, device=self.device).unsqueeze(0)
@@ -25,7 +32,13 @@ class AutoregressiveGenerator:
             promptTensor = torch.zeros((1, 1), dtype=torch.long, device=self.device)
 
         with torch.no_grad():
-            generated: torch.Tensor = self.model.generate_autoregressive(promptTensor, maxNewTokens=maxNewTokens)
+            generated: torch.Tensor = self.model.generate_autoregressive(
+                promptTensor,
+                maxNewTokens=maxNewTokens,
+                temperature=temperature,
+                topK=topK,
+                seed=seed,
+            )
 
         firstSeq: torch.Tensor = generated[0]
         raw_list: List[int] = tensor_to_int_list(
@@ -33,8 +46,22 @@ class AutoregressiveGenerator:
         )
         return bytes(raw_list)
 
-    def generateText(self, maxNewTokens: int = 200, errors: str = "ignore", prompt: str = "") -> str:
-        data = self.generateBytes(maxNewTokens=maxNewTokens, prompt=prompt)
+    def generateText(
+        self,
+        maxNewTokens: int = 200,
+        errors: str = "ignore",
+        prompt: str = "",
+        temperature: float = 1.0,
+        topK: int | None = None,
+        seed: int | None = None,
+    ) -> str:
+        data = self.generateBytes(
+            maxNewTokens=maxNewTokens,
+            prompt=prompt,
+            temperature=temperature,
+            topK=topK,
+            seed=seed,
+        )
         return data.decode("utf-8", errors=errors)
 
     def logSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:

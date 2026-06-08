@@ -10,10 +10,23 @@ class RecordingModel:
     def __init__(self) -> None:
         self.indices: Tensor | None = None
         self.max_new_tokens: int | None = None
+        self.temperature: float | None = None
+        self.top_k: int | None = None
+        self.seed: int | None = None
 
-    def generate_autoregressive(self, indices: Tensor, maxNewTokens: int) -> Tensor:
+    def generate_autoregressive(
+        self,
+        indices: Tensor,
+        maxNewTokens: int,
+        temperature: float = 1.0,
+        topK: int | None = None,
+        seed: int | None = None,
+    ) -> Tensor:
         self.indices = indices.clone()
         self.max_new_tokens = maxNewTokens
+        self.temperature = temperature
+        self.top_k = topK
+        self.seed = seed
         return indices
 
 
@@ -39,3 +52,20 @@ def test_generate_text_uses_zero_token_for_empty_prompt() -> None:
     assert model.indices is not None
     assert torch.equal(model.indices, torch.zeros((1, 1), dtype=torch.long))
     assert data == b"\x00"
+
+
+def test_generate_text_forwards_sampling_options() -> None:
+    model = RecordingModel()
+    generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+
+    generator.generateText(
+        prompt="Holmes",
+        maxNewTokens=5,
+        temperature=0.8,
+        topK=50,
+        seed=123,
+    )
+
+    assert model.temperature == 0.8
+    assert model.top_k == 50
+    assert model.seed == 123
