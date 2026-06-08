@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 
+import logging
 from typing import List, Optional, Tuple
 
 import torch
@@ -10,6 +11,9 @@ from torch import Tensor
 
 from .Config import ModelConfig
 from .Transformer import DecoderCore
+
+
+logger = logging.getLogger(__name__)
 
 
 class TinyGPTLanguageModel(nn.Module):
@@ -105,9 +109,20 @@ class TinyGPTLanguageModel(nn.Module):
             past_key_values: Optional[List[Tuple[Tensor, Tensor]]] = None
             for _ in range(maxNewTokens):
                 if self.cfg.use_cache:
-                    # If we have no cache yet, feed last blockSize tokens.
-                    # Once cache exists, we can feed just the last token.
-                    if past_key_values is None:
+                    cache_is_full = (
+                        past_key_values is not None
+                        and past_key_values[0][0].size(2) >= self.cfg.blockSize
+                    )
+                    if past_key_values is None or cache_is_full:
+                        # Rebuild at the context boundary because learned
+                        # absolute positions cannot be shifted in cached keys.
+                        if cache_is_full:
+                            logger.debug(
+                                "KV cache reached blockSize=%d; rebuilding "
+                                "from the current context window",
+                                self.cfg.blockSize,
+                            )
+                        past_key_values = None
                         input_indices = indices[:, -self.cfg.blockSize :]
                     else:
                         input_indices = indices[:, -1:]

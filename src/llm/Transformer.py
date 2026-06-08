@@ -49,12 +49,9 @@ class CausalSelfAttention(nn.Module):
         total_len = past_len + time
         max_len = self.mask.size(-1)
         if total_len > max_len:
-            # Slide the cache window to keep only the most recent context that fits blockSize.
-            offset = total_len - max_len
-            k = k[:, :, offset:, :]
-            v = v[:, :, offset:, :]
-            past_len = k.size(2) - time
-            total_len = max_len
+            raise ValueError(
+                f"Cached sequence length {total_len} exceeds blockSize {max_len}"
+            )
 
         mask = self.mask[:, :, total_len - time : total_len, :total_len]
 
@@ -150,9 +147,26 @@ class DecoderCore(nn.Module):
                 f"past_key_values length {len(past_key_values)} does not match number of blocks {len(self.blocks)}"
             )
 
-        # Compute position embeddings
+        past_len = 0
+        if past_key_values is not None:
+            past_lengths = {past_k.size(2) for past_k, _ in past_key_values}
+            if len(past_lengths) != 1:
+                raise ValueError("All cached layers must have the same sequence length")
+            past_len = past_lengths.pop()
+
+        if past_len + time > self.cfg.blockSize:
+            raise ValueError(
+                f"Cached sequence length {past_len + time} exceeds blockSize "
+                f"{self.cfg.blockSize}"
+            )
+
+        # Cached tokens retain their original learned absolute positions.
         device = indices.device
-        positions = torch.arange(0, time, device=device).unsqueeze(0)  # (1, time)
+        positions = torch.arange(
+            past_len,
+            past_len + time,
+            device=device,
+        ).unsqueeze(0)
 
         tok_emb = self.tokenEmbedding(indices)      # (B, T, nEmbed)
         pos_emb = self.positionEmbedding(positions) # (1, T, nEmbed)

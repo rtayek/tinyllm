@@ -1,7 +1,8 @@
 from pathlib import Path
+from typing import Callable
+import logging
 import torch
 from unittest.mock import MagicMock
-import logging
 
 from llm.Config import ModelConfig, TrainConfig
 from llm.DataModule import ByteDataModule, SequenceDataModule
@@ -9,6 +10,15 @@ from llm.EarlyStopping import EarlyStopping
 from llm.Model import TinyGPTLanguageModel
 from llm.Checkpoint import CheckpointManager
 from llm.Evaluator import Evaluator
+
+
+class RecordingHandler(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.messages: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.messages.append(record.getMessage())
 
 
 def test_data_module_batch_shapes(tmp_path: Path) -> None:
@@ -37,6 +47,94 @@ def test_model_forward_shapes() -> None:
     assert logits.shape == (2, modelConfig.blockSize, modelConfig.vocabSize)
     assert loss is not None
     assert torch.isfinite(loss)
+
+
+def test_cached_logits_match_full_context() -> None:
+    modelConfig = ModelConfig(
+        blockSize=8,
+        vocabSize=32,
+        nEmbed=16,
+        nHead=4,
+        nLayer=2,
+        dropout=0.0,
+        use_cache=True,
+    )
+    model = TinyGPTLanguageModel(modelConfig).eval()
+    indices = torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
+
+    full_logits, _, _ = model(indices)
+    _, _, cache = model(indices[:, :3], use_cache=True)
+    cached_logits, _, _ = model(
+        indices[:, 3:],
+        past_key_values=cache,
+        use_cache=True,
+    )
+
+    assert torch.allclose(
+        cached_logits[:, -1],
+        full_logits[:, -1],
+        atol=1e-6,
+    )
+
+
+def test_cached_generation_matches_uncached_across_context_boundary() -> None:
+    baseConfig = ModelConfig(
+        blockSize=4,
+        vocabSize=32,
+        nEmbed=16,
+        nHead=4,
+        nLayer=2,
+        dropout=0.0,
+        use_cache=False,
+    )
+    cachedConfig = ModelConfig(
+        blockSize=4,
+        vocabSize=32,
+        nEmbed=16,
+        nHead=4,
+        nLayer=2,
+        dropout=0.0,
+        use_cache=True,
+    )
+    uncachedModel = TinyGPTLanguageModel(baseConfig)
+    cachedModel = TinyGPTLanguageModel(cachedConfig)
+    cachedModel.load_state_dict(uncachedModel.state_dict())
+    prompt = torch.tensor([[1, 2, 3]], dtype=torch.long)
+    manual_seed: Callable[[int], torch.Generator] = torch.manual_seed  # type: ignore[reportUnknownMemberType]
+
+    manual_seed(123)
+    uncached = uncachedModel.generate_autoregressive(prompt, maxNewTokens=6)
+    manual_seed(123)
+    cached = cachedModel.generate_autoregressive(prompt, maxNewTokens=6)
+
+    assert torch.equal(cached, uncached)
+
+
+def test_cached_generation_logs_context_rebuild() -> None:
+    modelConfig = ModelConfig(
+        blockSize=4,
+        vocabSize=32,
+        nEmbed=16,
+        nHead=4,
+        nLayer=1,
+        dropout=0.0,
+        use_cache=True,
+    )
+    model = TinyGPTLanguageModel(modelConfig)
+    prompt = torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
+    model_logger = logging.getLogger("llm.Model")
+    original_level = model_logger.level
+    handler = RecordingHandler()
+    model_logger.addHandler(handler)
+    model_logger.setLevel(logging.DEBUG)
+
+    try:
+        model.generate_autoregressive(prompt, maxNewTokens=2)
+    finally:
+        model_logger.removeHandler(handler)
+        model_logger.setLevel(original_level)
+
+    assert any("KV cache reached blockSize=4" in message for message in handler.messages)
 
 
 def test_early_stopping_logic() -> None:
