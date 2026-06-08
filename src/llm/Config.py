@@ -35,7 +35,7 @@ class TrainConfig:
     plotCurve: bool = True
     dataModule: str = "token"
     ckptPath: str = "checkpoints/tiny_llm.pt"
-    dataPath: str = "fixtureData/input.txt"
+    dataPath: str = "fixtureData/sherlock.txt"
     device: str = "cuda"  # desired/default device; actual availability is checked at runtime
 
     def toDict(self) -> Dict[str, Any]:

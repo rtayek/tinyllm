@@ -29,6 +29,14 @@ tinyllm-infer
 ```
 This loads the latest checkpoint and prints generated text.
 
+Pass a prompt and optionally choose how many new byte tokens to generate:
+```sh
+sh infer.sh --prompt "Mr. Sherlock Holmes"
+sh infer.sh --prompt "To Sherlock Holmes she is always the woman." --tokens 200
+```
+
+Running `sh infer.sh` without a prompt preserves unconditional generation.
+
 ## Imports
 Library components are under `llm`, e.g.:
 ```python
