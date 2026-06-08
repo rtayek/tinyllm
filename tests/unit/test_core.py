@@ -49,7 +49,7 @@ def test_model_forward_shapes() -> None:
     assert torch.isfinite(loss)
 
 
-def test_cached_logits_match_full_context() -> None:
+def test_cached_logits_match_uncached_logits() -> None:
     modelConfig = ModelConfig(
         blockSize=8,
         vocabSize=32,
@@ -75,6 +75,26 @@ def test_cached_logits_match_full_context() -> None:
         full_logits[:, -1],
         atol=1e-6,
     )
+
+
+def test_cached_generation_sanity() -> None:
+    modelConfig = ModelConfig(
+        blockSize=8,
+        vocabSize=32,
+        nEmbed=16,
+        nHead=4,
+        nLayer=1,
+        dropout=0.0,
+        use_cache=True,
+    )
+    model = TinyGPTLanguageModel(modelConfig)
+    prompt = torch.tensor([[1, 2, 3]], dtype=torch.long)
+
+    generated = model.generate_autoregressive(prompt, maxNewTokens=4)
+
+    assert generated.shape == (1, 7)
+    assert torch.equal(generated[:, : prompt.size(1)], prompt)
+    assert torch.all((generated >= 0) & (generated < modelConfig.vocabSize))
 
 
 def test_cached_generation_matches_uncached_across_context_boundary() -> None:
