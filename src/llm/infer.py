@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import argparse
 import logging
+from dataclasses import replace
 from typing import Sequence
 
-from llm.Config import RunConfig
+from llm.Config import RunConfig, TrainConfig
 from llm.Model import TinyGPTLanguageModel
 from llm.Checkpoint import CheckpointManager
 from llm.TextGenerator import AutoregressiveGenerator
+from llm.tensor_utils import resolve_device
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -25,22 +27,33 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return args
 
 
-def main(argv: Sequence[str] | None = None) -> None:
-    args = parse_args(argv)
-    run_cfg = RunConfig()
+def build_generator(
+    run_cfg: RunConfig | None = None,
+    logger: logging.Logger | None = None,
+) -> tuple[AutoregressiveGenerator, TrainConfig]:
+    run_cfg = run_cfg or RunConfig()
     model_cfg = run_cfg.modelConfig
     train_cfg = run_cfg.trainConfig
-    device = train_cfg.device
+    active_logger = logger or logging.getLogger("infer")
+    device = resolve_device(train_cfg.device, active_logger)
+    train_cfg = replace(train_cfg, device=device)
 
     model = TinyGPTLanguageModel(model_cfg).to(device)
 
-    logger = logging.getLogger("infer")
-    checkpointManager = CheckpointManager(model_cfg, train_cfg, logger=logger)
+    checkpointManager = CheckpointManager(
+        model_cfg,
+        train_cfg,
+        logger=active_logger,
+    )
 
     checkpointManager.loadModel(model, None)
-    print("Model weights loaded for inference.")
+    return AutoregressiveGenerator(model, device, active_logger), train_cfg
 
-    textGenerator = AutoregressiveGenerator(model, train_cfg.device, logger)
+
+def main(argv: Sequence[str] | None = None) -> None:
+    args = parse_args(argv)
+    textGenerator, _ = build_generator()
+    print("Model weights loaded for inference.")
 
     text = textGenerator.generateText(maxNewTokens=args.tokens, prompt=args.prompt)
 

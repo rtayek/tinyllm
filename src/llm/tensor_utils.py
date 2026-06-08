@@ -1,4 +1,5 @@
 from typing import Callable, cast
+import logging
 import random
 import numpy as np
 import torch
@@ -15,6 +16,13 @@ def seed_everything(seed: int) -> None:
 
 def get_device() -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
+
+def resolve_device(requested_device: str, logger: logging.Logger | None = None) -> str:
+    if requested_device.startswith("cuda") and not torch.cuda.is_available():
+        if logger is not None:
+            logger.warning("CUDA requested, but not available; falling back to cpu")
+        return "cpu"
+    return requested_device
 
 def get_master_process() -> bool:
     if not dist.is_initialized():

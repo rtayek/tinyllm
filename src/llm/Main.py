@@ -12,6 +12,7 @@ from llm.Trainer import LMTrainer
 from llm.TextGenerator import AutoregressiveGenerator
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
+from llm.tensor_utils import resolve_device
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +53,8 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
     activeLogger = log or logger
 
     # 🔍 Reconcile desired device vs actual availability
-    if trainConfig.device == "cuda" and not torch.cuda.is_available():
-        activeLogger.warning("CUDA requested in TrainConfig, but not available; falling back to cpu")
-        trainConfig = replace(trainConfig, device="cpu")
-        runConfig = RunConfig(modelConfig=modelConfig, trainConfig=trainConfig)
+    device = resolve_device(trainConfig.device, activeLogger)
+    trainConfig = replace(trainConfig, device=device)
 
     dataModule = build_data_module(modelConfig, trainConfig, activeLogger)
 

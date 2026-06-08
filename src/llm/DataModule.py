@@ -68,7 +68,7 @@ class SequenceDataModule:
             generator = torch.Generator()
             generator.manual_seed(1337)
 
-        high = source.size(0) - modelConfig.blockSize - 1
+        high = source.size(0) - modelConfig.blockSize
         indices = torch.randint(
             low=0,
             high=high,
