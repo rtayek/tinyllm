@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import argparse
 import sys
+from typing import Any, Dict, cast
+
+import torch
 
 from .Config import RunConfig
 from .Model import TinyGPTLanguageModel
-from .Checkpoint import CheckpointManager
+from .Checkpoint import Checkpoint
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,15 +33,24 @@ def main() -> None:
     train_cfg = run_cfg.trainConfig
 
     if args.command == "export-model":
-        checkpointManager = CheckpointManager(model_cfg, train_cfg, trainCkptPath=args.ckpt or None)
-        checkpointManager.saveModel(args.out)
+        checkpoint_path = args.ckpt or train_cfg.ckptPath
+        checkpoint = Checkpoint.load(checkpoint_path, train_cfg.device)
+        checkpoint.exportModel(args.out)
         print(f"Exported model weights to {args.out}")
     elif args.command == "load-model":
-        model = TinyGPTLanguageModel(model_cfg)
-        checkpointManager = CheckpointManager(model_cfg, train_cfg, modelCkptPath=args.model)
-        checkpointManager.loadModel(model, args.model)  # pyright: ignore[reportUnknownMemberType]
-        import torch
+        state = torch.load(  # pyright: ignore[reportUnknownMemberType]
+            args.model,
+            map_location=train_cfg.device,
+            weights_only=True,
+        )
+        model_state: Dict[str, Any]
+        if isinstance(state, dict) and "modelState" in state:
+            model_state = cast(Dict[str, Any], state["modelState"])
+        else:
+            model_state = cast(Dict[str, Any], state)
 
+        model = TinyGPTLanguageModel(model_cfg)
+        model.load_state_dict(model_state)
         torch.save(model.state_dict(), args.out)  # pyright: ignore[reportUnknownMemberType]
         print(f"Loaded model weights from {args.model} and saved state_dict to {args.out}")
     else:

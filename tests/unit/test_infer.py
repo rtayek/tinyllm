@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import pytest
 import torch
 
-from llm.Checkpoint import CheckpointManager
+from llm.Checkpoint import Checkpoint
 from llm.Config import ModelConfig, RunConfig, TrainConfig
 from llm.infer import build_generator, parse_args
 from llm.Model import TinyGPTLanguageModel
@@ -28,30 +30,35 @@ def test_parse_args_rejects_negative_token_count() -> None:
 
 def test_build_generator_falls_back_to_cpu(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
-    def skip_checkpoint_load(
-        self: CheckpointManager,
-        model: TinyGPTLanguageModel,
-        modelPath: str | None,
-    ) -> None:
-        return None
-
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
-    monkeypatch.setattr(
-        CheckpointManager,
-        "loadModel",
-        skip_checkpoint_load,
+    model_config = ModelConfig(
+        blockSize=4,
+        vocabSize=32,
+        nEmbed=8,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
     )
+    model = TinyGPTLanguageModel(model_config)
+    optimizer = torch.optim.AdamW(model.parameters())
+    checkpoint_path = tmp_path / "checkpoint.pt"
+    checkpoint = Checkpoint.fromTrainingState(
+        model=model,
+        optimizer=optimizer,
+        modelConfig=model_config,
+        trainConfig=None,
+        step=0,
+        bestValLoss=None,
+    )
+    checkpoint.save(str(checkpoint_path), "cpu")
     run_config = RunConfig(
-        modelConfig=ModelConfig(
-            blockSize=4,
-            vocabSize=32,
-            nEmbed=8,
-            nHead=2,
-            nLayer=1,
-            dropout=0.0,
+        modelConfig=model_config,
+        trainConfig=TrainConfig(
+            device="cuda",
+            ckptPath=str(checkpoint_path),
         ),
-        trainConfig=TrainConfig(device="cuda"),
     )
 
     generator, resolved_config = build_generator(run_config)
@@ -59,3 +66,39 @@ def test_build_generator_falls_back_to_cpu(
     assert resolved_config.device == "cpu"
     assert generator.device == "cpu"
     assert next(generator.model.parameters()).device.type == "cpu"
+
+
+def test_build_generator_uses_checkpoint_model_config(
+    tmp_path: Path,
+) -> None:
+    checkpoint_config = ModelConfig(
+        blockSize=4,
+        vocabSize=32,
+        nEmbed=8,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
+    )
+    model = TinyGPTLanguageModel(checkpoint_config)
+    optimizer = torch.optim.AdamW(model.parameters())
+    checkpoint_path = tmp_path / "checkpoint.pt"
+    checkpoint = Checkpoint.fromTrainingState(
+        model=model,
+        optimizer=optimizer,
+        modelConfig=checkpoint_config,
+        trainConfig=None,
+        step=1,
+        bestValLoss=1.0,
+    )
+    checkpoint.save(str(checkpoint_path), "cpu")
+    run_config = RunConfig(
+        modelConfig=ModelConfig(),
+        trainConfig=TrainConfig(
+            device="cpu",
+            ckptPath=str(checkpoint_path),
+        ),
+    )
+
+    generator, _ = build_generator(run_config)
+
+    assert generator.model.cfg == checkpoint_config

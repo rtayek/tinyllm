@@ -61,8 +61,9 @@ tinyllm-train --log-level DEBUG
 tinyllm-train --plot
 ```
 
-Checkpoints are written to `checkpoints/`, plots to `plots/`, and a generated
-sample to `tmp/sample.txt`.
+The full training checkpoint is written to `checkpoints/tiny_llm.pt`. It is
+the single checkpoint used for both training resume and inference. Plots are
+written to `plots/`, and a generated sample to `tmp/sample.txt`.
 
 The convenience script starts a clean training run:
 

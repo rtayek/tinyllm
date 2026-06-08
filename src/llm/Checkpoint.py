@@ -96,20 +96,16 @@ class CheckpointManager:
         self,
         modelCfg: ModelConfig,
         trainCfg: TrainConfig,
-        trainCkptPath: Optional[str] = None,
-        modelCkptPath: Optional[str] = None,
         logger: Optional[logging.Logger] = None,
     ) -> None:
         self.modelCfg = modelCfg
         self.trainCfg = trainCfg
-        self.trainCkptPath = trainCkptPath or trainCfg.ckptPath or "checkpoints/tiny_train.pt"
-        self.modelCkptPath = modelCkptPath or "checkpoints/tiny_model.pt"
+        self.ckptPath = trainCfg.ckptPath
         self.logger = logger or logging.getLogger(__name__)
 
-        for path in (self.trainCkptPath, self.modelCkptPath):
-            ckptDir = os.path.dirname(path)
-            if ckptDir:
-                os.makedirs(ckptDir, exist_ok=True)
+        ckptDir = os.path.dirname(self.ckptPath)
+        if ckptDir:
+            os.makedirs(ckptDir, exist_ok=True)
 
     def saveCheckpoint(
         self,
@@ -131,7 +127,7 @@ class CheckpointManager:
             generatorState=generatorState,
             version=CHECKPOINT_VERSION,
         )
-        checkpoint.save(self.trainCkptPath, self.trainCfg.device)
+        checkpoint.save(self.ckptPath, self.trainCfg.device)
 
     def loadCheckpoint(
         self,
@@ -139,10 +135,10 @@ class CheckpointManager:
         optimizer: torch.optim.Optimizer,
         lrStrategy: Optional[Any] = None,
     ) -> Tuple[int, Optional[float], bool, int, bool, Dict[str, Dict[str, Any]], Optional[torch.Tensor]]:
-        if not os.path.exists(self.trainCkptPath):
+        if not os.path.exists(self.ckptPath):
             return 0, None, False, CHECKPOINT_VERSION, True, {}, None
 
-        checkpoint = Checkpoint.load(self.trainCkptPath, self.trainCfg.device)
+        checkpoint = Checkpoint.load(self.ckptPath, self.trainCfg.device)
         model.load_state_dict(checkpoint.modelState)
         optimizer.load_state_dict(checkpoint.optimizerState)
         step = checkpoint.step
@@ -176,34 +172,3 @@ class CheckpointManager:
             }
 
         return step, bestValLoss, lrStateRestored, version, version_matches, configDrift, generator_state
-
-    def saveModel(self, out_path: Optional[str] = None) -> None:
-        if not os.path.exists(self.trainCkptPath):
-            raise FileNotFoundError(self.trainCkptPath)
-
-        checkpoint = Checkpoint.load(self.trainCkptPath, self.trainCfg.device)
-        checkpoint.exportModel(out_path or self.modelCkptPath)
-
-    def loadModel(self, model: TinyGPTLanguageModel, modelPath: Optional[str] = None) -> None:
-        path = modelPath or self.modelCkptPath
-        if not os.path.exists(path):
-            if os.path.exists(self.trainCkptPath):
-                checkpoint = Checkpoint.load(self.trainCkptPath, self.trainCfg.device)
-                checkpoint.exportModel(self.modelCkptPath)
-                path = self.modelCkptPath
-            else:
-                raise FileNotFoundError(
-                    f"Model checkpoint not found at {path} and no training checkpoint at {self.trainCkptPath}"
-                )
-
-        state = torch.load(  # pyright: ignore[reportUnknownMemberType]
-            path,
-            map_location=self.trainCfg.device,
-            weights_only=True,
-        )
-        model_state: Dict[str, Any]
-        if isinstance(state, dict) and "modelState" in state:
-            model_state = cast(Dict[str, Any], state["modelState"])
-        else:
-            model_state = cast(Dict[str, Any], state)
-        model.load_state_dict(model_state)

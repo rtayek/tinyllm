@@ -5,9 +5,9 @@ import logging
 from dataclasses import replace
 from typing import Sequence
 
-from llm.Config import RunConfig, TrainConfig
+from llm.Config import ModelConfig, RunConfig, TrainConfig
 from llm.Model import TinyGPTLanguageModel
-from llm.Checkpoint import CheckpointManager
+from llm.Checkpoint import Checkpoint
 from llm.TextGenerator import AutoregressiveGenerator
 from llm.tensor_utils import resolve_device
 
@@ -38,15 +38,11 @@ def build_generator(
     device = resolve_device(train_cfg.device, active_logger)
     train_cfg = replace(train_cfg, device=device)
 
+    checkpoint = Checkpoint.load(train_cfg.ckptPath, device)
+    if checkpoint.modelConfig:
+        model_cfg = ModelConfig.fromDict(checkpoint.modelConfig)
     model = TinyGPTLanguageModel(model_cfg).to(device)
-
-    checkpointManager = CheckpointManager(
-        model_cfg,
-        train_cfg,
-        logger=active_logger,
-    )
-
-    checkpointManager.loadModel(model, None)
+    model.load_state_dict(checkpoint.modelState)
     return AutoregressiveGenerator(model, device, active_logger), train_cfg
 
 

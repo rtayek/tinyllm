@@ -3,7 +3,7 @@ from pathlib import Path
 
 from llm.Config import ModelConfig, TrainConfig
 from llm.Model import TinyGPTLanguageModel
-from llm.Checkpoint import CheckpointManager
+from llm.Checkpoint import Checkpoint, CheckpointManager
 
 
 def test_checkpoint_export_and_load(tmp_path: Path) -> None:
@@ -34,12 +34,17 @@ def test_checkpoint_export_and_load(tmp_path: Path) -> None:
     manager = CheckpointManager(modelConfig, trainConfig)
     manager.saveCheckpoint(model, optimizer, lrStrategyState=None, step=1, bestValLoss=0.5, generatorState=None)
 
-    manager.saveModel(str(modelExport))
+    checkpoint = Checkpoint.load(str(trainCkpt), trainConfig.device)
+    checkpoint.exportModel(str(modelExport))
     assert modelExport.exists()
 
     loadedModel = TinyGPTLanguageModel(modelConfig)
-    loader = CheckpointManager(modelConfig, trainConfig, modelCkptPath=str(modelExport))
-    loader.loadModel(loadedModel, str(modelExport))
+    modelState = torch.load(  # pyright: ignore[reportUnknownMemberType]
+        modelExport,
+        map_location=trainConfig.device,
+        weights_only=True,
+    )
+    loadedModel.load_state_dict(modelState)
 
     for pSaved, pLoaded in zip(model.parameters(), loadedModel.parameters()):
         assert torch.equal(pSaved, pLoaded)
