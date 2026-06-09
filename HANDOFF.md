@@ -79,6 +79,24 @@ UTF-8. `generateBytes()` is lossless; generated text uses UTF-8 replacement
 characters for invalid sequences by default, with an explicit error-policy
 override available to callers.
 
+### Tokenizer Direction
+
+The current model already uses tokens: each token is one byte. This keeps the
+implementation simple, lossless, and independent of a trained tokenizer, but
+it produces longer sequences than a subword tokenizer and limits how much text
+fits in the 128-token context window.
+
+Keep byte tokens while the project is focused on transformer mechanics. If the
+goal shifts toward better generated language and more efficient context usage,
+the recommended next step is byte-level BPE rather than word-level tokens. A
+reasonable starting point would be a vocabulary of 2,000-8,000 tokens and a
+context length of 256-512 tokens, with tied input/output embeddings to limit
+parameter growth.
+
+Changing tokenization is a model-format change. Existing checkpoints would not
+be compatible, training would need to restart, and checkpoints should store
+tokenizer metadata that inference validates before loading the model.
+
 ## Checkpoints
 
 Normal training and inference use one authoritative file:
