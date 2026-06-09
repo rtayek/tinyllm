@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Any, cast
+from typing import Any, Dict, cast
 
 
 @dataclass(frozen=True)
@@ -35,7 +35,18 @@ class TrainConfig:
     plotCurve: bool = True
     dataModule: str = "token"
     ckptPath: str = "checkpoints/tiny_llm.pt"
-    dataPath: str = "fixtureData/sherlock.txt"
+    dataPath: str = (
+        "corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/"
+        "splits/train.txt"
+    )
+    validationDataPath: str | None = (
+        "corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/"
+        "splits/validation.txt"
+    )
+    testDataPath: str | None = (
+        "corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/"
+        "splits/test.txt"
+    )
     device: str = "cuda"  # desired/default device; actual availability is checked at runtime
 
     def toDict(self) -> Dict[str, Any]:

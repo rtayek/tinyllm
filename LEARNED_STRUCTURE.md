@@ -2,8 +2,9 @@
 
 This note treats `tinyllm` as an experiment in representation learning rather
 than primarily as a text-generation project. Measurements below use the
-checkpoint at step 3100 and reproduce the corpus path used by
-`TokenDataModule`, including text-mode newline normalization.
+historical checkpoint at step 3100 and its now-removed legacy Sherlock corpus,
+including text-mode newline normalization. They have not yet been reproduced
+on the canonical story-level split.
 
 ## Current Answer
 

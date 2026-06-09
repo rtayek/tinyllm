@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import torch
 
 from llm.Config import ModelConfig, TrainConfig
-from llm.DataModule import SequenceDataModule
+from llm.DataModule import SequenceDataModule, TokenDataModule, Utf8ByteTokenizer
 
 
 def test_get_batch_accepts_exactly_one_valid_window() -> None:
@@ -44,3 +46,38 @@ def test_get_batch_matches_expected_windows() -> None:
     positions = starts.unsqueeze(1) + offsets.unsqueeze(0)
     assert torch.equal(batch_x, data_module.trainSequence[positions])
     assert torch.equal(batch_y, data_module.trainSequence[positions + 1])
+
+
+def test_token_data_module_loads_explicit_splits(tmp_path: Path) -> None:
+    train = tmp_path / "train.txt"
+    validation = tmp_path / "validation.txt"
+    test = tmp_path / "test.txt"
+    train.write_text("train sequence", encoding="utf-8")
+    validation.write_text("validation sequence", encoding="utf-8")
+    test.write_text("test sequence", encoding="utf-8")
+    config = TrainConfig(
+        dataPath=str(train),
+        validationDataPath=str(validation),
+        testDataPath=str(test),
+        device="cpu",
+    )
+
+    data_module = TokenDataModule(
+        ModelConfig(blockSize=4),
+        config,
+        Utf8ByteTokenizer(),
+    )
+
+    assert torch.equal(
+        data_module.trainSequence,
+        torch.tensor(list(b"train sequence")),
+    )
+    assert torch.equal(
+        data_module.valSequence,
+        torch.tensor(list(b"validation sequence")),
+    )
+    assert data_module.testSequence is not None
+    assert torch.equal(
+        data_module.testSequence,
+        torch.tensor(list(b"test sequence")),
+    )

@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "id": "lewis-carroll/alices-adventures-in-wonderland",
+  "author": "Lewis Carroll",
+  "title": "Alice's Adventures in Wonderland",
+  "language": "en",
+  "genre": "fiction",
+  "encoding": "utf-8",
+  "unit_type": "chapter",
+  "source": {
+    "provider": "Project Gutenberg",
+    "ebook_id": "11",
+    "url": "https://www.gutenberg.org/ebooks/11",
+    "path": "raw/gutenberg.txt",
+    "bytes": 151191,
+    "sha256": "a3a27f8edbf7fcd9b8ba8435494440e24952deaa3e2f2d65192d4cb7ca403754"
+  },
+  "cleaning": {
+    "tool": "llm.corpus",
+    "version": 1,
+    "path": "clean/full.txt",
+    "bytes": 150481,
+    "sha256": "c4ff3faa3e8a84c9a558ef84257c3439f122397cba3c8be436e8f322c2e2d712"
+  },
+  "units": [
+    {
+      "index": 1,
+      "heading": "CHAPTER I.",
+      "path": "units/chapters/01-chapter-i.txt",
+      "bytes": 11778,
+      "sha256": "25f4343a0369c3eb47cbd7027fe4226daf493ae0391e7ca442aab8ce615db242"
+    },
+    {
+      "index": 2,
+      "heading": "CHAPTER II.",
+      "path": "units/chapters/02-chapter-ii.txt",
+      "bytes": 11337,
+      "sha256": "f723deba3c750eee6a6be0341b1680763012743d7f82fbf21596b3290a666569"
+    },
+    {
+      "index": 3,
+      "heading": "CHAPTER III.",
+      "path": "units/chapters/03-chapter-iii.txt",
+      "bytes": 9662,
+      "sha256": "b324bb033db3c46f3a904f7584391f1740291dfdbc5348cee78777c58937a2b6"
+    },
+    {
+      "index": 4,
+      "heading": "CHAPTER IV.",
+      "path": "units/chapters/04-chapter-iv.txt",
+      "bytes": 14375,
+      "sha256": "5128e07686d5c659cb9985c5c367dcddce7128b3563e51225215e5c928fb2543"
+    },
+    {
+      "index": 5,
+      "heading": "CHAPTER V.",
+      "path": "units/chapters/05-chapter-v.txt",
+      "bytes": 12582,
+      "sha256": "4c77e575eae6ce271f59ab20e09c8dd18a0626b6d2d0a57bdbe4345cbd8abe8c"
+    },
+    {
+      "index": 6,
+      "heading": "CHAPTER VI.",
+      "path": "units/chapters/06-chapter-vi.txt",
+      "bytes": 14423,
+      "sha256": "2d2881fc6bdd4017fc2f9951670c1ea10d3b8601f24f39620ae7bf4add4081ae"
+    },
+    {
+      "index": 7,
+      "heading": "CHAPTER VII.",
+      "path": "units/chapters/07-chapter-vii.txt",
+      "bytes": 13516,
+      "sha256": "da67ff08a7e1ae834a920a3b6cbb002b013e90a4c70ca81564d54b8597a8668b"
+    },
+    {
+      "index": 8,
+      "heading": "CHAPTER VIII.",
+      "path": "units/chapters/08-chapter-viii.txt",
+      "bytes": 14187,
+      "sha256": "1a519ff247069c25d6608905bacf04fbfaf062e8548bafc270111faaea7e9c14"
+    },
+    {
+      "index": 9,
+      "heading": "CHAPTER IX.",
+      "path": "units/chapters/09-chapter-ix.txt",
+      "bytes": 13402,
+      "sha256": "cb66ce9a2b2bcde80068fb543d50f110c2ed4a9995850d52ae7a0ba69c6cb66a"
+    },
+    {
+      "index": 10,
+      "heading": "CHAPTER X.",
+      "path": "units/chapters/10-chapter-x.txt",
+      "bytes": 12118,
+      "sha256": "3d5f4a6cdfa5548326f1aa9d495c8c13c740f0f6a1638a2f94f1afbfb77e1ab0"
+    },
+    {
+      "index": 11,
+      "heading": "CHAPTER XI.",
+      "path": "units/chapters/11-chapter-xi.txt",
+      "bytes": 10904,
+      "sha256": "ef9a4ad6273c2f8f2605c9d428298a22952526984900efc1df8cc812381158c6"
+    },
+    {
+      "index": 12,
+      "heading": "CHAPTER XII.",
+      "path": "units/chapters/12-chapter-xii.txt",
+      "bytes": 12175,
+      "sha256": "9be3f4c13e692abf032f3991a14d6e5fd54f57a239e03e16a43c7817a7cb2a55"
+    }
+  ],
+  "splits": {
+    "strategy": "ordered logical units",
+    "train": {
+      "units": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "path": "splits/train.txt",
+      "bytes": 101874,
+      "sha256": "27d4ccc14c42a3dd910f5e2fc46e402efb91947ed0028506982959e974109d4f"
+    },
+    "validation": {
+      "units": [
+        9,
+        10
+      ],
+      "path": "splits/validation.txt",
+      "bytes": 25522,
+      "sha256": "19c37f0af6778d8a0ce084474fe19b336427ab55bcc95c3ee6cb72443c1bc987"
+    },
+    "test": {
+      "units": [
+        11,
+        12
+      ],
+      "path": "splits/test.txt",
+      "bytes": 23081,
+      "sha256": "139fffe0030a7f9d58c5e2267e5fc85099d5421d1545d63c141ae4b014db1c9d"
+    }
+  }
+}

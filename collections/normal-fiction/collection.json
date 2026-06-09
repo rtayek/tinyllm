@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "normal-fiction",
+  "description": "Public-domain English prose fiction with logical unit boundaries.",
+  "works": [
+    {
+      "manifest": "../../corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/manifest.json"
+    },
+    {
+      "manifest": "../../corpora/lewis-carroll/alices-adventures-in-wonderland/manifest.json"
+    },
+    {
+      "manifest": "../../corpora/jane-austen/pride-and-prejudice/manifest.json"
+    }
+  ],
+  "recommended_evaluation_levels": [
+    "held-out units within a work",
+    "held-out works by a known author",
+    "held-out authors within fiction"
+  ]
+}

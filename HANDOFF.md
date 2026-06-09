@@ -32,9 +32,9 @@ uncommitted.
 Verification:
 
 ```text
-pytest: 37 passed
+pytest: 43 passed
 pyright: 0 errors
-branch coverage: 80.4%
+branch coverage: 80.0%
 ```
 
 Current checkpoint:
@@ -43,7 +43,7 @@ Current checkpoint:
 checkpoints/tiny_llm.pt
 step: 3100
 best validation loss: 2.0223001837730408
-corpus: fixtureData/sherlock.txt
+corpus: removed legacy `fixtureData/sherlock.txt`
 ```
 
 Model configuration stored in the checkpoint:
@@ -143,10 +143,13 @@ Resume training from the existing checkpoint:
 tinyllm-train
 ```
 
-Select another corpus:
+Select another corpus and its held-out splits:
 
 ```sh
-tinyllm-train --corpus fixtureData/alice.txt
+tinyllm-train \
+  --corpus corpora/lewis-carroll/alices-adventures-in-wonderland/splits/train.txt \
+  --validation-corpus corpora/lewis-carroll/alices-adventures-in-wonderland/splits/validation.txt \
+  --test-corpus corpora/lewis-carroll/alices-adventures-in-wonderland/splits/test.txt
 ```
 
 Start a clean run:
@@ -165,6 +168,9 @@ Training flags:
 
 ```text
 --corpus PATH
+--validation-corpus PATH
+--test-corpus PATH
+--checkpoint PATH
 --plot
 --log-level DEBUG|INFO|WARNING|ERROR
 ```
@@ -246,29 +252,28 @@ checkpoint. Set it to `True` in a model configuration to use cached decoding.
 
 ## Data
 
-Original source corpora are retained directly under `fixtureData/`. Rebuild
-normalized research corpora with:
+Original sources and normalized outputs are organized under
+`corpora/<author>/<work>/`. Rebuild manifests, clean text, logical units, and
+splits with:
 
 ```sh
 tinyllm-prepare-corpora
 ```
 
-Outputs are under `fixtureData/clean/`. The preparation step removes Gutenberg
-wrappers and producer credits, normalizes Unicode/newlines/blank runs, and
-preserves literary punctuation.
-
-Sherlock is additionally split on its twelve story headings:
+Each work contains `raw/`, `clean/`, `units/`, `splits/`, and `manifest.json`.
+The current normal-fiction collection contains Sherlock Holmes, Alice's
+Adventures in Wonderland, and Jane Austen's Pride and Prejudice.
 
 ```text
-fixtureData/clean/sherlock_train.txt       stories I-VIII
-fixtureData/clean/sherlock_validation.txt  stories IX-X
-fixtureData/clean/sherlock_test.txt        stories XI-XII
-fixtureData/clean/sherlock_stories/        individual stories
+corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/
+corpora/lewis-carroll/alices-adventures-in-wonderland/
+corpora/jane-austen/pride-and-prejudice/
 ```
 
-The current checkpoint and default `TrainConfig.dataPath` remain tied to
-`fixtureData/sherlock.txt`. Do not resume that checkpoint as though it were a
-clean-corpus experiment; start a fresh run when changing the data.
+The historical checkpoint was trained on the removed `fixtureData/sherlock.txt`
+file. Treat it as a historical model; start a fresh run for canonical data.
+New experiment outputs belong under `runs/<experiment>/`, while selected
+reusable model artifacts belong under `models/`.
 
 The DataModule sampling boundary was fixed. A split containing exactly
 `blockSize + 1` bytes now produces its single valid training window.

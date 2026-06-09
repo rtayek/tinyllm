@@ -100,3 +100,6 @@ dmypy.json
 .pyre/
 /tmp
 
+# Per-experiment outputs. Keep directory documentation in Git.
+/runs/*
+!/runs/README.md

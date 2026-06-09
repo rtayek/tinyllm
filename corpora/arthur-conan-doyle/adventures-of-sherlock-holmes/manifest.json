@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "id": "arthur-conan-doyle/adventures-of-sherlock-holmes",
+  "author": "Arthur Conan Doyle",
+  "title": "The Adventures of Sherlock Holmes",
+  "language": "en",
+  "genre": "fiction",
+  "encoding": "utf-8",
+  "unit_type": "story",
+  "source": {
+    "provider": "Project Gutenberg",
+    "ebook_id": "1661",
+    "url": "https://www.gutenberg.org/ebooks/1661",
+    "path": "raw/gutenberg.txt",
+    "bytes": 607504,
+    "sha256": "b9c105a5c0cf9fcb37c7d0211658851ed56074519c9455d15e20f04c0c5a3174"
+  },
+  "cleaning": {
+    "tool": "llm.corpus",
+    "version": 1,
+    "path": "clean/full.txt",
+    "bytes": 575221,
+    "sha256": "15a2d2720c44238bbc8b9ac780fc2a06749afc88e36c730587d2f5ecbb149e64"
+  },
+  "units": [
+    {
+      "index": 1,
+      "heading": "I. A SCANDAL IN BOHEMIA",
+      "path": "units/stories/01-i-a-scandal-in-bohemia.txt",
+      "bytes": 47834,
+      "sha256": "f2b0c68076a19bac92257a3be42be067dd6b4cfdf2dd044fee200a1fa08ccaaa"
+    },
+    {
+      "index": 2,
+      "heading": "II. THE RED-HEADED LEAGUE",
+      "path": "units/stories/02-ii-the-red-headed-league.txt",
+      "bytes": 50563,
+      "sha256": "faa944b146d5670f6b69955e77f6c7ffb2d1627b10e1c5b9c0b22550f011f5bc"
+    },
+    {
+      "index": 3,
+      "heading": "III. A CASE OF IDENTITY",
+      "path": "units/stories/03-iii-a-case-of-identity.txt",
+      "bytes": 38747,
+      "sha256": "283665e807481ae6c65becb0f862fdf65da30b52f491a978582f464aa68989f7"
+    },
+    {
+      "index": 4,
+      "heading": "IV. THE BOSCOMBE VALLEY MYSTERY",
+      "path": "units/stories/04-iv-the-boscombe-valley-mystery.txt",
+      "bytes": 52458,
+      "sha256": "4787168db92cb394f4c723ad6eab044813497a601310dfa1f5820be75544d975"
+    },
+    {
+      "index": 5,
+      "heading": "V. THE FIVE ORANGE PIPS",
+      "path": "units/stories/05-v-the-five-orange-pips.txt",
+      "bytes": 40398,
+      "sha256": "943c2583f75d0e8a0276b8269e93118b372d506c279d81b2d8013e6e8254768c"
+    },
+    {
+      "index": 6,
+      "heading": "VI. THE MAN WITH THE TWISTED LIP",
+      "path": "units/stories/06-vi-the-man-with-the-twisted-lip.txt",
+      "bytes": 50244,
+      "sha256": "34b90db722a316dba85993f7370b6d4a2c8aa1ccd16798a0cdba7b15565e9d74"
+    },
+    {
+      "index": 7,
+      "heading": "VII. THE ADVENTURE OF THE BLUE CARBUNCLE",
+      "path": "units/stories/07-vii-the-adventure-of-the-blue-carbuncle.txt",
+      "bytes": 43337,
+      "sha256": "2f6c804a95e6e491d8b3bc8dbd96d49aaa5f2fde9804b6d6f975fc0bfaaeaf7f"
+    },
+    {
+      "index": 8,
+      "heading": "VIII. THE ADVENTURE OF THE SPECKLED BAND",
+      "path": "units/stories/08-viii-the-adventure-of-the-speckled-band.txt",
+      "bytes": 54096,
+      "sha256": "93c6334e3c52347bb431f226ad3a82095df07af385adbd6a423003469952ead9"
+    },
+    {
+      "index": 9,
+      "heading": "IX. THE ADVENTURE OF THE ENGINEER’S THUMB",
+      "path": "units/stories/09-ix-the-adventure-of-the-engineers-thumb.txt",
+      "bytes": 45646,
+      "sha256": "8bb47a0dcc7827b1f8a6139fd65d4e1239f20be4c8e73a491c20e99a1a0aff21"
+    },
+    {
+      "index": 10,
+      "heading": "X. THE ADVENTURE OF THE NOBLE BACHELOR",
+      "path": "units/stories/10-x-the-adventure-of-the-noble-bachelor.txt",
+      "bytes": 45368,
+      "sha256": "5ff2ed1a3a48c7f3c40be1b25e1b4de9cea2085522711b7f9ef9b5812d775e8d"
+    },
+    {
+      "index": 11,
+      "heading": "XI. THE ADVENTURE OF THE BERYL CORONET",
+      "path": "units/stories/11-xi-the-adventure-of-the-beryl-coronet.txt",
+      "bytes": 52160,
+      "sha256": "afb05a7da123d2dac1c4aa7b17780bd82859a62ab8830a9fb06adbc2e04b9c40"
+    },
+    {
+      "index": 12,
+      "heading": "XII. THE ADVENTURE OF THE COPPER BEECHES",
+      "path": "units/stories/12-xii-the-adventure-of-the-copper-beeches.txt",
+      "bytes": 54348,
+      "sha256": "c1bd0d8efdeb2d8ea0b0c0c70107afadd907ed34973a36435e79030788f02497"
+    }
+  ],
+  "splits": {
+    "strategy": "ordered logical units",
+    "train": {
+      "units": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "path": "splits/train.txt",
+      "bytes": 377691,
+      "sha256": "8bb16a50d8b5ff30863d4c8baf312d5052b85fe8156871a6faca8237730c5faa"
+    },
+    "validation": {
+      "units": [
+        9,
+        10
+      ],
+      "path": "splits/validation.txt",
+      "bytes": 91016,
+      "sha256": "5f93ada951da99ee9af9ac8ac17170af59dda9d6826b1805d35603d048df9705"
+    },
+    "test": {
+      "units": [
+        11,
+        12
+      ],
+      "path": "splits/test.txt",
+      "bytes": 106510,
+      "sha256": "9bf9a1695a27213611a81991eefc1dd87eff33618a1fd81cb3ac95816491b549"
+    }
+  }
+}

@@ -17,8 +17,20 @@ Python 3.10 or newer is required.
 
 ## Data
 
-The bundled files directly under `fixtureData/` are source corpora retained
-for provenance. Generate normalized research inputs with:
+Canonical corpora are stored by author and work:
+
+```text
+corpora/<author>/<work>/
+  manifest.json
+  raw/gutenberg.txt
+  clean/full.txt
+  units/chapters/ or units/stories/
+  splits/train.txt
+  splits/validation.txt
+  splits/test.txt
+```
+
+Generate normalized research inputs and manifests with:
 
 ```sh
 tinyllm-prepare-corpora
@@ -30,46 +42,38 @@ Equivalent module invocation:
 python -m llm.corpus
 ```
 
-Generated files are written under `fixtureData/clean/`. Cleaning:
+Cleaning:
 
 - removes Project Gutenberg wrappers and producer credits,
 - normalizes Unicode, newlines, trailing whitespace, and blank-line runs,
 - preserves literary punctuation and UTF-8 text,
-- corrects the generated Shakespeare filename,
-- splits Sherlock Holmes at story boundaries.
+- records source and generated-file hashes in each manifest,
+- splits works at chapter or story boundaries.
 
 The Sherlock story-level research split is:
 
 ```text
-fixtureData/clean/sherlock_train.txt       stories I-VIII
-fixtureData/clean/sherlock_validation.txt  stories IX-X
-fixtureData/clean/sherlock_test.txt        stories XI-XII
+corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/train.txt
+corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/validation.txt
+corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/test.txt
 ```
 
-Individual stories are under `fixtureData/clean/sherlock_stories/`.
-
-The existing checkpoint and current default configuration still refer to the
-legacy corpus:
+The collection currently includes:
 
 ```text
-fixtureData/sherlock.txt
+Arthur Conan Doyle / The Adventures of Sherlock Holmes
+Lewis Carroll / Alice's Adventures in Wonderland
+Jane Austen / Pride and Prejudice
 ```
 
-That is intentional so an old checkpoint is not silently reinterpreted as a
-clean-corpus experiment. Start a fresh experiment when switching corpora.
-
-Other cleaned corpora include:
-
-```text
-fixtureData/clean/alice.txt
-fixtureData/clean/shakespeare.txt
-fixtureData/clean/tenderbuttons.txt
-```
-
-Select a cleaned corpus with the training CLI:
+Select all three explicit splits with the training CLI:
 
 ```sh
-tinyllm-train --corpus fixtureData/clean/alice.txt
+tinyllm-train \
+  --corpus corpora/jane-austen/pride-and-prejudice/splits/train.txt \
+  --validation-corpus corpora/jane-austen/pride-and-prejudice/splits/validation.txt \
+  --test-corpus corpora/jane-austen/pride-and-prejudice/splits/test.txt \
+  --checkpoint runs/pride-byte/checkpoints/best.pt
 ```
 
 The model uses UTF-8 bytes as tokens and has a vocabulary size of 256.
@@ -94,14 +98,15 @@ python -m llm.Main
 Useful options:
 
 ```sh
-tinyllm-train --corpus fixtureData/tenderbuttons.txt
+tinyllm-train --log-level DEBUG
 tinyllm-train --log-level DEBUG
 tinyllm-train --plot
 ```
 
-The full training checkpoint is written to `checkpoints/tiny_llm.pt`. It is
-the single checkpoint used for both training resume and inference. Plots are
-written to `plots/`, and a generated sample to `tmp/sample.txt`.
+The default checkpoint remains `checkpoints/tiny_llm.pt`. For new experiments,
+put run-specific checkpoints and results under `runs/<experiment>/`; publish
+selected model artifacts under `models/`. Plots are written to `plots/`, and a
+generated sample to `tmp/sample.txt`.
 
 The convenience script starts a clean training run:
 
