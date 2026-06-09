@@ -33,6 +33,22 @@ class RecordingModel:
         return indices
 
 
+class FixedOutputModel(RecordingModel):
+    def __init__(self, output: bytes) -> None:
+        super().__init__()
+        self.output = output
+
+    def generate_autoregressive(
+        self,
+        indices: Tensor,
+        maxNewTokens: int,
+        temperature: float = 1.0,
+        topK: int | None = None,
+        seed: int | None = None,
+    ) -> Tensor:
+        return torch.tensor([list(self.output)], dtype=torch.long)
+
+
 def test_generate_text_uses_utf8_prompt_bytes() -> None:
     model = RecordingModel()
     generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
@@ -87,3 +103,18 @@ def test_save_sample_creates_tmp_directory(
     assert (tmp_path / "tmp" / "sample.txt").read_text(
         encoding="utf-8"
     ) == "Holmes"
+
+
+def test_generate_text_replaces_invalid_utf8_by_default() -> None:
+    model = FixedOutputModel(b"A\xffB")
+    generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+
+    assert generator.generateBytes(maxNewTokens=0) == b"A\xffB"
+    assert generator.generateText(maxNewTokens=0) == "A\ufffdB"
+
+
+def test_generate_text_allows_ignore_override() -> None:
+    model = FixedOutputModel(b"A\xffB")
+    generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+
+    assert generator.generateText(maxNewTokens=0, errors="ignore") == "AB"

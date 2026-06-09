@@ -49,7 +49,7 @@ class AutoregressiveGenerator:
     def generateText(
         self,
         maxNewTokens: int = 200,
-        errors: str = "ignore",
+        errors: str = "replace",
         prompt: str = "",
         temperature: float = 1.0,
         topK: int | None = None,

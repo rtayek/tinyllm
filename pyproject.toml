@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=7.4",
+  "pytest-cov>=5.0",
   "pyright>=1.1.0",
 ]
 
@@ -31,3 +32,21 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.coverage.run]
+branch = true
+source = ["llm"]
+omit = [
+  "src/llm/DataBottleneckProfiler.py",
+  "src/llm/checkGPU.py",
+  "src/llm/make_tender_buttons_dataset.py",
+]
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+skip_covered = true
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+]

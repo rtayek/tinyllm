@@ -5,7 +5,6 @@ import logging
 import torch
 
 from .Config import ModelConfig, TrainConfig
-from .tensor_utils import tensor_to_int_list
 
 
 class Utf8ByteTokenizer:
@@ -17,7 +16,7 @@ class Utf8ByteTokenizer:
         return [int(b) for b in text.encode("utf-8")]
 
     def decode(self, ids: Sequence[int]) -> str:
-        return bytes(int(i) for i in ids).decode("utf-8", errors="ignore")
+        return bytes(int(i) for i in ids).decode("utf-8", errors="replace")
 
 class SequenceDataModule:
     def __init__(
@@ -76,20 +75,10 @@ class SequenceDataModule:
             generator=generator,
         )
 
-        xList: list[torch.Tensor] = []
-        yList: list[torch.Tensor] = []
-
-        start_indices = tensor_to_int_list(indices)
-        for start in start_indices:
-            xList.append(
-                source[start : start + modelConfig.blockSize]
-            )
-            yList.append(
-                source[start + 1 : start + 1 + modelConfig.blockSize]
-            )
-
-        batchX = torch.stack(xList).to(trainConfig.device)
-        batchY = torch.stack(yList).to(trainConfig.device)
+        offsets = torch.arange(modelConfig.blockSize)
+        positions = indices.unsqueeze(1) + offsets.unsqueeze(0)
+        batchX = source[positions].to(trainConfig.device)
+        batchY = source[positions + 1].to(trainConfig.device)
         return batchX, batchY
 
 
