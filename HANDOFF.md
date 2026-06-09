@@ -21,6 +21,7 @@ The package uses a `src/` layout and exposes:
 ```text
 tinyllm-train
 tinyllm-infer
+tinyllm-prepare-corpora
 ```
 
 ## Current Status
@@ -73,6 +74,10 @@ src/llm/TextGenerator.py   prompt encoding and byte-to-text decoding
 src/llm/infer.py           inference CLI and checkpoint-based model construction
 src/llm/Main.py            training CLI and trainer construction
 ```
+
+Research findings about what the current checkpoint has learned, including
+n-gram baselines, causal ablations, attention measurements, and recommended
+experiments, are documented in `LEARNED_STRUCTURE.md`.
 
 The vocabulary is the 256 possible byte values. Prompts are encoded with
 UTF-8. `generateBytes()` is lossless; generated text uses UTF-8 replacement
@@ -241,14 +246,29 @@ checkpoint. Set it to `True` in a model configuration to use cached decoding.
 
 ## Data
 
-Bundled corpora:
+Original source corpora are retained directly under `fixtureData/`. Rebuild
+normalized research corpora with:
+
+```sh
+tinyllm-prepare-corpora
+```
+
+Outputs are under `fixtureData/clean/`. The preparation step removes Gutenberg
+wrappers and producer credits, normalizes Unicode/newlines/blank runs, and
+preserves literary punctuation.
+
+Sherlock is additionally split on its twelve story headings:
 
 ```text
-fixtureData/sherlock.txt
-fixtureData/alice.txt
-fixtureData/tenderbuttons.txt
-fixtureData/shakewpeare.txt
+fixtureData/clean/sherlock_train.txt       stories I-VIII
+fixtureData/clean/sherlock_validation.txt  stories IX-X
+fixtureData/clean/sherlock_test.txt        stories XI-XII
+fixtureData/clean/sherlock_stories/        individual stories
 ```
+
+The current checkpoint and default `TrainConfig.dataPath` remain tied to
+`fixtureData/sherlock.txt`. Do not resume that checkpoint as though it were a
+clean-corpus experiment; start a fresh run when changing the data.
 
 The DataModule sampling boundary was fixed. A split containing exactly
 `blockSize + 1` bytes now produces its single valid training window.

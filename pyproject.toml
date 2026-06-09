@@ -26,6 +26,7 @@ dev = [
 [project.scripts]
 tinyllm-train = "llm.Main:main"
 tinyllm-infer = "llm.infer:main"
+tinyllm-prepare-corpora = "llm.corpus:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

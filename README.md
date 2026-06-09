@@ -17,24 +17,59 @@ Python 3.10 or newer is required.
 
 ## Data
 
-The default training corpus is:
+The bundled files directly under `fixtureData/` are source corpora retained
+for provenance. Generate normalized research inputs with:
+
+```sh
+tinyllm-prepare-corpora
+```
+
+Equivalent module invocation:
+
+```sh
+python -m llm.corpus
+```
+
+Generated files are written under `fixtureData/clean/`. Cleaning:
+
+- removes Project Gutenberg wrappers and producer credits,
+- normalizes Unicode, newlines, trailing whitespace, and blank-line runs,
+- preserves literary punctuation and UTF-8 text,
+- corrects the generated Shakespeare filename,
+- splits Sherlock Holmes at story boundaries.
+
+The Sherlock story-level research split is:
+
+```text
+fixtureData/clean/sherlock_train.txt       stories I-VIII
+fixtureData/clean/sherlock_validation.txt  stories IX-X
+fixtureData/clean/sherlock_test.txt        stories XI-XII
+```
+
+Individual stories are under `fixtureData/clean/sherlock_stories/`.
+
+The existing checkpoint and current default configuration still refer to the
+legacy corpus:
 
 ```text
 fixtureData/sherlock.txt
 ```
 
-Other bundled corpora include:
+That is intentional so an old checkpoint is not silently reinterpreted as a
+clean-corpus experiment. Start a fresh experiment when switching corpora.
+
+Other cleaned corpora include:
 
 ```text
-fixtureData/alice.txt
-fixtureData/shakewpeare.txt
-fixtureData/tenderbuttons.txt
+fixtureData/clean/alice.txt
+fixtureData/clean/shakespeare.txt
+fixtureData/clean/tenderbuttons.txt
 ```
 
-Select a different corpus with the training CLI:
+Select a cleaned corpus with the training CLI:
 
 ```sh
-tinyllm-train --corpus fixtureData/alice.txt
+tinyllm-train --corpus fixtureData/clean/alice.txt
 ```
 
 The model uses UTF-8 bytes as tokens and has a vocabulary size of 256.
