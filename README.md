@@ -108,14 +108,15 @@ put run-specific checkpoints and results under `runs/<experiment>/`; publish
 selected model artifacts under `models/`. Plots are written to `plots/`, and a
 generated sample to `tmp/sample.txt`.
 
-The convenience script starts a clean training run:
+The convenience script starts a clean Sherlock training run:
 
 ```sh
-sh run.sh
+sh train.sh
 ```
 
-`run.sh` intentionally deletes existing files under `checkpoints/` and
-`plots/` before training.
+`train.sh` uses the canonical Sherlock train, validation, and test splits. It
+deletes only its own checkpoint under `runs/sherlock-byte-default/` before
+training. Set `RUN_DIR` to give the experiment a different output directory.
 
 ## Inference
 

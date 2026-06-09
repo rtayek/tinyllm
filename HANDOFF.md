@@ -155,11 +155,12 @@ tinyllm-train \
 Start a clean run:
 
 ```sh
-sh run.sh
+sh train.sh
 ```
 
-Important: `run.sh` intentionally deletes files under `checkpoints/` and
-`plots/` before training.
+`train.sh` uses the canonical Sherlock splits and deletes only its own
+checkpoint under `runs/sherlock-byte-default/`. Override `RUN_DIR` to isolate
+another experiment.
 
 Training sample output creates `tmp/` when needed, so a fresh clone can write
 `tmp/sample.txt` even though the directory is ignored by Git.
