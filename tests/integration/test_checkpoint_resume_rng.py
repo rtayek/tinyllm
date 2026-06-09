@@ -61,13 +61,15 @@ def test_checkpoint_restores_generator_state(tmp_path: Path) -> None:
         model=modelTwo,
         data_module=dataModuleTwo,
         trainConfig=trainConfig,
-        early_stopping=mock_early_stopping, # Use the same mock early stopping for simplicity
+        early_stopping=EarlyStopping(patience=1, delta=0.0),
         logger=mock_logger,
     )
+    evaluatorTwo.early_stopping.noImproveEvals = 2
     trainerTwo = LMTrainer(modelConfig, trainConfig, modelTwo, dataModuleTwo, evaluator=evaluatorTwo, logger=mock_logger)
     trainerTwo.loadCheckpointIfExists()
 
     assert torch.equal(trainerTwo.generator.get_state(), generatorState)
+    assert evaluatorTwo.early_stopping.noImproveEvals == 0
 
     genCopy = torch.Generator()
     genCopy.set_state(generatorState)

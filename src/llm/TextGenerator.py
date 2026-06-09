@@ -72,6 +72,7 @@ class AutoregressiveGenerator:
     def saveSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
         text = self.generateText(maxNewTokens=maxNewTokens, prompt=prompt)
         path = os.path.join("tmp", "sample.txt")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(text)
         self.logger.info(f"Sampled text saved to {path}")

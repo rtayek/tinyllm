@@ -1,5 +1,8 @@
 import torch
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 from llm.Config import ModelConfig, TrainConfig
 from llm.Model import TinyGPTLanguageModel
@@ -48,3 +51,31 @@ def test_checkpoint_export_and_load(tmp_path: Path) -> None:
 
     for pSaved, pLoaded in zip(model.parameters(), loadedModel.parameters()):
         assert torch.equal(pSaved, pLoaded)
+
+
+def test_checkpoint_save_preserves_existing_file_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    checkpoint_path = tmp_path / "checkpoint.pt"
+    checkpoint_path.write_bytes(b"existing checkpoint")
+    checkpoint = Checkpoint(
+        version=1,
+        modelState={},
+        optimizerState={},
+        step=0,
+        bestValLoss=None,
+        modelConfig={},
+        trainConfig={},
+    )
+
+    def fail_save(*args: Any, **kwargs: Any) -> None:
+        raise OSError("simulated save failure")
+
+    monkeypatch.setattr(torch, "save", fail_save)
+
+    with pytest.raises(OSError, match="simulated save failure"):
+        checkpoint.save(str(checkpoint_path), "cpu")
+
+    assert checkpoint_path.read_bytes() == b"existing checkpoint"
+    assert list(tmp_path.glob(".checkpoint.pt.*.tmp")) == []

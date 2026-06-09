@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 import torch
 from torch import Tensor
 
@@ -69,3 +72,18 @@ def test_generate_text_forwards_sampling_options() -> None:
     assert model.temperature == 0.8
     assert model.top_k == 50
     assert model.seed == 123
+
+
+def test_save_sample_creates_tmp_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    model = RecordingModel()
+    generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+
+    generator.saveSample(prompt="Holmes", maxNewTokens=0)
+
+    assert (tmp_path / "tmp" / "sample.txt").read_text(
+        encoding="utf-8"
+    ) == "Holmes"

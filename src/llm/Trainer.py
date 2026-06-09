@@ -10,7 +10,6 @@ from llm.Model import TinyGPTLanguageModel
 from llm.DataModule import SequenceDataModule
 from llm.Checkpoint import CheckpointManager, CHECKPOINT_VERSION
 from llm.LRScheduleStrategy import WarmupCosineStrategy
-from llm.EarlyStopping import EarlyStopping
 from llm.Evaluator import Evaluator # Import EvalResult and Evaluator directly
 
 
@@ -33,7 +32,6 @@ class LMTrainer:
         assert self.trainConfig.learningRate > 0
         assert 0 <= self.trainConfig.warmupFrac <= 1
         self.lrStrategy: WarmupCosineStrategy = WarmupCosineStrategy(self.optimizer, max_steps=self.trainConfig.maxSteps, warmup_frac=self.trainConfig.warmupFrac)
-        self.earlyStopping: EarlyStopping = EarlyStopping(self.trainConfig.earlyStopPatience, self.trainConfig.earlyStopDelta)
         self.checkpoints = CheckpointManager(self.modelConfig, self.trainConfig, logger=self.logger)
 
         self.globalStep: int = 0
@@ -110,7 +108,8 @@ class LMTrainer:
             self.logger.warning("Model config drift from checkpoint: %s", config_drift["model"])
         if config_drift.get("train"):
             self.logger.warning("Train config drift from checkpoint: %s", config_drift["train"])
-        self.earlyStopping.reset()
+        if self.evaluator is not None:
+            self.evaluator.early_stopping.reset()
 
     def train(self) -> None:
         self.logger.info("Using device: %s", self.trainConfig.device)

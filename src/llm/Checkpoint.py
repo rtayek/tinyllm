@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from typing import Optional, Tuple, Dict, Any, cast
 import logging
 from dataclasses import dataclass
@@ -53,7 +54,20 @@ class Checkpoint:
         )
 
     def save(self, path: str, device: str | torch.device) -> None:
-        torch.save(self.toDict(), path)  # pyright: ignore[reportUnknownMemberType]
+        target_dir = os.path.dirname(os.path.abspath(path))
+        os.makedirs(target_dir, exist_ok=True)
+        fd, temp_path = tempfile.mkstemp(
+            prefix=f".{os.path.basename(path)}.",
+            suffix=".tmp",
+            dir=target_dir,
+        )
+        os.close(fd)
+        try:
+            torch.save(self.toDict(), temp_path)  # pyright: ignore[reportUnknownMemberType]
+            os.replace(temp_path, path)
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
     def exportModel(self, out_path: str) -> None:
         torch.save(self.modelState, out_path)  # pyright: ignore[reportUnknownMemberType]

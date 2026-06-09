@@ -13,6 +13,7 @@ authors = [{ name = "Ray" }]
 dependencies = [
   "torch>=2.0.0",
   "matplotlib>=3.8.0",
+  "numpy>=1.24.0",
 ]
 
 [project.optional-dependencies]
