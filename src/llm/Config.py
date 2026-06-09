@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, cast
 
 
@@ -48,6 +49,12 @@ class TrainConfig:
         "splits/test.txt"
     )
     device: str = "cuda"  # desired/default device; actual availability is checked at runtime
+
+    def runDirectory(self) -> Path | None:
+        checkpointDir = Path(self.ckptPath).parent
+        if checkpointDir.name == "checkpoints" and checkpointDir.parent != Path("."):
+            return checkpointDir.parent
+        return None
 
     def toDict(self) -> Dict[str, Any]:
         return dict(self.__dict__)

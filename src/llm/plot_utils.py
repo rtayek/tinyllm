@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime
+from pathlib import Path
 from typing import List, Tuple, Any, cast
 
+import matplotlib  # type: ignore[import]
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # type: ignore[import]
 
 from .Config import ModelConfig, TrainConfig
@@ -17,14 +20,17 @@ def plot_training_curve(training_curve: List[Tuple[int, float, float]], modelCon
     trainLosses = [x[1] for x in training_curve]
     valueLosses = [x[2] for x in training_curve]
 
-    dir = "plots"
-    os.makedirs(dir, exist_ok=True)
+    runDirectory = trainConfig.runDirectory()
+    outputDirectory = (
+        runDirectory / "plots" if runDirectory is not None else Path("plots")
+    )
+    outputDirectory.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"plot_lr{trainConfig.learningRate}_wd{trainConfig.weightDecay}_bs{trainConfig.batchSize}_{timestamp}.png"
-    filepath = os.path.join(dir, filename)
+    filepath = outputDirectory / filename
 
-    config_dump_path = os.path.join(dir, f"config_{timestamp}.txt")
+    config_dump_path = outputDirectory / f"config_{timestamp}.txt"
     with open(config_dump_path, "w", encoding="utf-8") as f:
         f.write("MODEL CONFIGURATION:\n")
         for field, value in vars(modelConfig).items():
@@ -46,4 +52,4 @@ def plot_training_curve(training_curve: List[Tuple[int, float, float]], modelCon
         figure.savefig(filepath, dpi=150)
     finally:
         plt_mod.close(figure)
-    return filepath, config_dump_path
+    return str(filepath), str(config_dump_path)

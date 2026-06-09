@@ -105,6 +105,16 @@ def test_save_sample_creates_tmp_directory(
     ) == "Holmes"
 
 
+def test_save_sample_accepts_run_specific_path(tmp_path: Path) -> None:
+    model = RecordingModel()
+    generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+    path = tmp_path / "runs" / "experiment" / "samples" / "sample.txt"
+
+    generator.saveSample(prompt="Holmes", maxNewTokens=0, path=path)
+
+    assert path.read_text(encoding="utf-8") == "Holmes"
+
+
 def test_generate_text_replaces_invalid_utf8_by_default() -> None:
     model = FixedOutputModel(b"A\xffB")
     generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]

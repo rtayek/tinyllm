@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Optional, List, Tuple, cast
 import logging
 
@@ -77,6 +78,7 @@ class LMTrainer:
             self.logger.info("[step %s] fractional improvement: %.4f (need > %.4f)", step, evalResult.frac_improvement, self.trainConfig.earlyStopDelta)
 
     def loadCheckpointIfExists(self) -> None:
+        checkpointExists = os.path.exists(self.checkpoints.ckptPath)
         (
             step,
             best,
@@ -96,7 +98,12 @@ class LMTrainer:
             self.generator.set_state(generator_state)
         if not lrStateRestored:
             self.lrStrategy.align_after_resume(step)
-        if not version_matches:
+        if not checkpointExists:
+            self.logger.info(
+                "No checkpoint found at %s; starting a new run.",
+                self.checkpoints.ckptPath,
+            )
+        elif not version_matches:
             self.logger.warning(
                 "Checkpoint version %s does not match expected %s; LR state not restored.",
                 version,

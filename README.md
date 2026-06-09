@@ -105,8 +105,9 @@ tinyllm-train --plot
 
 The default checkpoint remains `checkpoints/tiny_llm.pt`. For new experiments,
 put run-specific checkpoints and results under `runs/<experiment>/`; publish
-selected model artifacts under `models/`. Plots are written to `plots/`, and a
-generated sample to `tmp/sample.txt`.
+selected model artifacts under `models/`. When the checkpoint is under
+`runs/<experiment>/checkpoints/`, plots and samples are written to that run's
+`plots/` and `samples/` directories.
 
 The convenience script starts a clean Sherlock training run:
 

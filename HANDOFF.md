@@ -32,7 +32,7 @@ uncommitted.
 Verification:
 
 ```text
-pytest: 43 passed
+pytest: 46 passed
 pyright: 0 errors
 branch coverage: 80.0%
 ```
@@ -162,8 +162,9 @@ sh train.sh
 checkpoint under `runs/sherlock-byte-default/`. Override `RUN_DIR` to isolate
 another experiment.
 
-Training sample output creates `tmp/` when needed, so a fresh clone can write
-`tmp/sample.txt` even though the directory is ignored by Git.
+Run-specific checkpoints under `runs/<experiment>/checkpoints/` place plots
+and generated samples under the same run directory. The legacy top-level
+checkpoint continues to use `plots/` and `tmp/sample.txt`.
 
 Training flags:
 

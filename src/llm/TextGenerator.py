@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import List, Optional, TYPE_CHECKING
 import logging
-import os # Added for path manipulation
 
 import torch
 
@@ -69,10 +69,15 @@ class AutoregressiveGenerator:
         self.logger.info("Sampled text:")
         self.logger.info(text)
 
-    def saveSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
+    def saveSample(
+        self,
+        maxNewTokens: int = 200,
+        prompt: str = "",
+        path: str | Path = Path("tmp") / "sample.txt",
+    ) -> None:
         text = self.generateText(maxNewTokens=maxNewTokens, prompt=prompt)
-        path = os.path.join("tmp", "sample.txt")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
+        outputPath = Path(path)
+        outputPath.parent.mkdir(parents=True, exist_ok=True)
+        with outputPath.open("w", encoding="utf-8") as f:
             f.write(text)
-        self.logger.info(f"Sampled text saved to {path}")
+        self.logger.info("Sampled text saved to %s", outputPath)

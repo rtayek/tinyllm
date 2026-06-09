@@ -1,6 +1,7 @@
 import argparse
 import logging
 from dataclasses import replace
+from pathlib import Path
 from typing import Callable
 
 import torch
@@ -105,7 +106,13 @@ def main(log_level: int = logging.INFO) -> None:
     trainer.plotTrainingCurve()
 
     textGenerator = AutoregressiveGenerator(trainer.model, trainer.trainConfig.device, activeLogger)
-    textGenerator.saveSample(maxNewTokens=200, prompt="")
+    runDirectory = trainer.trainConfig.runDirectory()
+    samplePath = (
+        runDirectory / "samples" / "sample.txt"
+        if runDirectory is not None
+        else Path("tmp") / "sample.txt"
+    )
+    textGenerator.saveSample(maxNewTokens=200, prompt="", path=samplePath)
     #textGenerator.logSample(maxNewTokens=200, prompt="")
 
 

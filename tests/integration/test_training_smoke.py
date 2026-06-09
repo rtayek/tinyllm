@@ -1,9 +1,11 @@
-from pathlib import Path
-import torch
 import logging
+from pathlib import Path
+
+import pytest
+import torch
 
 from llm.Config import ModelConfig, TrainConfig
-from llm.DataModule import ByteDataModule
+from llm.DataModule import ByteDataModule, SequenceDataModule
 from llm.Model import TinyGPTLanguageModel
 from llm.Trainer import LMTrainer
 from llm.Evaluator import Evaluator
@@ -59,3 +61,46 @@ def test_training_smoke(tmp_path: Path) -> None:
     assert trainer.trainingCurve, "Training curve should not be empty after training"
     assert trainer.bestValLoss is not None
     assert ckptPath.exists(), "Checkpoint file should be written"
+
+
+def test_missing_checkpoint_is_reported_as_new_run(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    ckptPath = tmp_path / "missing.pt"
+    modelConfig = ModelConfig(
+        vocabSize=256,
+        blockSize=4,
+        nEmbed=8,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
+    )
+    trainConfig = TrainConfig(
+        batchSize=2,
+        maxSteps=1,
+        evalInterval=1,
+        evalIters=1,
+        plotCurve=False,
+        ckptPath=str(ckptPath),
+        dataPath=str(tmp_path / "unused.txt"),
+        validationDataPath=None,
+        testDataPath=None,
+        device="cpu",
+    )
+    sequence = torch.arange(40, dtype=torch.long)
+    dataModule = SequenceDataModule(modelConfig, trainConfig, sequence)
+    model = TinyGPTLanguageModel(modelConfig)
+    trainer = LMTrainer(
+        modelConfig,
+        trainConfig,
+        model,
+        dataModule,
+        logger=logging.getLogger("test.missing-checkpoint"),
+    )
+
+    with caplog.at_level(logging.INFO):
+        trainer.loadCheckpointIfExists()
+
+    assert "starting a new run" in caplog.text
+    assert "Loaded checkpoint version" not in caplog.text
