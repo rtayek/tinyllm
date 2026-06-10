@@ -1,6 +1,6 @@
 # tinyllm Handoff
 
-Last verified: June 8, 2026
+Last verified: June 9, 2026
 
 ## Project
 
@@ -26,24 +26,21 @@ tinyllm-prepare-corpora
 
 ## Current Status
 
-The maintenance changes described below and this handoff file are currently
-uncommitted.
-
 Verification:
 
 ```text
-pytest: 46 passed
+pytest: 48 passed
 pyright: 0 errors
-branch coverage: 80.0%
+branch coverage: 80.2%
 ```
 
-Current checkpoint:
+Default checkpoint:
 
 ```text
-checkpoints/tiny_llm.pt
-step: 3100
-best validation loss: 2.0223001837730408
-corpus: removed legacy `fixtureData/sherlock.txt`
+runs/sherlock-byte-default/checkpoints/best.pt
+step: 3900
+best validation loss: 1.7970151352882384
+corpus: canonical Sherlock training split
 ```
 
 Model configuration stored in the checkpoint:
@@ -104,11 +101,16 @@ tokenizer metadata that inference validates before loading the model.
 
 ## Checkpoints
 
-Normal training and inference use one authoritative file:
+Normal training and inference use one authoritative default file:
 
 ```text
-checkpoints/tiny_llm.pt
+runs/sherlock-byte-default/checkpoints/best.pt
 ```
+
+Training also writes `latest.pt` at every evaluation and periodic
+`step-NNNNNN.pt` snapshots. Resume prefers `latest.pt`, while inference keeps
+using `best.pt` unless `--checkpoint` selects another file. Snapshots default
+to every 1,000 steps with the newest three retained.
 
 It contains:
 
@@ -131,8 +133,8 @@ Model-only export remains available as an explicit utility:
 
 ```sh
 python -m llm.persistence export-model \
-  --ckpt checkpoints/tiny_llm.pt \
-  --out checkpoints/exported_model.pt
+  --ckpt runs/sherlock-byte-default/checkpoints/best.pt \
+  --out models/exported_model.pt
 ```
 
 ## Training
@@ -163,8 +165,7 @@ checkpoint under `runs/sherlock-byte-default/`. Override `RUN_DIR` to isolate
 another experiment.
 
 Run-specific checkpoints under `runs/<experiment>/checkpoints/` place plots
-and generated samples under the same run directory. The legacy top-level
-checkpoint continues to use `plots/` and `tmp/sample.txt`.
+and generated samples under the same run directory.
 
 Training flags:
 
@@ -173,6 +174,8 @@ Training flags:
 --validation-corpus PATH
 --test-corpus PATH
 --checkpoint PATH
+--snapshot-interval STEPS
+--max-snapshots COUNT
 --plot
 --log-level DEBUG|INFO|WARNING|ERROR
 ```
@@ -204,6 +207,7 @@ tinyllm-infer \
 Inference flags:
 
 ```text
+--checkpoint PATH
 --prompt TEXT
 --tokens COUNT
 --temperature FLOAT
@@ -214,6 +218,7 @@ Inference flags:
 Defaults preserve the original behavior:
 
 ```text
+checkpoint: runs/sherlock-byte-default/checkpoints/best.pt
 prompt: ""
 tokens: 400
 temperature: 1.0
@@ -272,8 +277,6 @@ corpora/lewis-carroll/alices-adventures-in-wonderland/
 corpora/jane-austen/pride-and-prejudice/
 ```
 
-The historical checkpoint was trained on the removed `fixtureData/sherlock.txt`
-file. Treat it as a historical model; start a fresh run for canonical data.
 New experiment outputs belong under `runs/<experiment>/`, while selected
 reusable model artifacts belong under `models/`.
 
@@ -287,6 +290,7 @@ Python loop.
 - `Evaluator` is the sole owner of the `EarlyStopping` instance.
 - Checkpoint resume resets the evaluator's actual early-stopping state.
 - Checkpoints use temporary-file plus atomic-replacement writes.
+- Training keeps separate best, latest, and retained milestone checkpoints.
 - Training curve figures are closed after saving to avoid figure accumulation.
 - NumPy is declared in both `pyproject.toml` and `requirements.txt`.
 

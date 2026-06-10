@@ -79,3 +79,48 @@ def test_checkpoint_save_preserves_existing_file_on_failure(
 
     assert checkpoint_path.read_bytes() == b"existing checkpoint"
     assert list(tmp_path.glob(".checkpoint.pt.*.tmp")) == []
+
+
+def test_checkpoint_manager_resumes_latest_checkpoint(
+    tmp_path: Path,
+) -> None:
+    best_path = tmp_path / "best.pt"
+    model_config = ModelConfig(
+        blockSize=4,
+        vocabSize=32,
+        nEmbed=8,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
+    )
+    train_config = TrainConfig(
+        ckptPath=str(best_path),
+        device="cpu",
+    )
+    model = TinyGPTLanguageModel(model_config)
+    optimizer = torch.optim.AdamW(model.parameters())
+    manager = CheckpointManager(model_config, train_config)
+
+    manager.saveCheckpoint(
+        model,
+        optimizer,
+        lrStrategyState=None,
+        step=10,
+        bestValLoss=1.0,
+        path=manager.ckptPath,
+    )
+    manager.saveCheckpoint(
+        model,
+        optimizer,
+        lrStrategyState=None,
+        step=20,
+        bestValLoss=1.0,
+        path=manager.latestPath,
+    )
+
+    loaded_model = TinyGPTLanguageModel(model_config)
+    loaded_optimizer = torch.optim.AdamW(loaded_model.parameters())
+    step, *_ = manager.loadCheckpoint(loaded_model, loaded_optimizer)
+
+    assert manager.resumePath() == manager.latestPath
+    assert step == 20

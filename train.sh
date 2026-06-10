@@ -7,7 +7,7 @@ RUN_DIR="${RUN_DIR:-runs/sherlock-byte-default}"
 CHECKPOINT="$RUN_DIR/checkpoints/best.pt"
 
 mkdir -p "$RUN_DIR/checkpoints"
-rm -f "$CHECKPOINT"
+rm -f "$RUN_DIR"/checkpoints/*.pt
 
 python -m llm.Main \
   --corpus corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/train.txt \

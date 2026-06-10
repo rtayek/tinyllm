@@ -30,12 +30,14 @@ class TrainConfig:
     maxSteps: int = 5000
     evalInterval: int = 100
     evalIters: int = 100
+    snapshotInterval: int = 1000
+    maxSnapshots: int = 3
     weightDecay: float = 0.02
     earlyStopPatience: int = 2
     earlyStopDelta: float = 0.003
     plotCurve: bool = True
     dataModule: str = "token"
-    ckptPath: str = "checkpoints/tiny_llm.pt"
+    ckptPath: str = "runs/sherlock-byte-default/checkpoints/best.pt"
     dataPath: str = (
         "corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/"
         "splits/train.txt"

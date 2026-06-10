@@ -58,7 +58,7 @@ class LMTrainer:
 
         return float(loss.item())
 
-    def _saveCheckpoint(self, step: int) -> None:
+    def _saveCheckpoint(self, step: int, path: str) -> None:
         if self.bestValLoss is None:
             return
         self.checkpoints.saveCheckpoint(
@@ -68,8 +68,19 @@ class LMTrainer:
             step,
             self.bestValLoss,
             generatorState=self.generator.get_state(),
+            path=path,
         )
-        self.logger.info("[step %s] Checkpoint saved (improved validation loss).", step)
+        self.logger.info("[step %s] Checkpoint saved to %s.", step, path)
+
+    def _saveEvaluationCheckpoints(self, step: int, improved: bool) -> None:
+        if improved:
+            self._saveCheckpoint(step, self.checkpoints.ckptPath)
+        self._saveCheckpoint(step, self.checkpoints.latestPath)
+
+        interval = self.trainConfig.snapshotInterval
+        if interval > 0 and step > 0 and step % interval == 0:
+            self._saveCheckpoint(step, self.checkpoints.snapshotPath(step))
+            self.checkpoints.pruneSnapshots()
 
     def _log_eval(self, step: int, evalResult: Any) -> None:
         self.logger.info("[step %s] train loss %.4f, val loss %.4f", step, evalResult.train_loss, evalResult.val_loss)
@@ -78,7 +89,8 @@ class LMTrainer:
             self.logger.info("[step %s] fractional improvement: %.4f (need > %.4f)", step, evalResult.frac_improvement, self.trainConfig.earlyStopDelta)
 
     def loadCheckpointIfExists(self) -> None:
-        checkpointExists = os.path.exists(self.checkpoints.ckptPath)
+        resumePath = self.checkpoints.resumePath()
+        checkpointExists = os.path.exists(resumePath)
         (
             step,
             best,
@@ -101,7 +113,7 @@ class LMTrainer:
         if not checkpointExists:
             self.logger.info(
                 "No checkpoint found at %s; starting a new run.",
-                self.checkpoints.ckptPath,
+                resumePath,
             )
         elif not version_matches:
             self.logger.warning(
@@ -110,7 +122,7 @@ class LMTrainer:
                 CHECKPOINT_VERSION,
             )
         else:
-            self.logger.info("Loaded checkpoint version %s", version)
+            self.logger.info("Loaded checkpoint version %s from %s", version, resumePath)
         if config_drift.get("model"):
             self.logger.warning("Model config drift from checkpoint: %s", config_drift["model"])
         if config_drift.get("train"):
@@ -142,10 +154,12 @@ class LMTrainer:
 
                 if bool(evalResult.improved):
                     self.bestValLoss = val_loss
-                    self._saveCheckpoint(step)
                 else:
                     self.logger.info("[step %s] No val improvement for %s evals.", step, evalResult.no_improve_evals)
 
+                self._saveEvaluationCheckpoints(step, bool(evalResult.improved))
+
+                if not bool(evalResult.improved):
                     if bool(evalResult.should_stop):
                         self.logger.info("[step %s] Early stopping triggered: no val improvement for %s evals.", step, evalResult.no_improve_evals)
                         break

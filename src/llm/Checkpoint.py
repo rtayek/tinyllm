@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 from typing import Optional, Tuple, Dict, Any, cast
 import logging
 from dataclasses import dataclass
@@ -115,6 +116,9 @@ class CheckpointManager:
         self.modelCfg = modelCfg
         self.trainCfg = trainCfg
         self.ckptPath = trainCfg.ckptPath
+        checkpointPath = Path(self.ckptPath)
+        self.latestPath = str(checkpointPath.with_name("latest.pt"))
+        self.checkpointDir = checkpointPath.parent
         self.logger = logger or logging.getLogger(__name__)
 
         ckptDir = os.path.dirname(self.ckptPath)
@@ -129,6 +133,7 @@ class CheckpointManager:
         step: int,
         bestValLoss: Optional[float],
         generatorState: Optional[torch.Tensor] = None,
+        path: Optional[str] = None,
     ) -> None:
         checkpoint: Checkpoint = Checkpoint.fromTrainingState(
             model=model,
@@ -141,7 +146,21 @@ class CheckpointManager:
             generatorState=generatorState,
             version=CHECKPOINT_VERSION,
         )
-        checkpoint.save(self.ckptPath, self.trainCfg.device)
+        checkpoint.save(path or self.ckptPath, self.trainCfg.device)
+
+    def snapshotPath(self, step: int) -> str:
+        return str(self.checkpointDir / f"step-{step:06d}.pt")
+
+    def pruneSnapshots(self) -> None:
+        snapshots = sorted(self.checkpointDir.glob("step-*.pt"))
+        excess = len(snapshots) - self.trainCfg.maxSnapshots
+        for snapshot in snapshots[:max(0, excess)]:
+            snapshot.unlink()
+
+    def resumePath(self) -> str:
+        if os.path.exists(self.latestPath):
+            return self.latestPath
+        return self.ckptPath
 
     def loadCheckpoint(
         self,
@@ -149,10 +168,11 @@ class CheckpointManager:
         optimizer: torch.optim.Optimizer,
         lrStrategy: Optional[Any] = None,
     ) -> Tuple[int, Optional[float], bool, int, bool, Dict[str, Dict[str, Any]], Optional[torch.Tensor]]:
-        if not os.path.exists(self.ckptPath):
+        resumePath = self.resumePath()
+        if not os.path.exists(resumePath):
             return 0, None, False, CHECKPOINT_VERSION, True, {}, None
 
-        checkpoint = Checkpoint.load(self.ckptPath, self.trainCfg.device)
+        checkpoint = Checkpoint.load(resumePath, self.trainCfg.device)
         model.load_state_dict(checkpoint.modelState)
         optimizer.load_state_dict(checkpoint.optimizerState)
         step = checkpoint.step

@@ -99,15 +99,24 @@ Useful options:
 
 ```sh
 tinyllm-train --log-level DEBUG
-tinyllm-train --log-level DEBUG
 tinyllm-train --plot
 ```
 
-The default checkpoint remains `checkpoints/tiny_llm.pt`. For new experiments,
-put run-specific checkpoints and results under `runs/<experiment>/`; publish
-selected model artifacts under `models/`. When the checkpoint is under
-`runs/<experiment>/checkpoints/`, plots and samples are written to that run's
-`plots/` and `samples/` directories.
+The default checkpoint is
+`runs/sherlock-byte-default/checkpoints/best.pt`. Put other experiments under
+`runs/<experiment>/`; publish selected model artifacts under `models/`. When
+the checkpoint is under `runs/<experiment>/checkpoints/`, plots and samples
+are written to that run's `plots/` and `samples/` directories.
+
+Training maintains:
+
+- `best.pt`: the lowest validation loss, used by default for inference.
+- `latest.pt`: the most recent evaluation state, preferred when resuming.
+- `step-NNNNNN.pt`: periodic snapshots, every 1,000 steps by default.
+
+The three newest periodic snapshots are retained by default. Configure this
+with `--snapshot-interval` and `--max-snapshots`; use zero to disable snapshots
+or retention respectively.
 
 The convenience script starts a clean Sherlock training run:
 
@@ -116,7 +125,7 @@ sh train.sh
 ```
 
 `train.sh` uses the canonical Sherlock train, validation, and test splits. It
-deletes only its own checkpoint under `runs/sherlock-byte-default/` before
+deletes its prior checkpoints under `runs/sherlock-byte-default/` before
 training. Set `RUN_DIR` to give the experiment a different output directory.
 
 ## Inference
@@ -133,10 +142,12 @@ Generate from a prompt:
 tinyllm-infer --prompt "Mr. Sherlock Holmes"
 tinyllm-infer --prompt "To Sherlock Holmes she is always the woman." --tokens 200
 tinyllm-infer --prompt "Mr. Sherlock Holmes" --temperature 0.8 --top-k 50 --seed 123
+tinyllm-infer --checkpoint runs/pride-byte/checkpoints/best.pt --prompt "Elizabeth"
 ```
 
 Sampling options:
 
+- `--checkpoint`: selects a run checkpoint; defaults to the Sherlock run.
 - `--temperature`: controls randomness; lower values favor likely tokens.
 - `--top-k`: limits sampling to the K most likely next bytes.
 - `--seed`: makes repeated runs reproducible.

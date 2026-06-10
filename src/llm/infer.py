@@ -14,6 +14,11 @@ from llm.tensor_utils import resolve_device
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate text with the tiny LLM")
+    parser.add_argument(
+        "--checkpoint",
+        default=None,
+        help="Path to the training checkpoint",
+    )
     parser.add_argument("--prompt", default="", help="Text to use as the generation prompt")
     parser.add_argument(
         "--tokens",
@@ -72,7 +77,13 @@ def build_generator(
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
-    textGenerator, _ = build_generator()
+    run_cfg = RunConfig()
+    if args.checkpoint:
+        run_cfg = RunConfig(
+            modelConfig=run_cfg.modelConfig,
+            trainConfig=replace(run_cfg.trainConfig, ckptPath=args.checkpoint),
+        )
+    textGenerator, _ = build_generator(run_cfg)
     print("Model weights loaded for inference.")
 
     text = textGenerator.generateText(

@@ -27,3 +27,7 @@ runs/<run-id>/
 Run contents are ignored by Git because checkpoints and repeated experiment
 outputs can become large. Promote intentionally retained inference artifacts
 to `models/`.
+
+Training uses `best.pt` for the lowest validation loss and `latest.pt` for
+recovery. Periodic `step-NNNNNN.pt` snapshots are pruned to the configured
+retention count.

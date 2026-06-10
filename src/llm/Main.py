@@ -75,6 +75,8 @@ def main(log_level: int = logging.INFO) -> None:
     parser.add_argument("--validation-corpus", type=str, default=None, help="Path to validation corpus")
     parser.add_argument("--test-corpus", type=str, default=None, help="Path to test corpus")
     parser.add_argument("--checkpoint", type=str, default=None, help="Path to training checkpoint")
+    parser.add_argument("--snapshot-interval", type=int, default=None, help="Steps between retained checkpoint snapshots")
+    parser.add_argument("--max-snapshots", type=int, default=None, help="Maximum retained step snapshots")
     parser.add_argument("--plot", action="store_true", help="Enable plotting the training curve")
     parser.add_argument("--log-level", type=str, default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR)")
     args = parser.parse_args()
@@ -92,6 +94,14 @@ def main(log_level: int = logging.INFO) -> None:
         trainConfig = replace(trainConfig, testDataPath=args.test_corpus)
     if args.checkpoint:
         trainConfig = replace(trainConfig, ckptPath=args.checkpoint)
+    if args.snapshot_interval is not None:
+        if args.snapshot_interval < 0:
+            parser.error("--snapshot-interval must be non-negative")
+        trainConfig = replace(trainConfig, snapshotInterval=args.snapshot_interval)
+    if args.max_snapshots is not None:
+        if args.max_snapshots < 0:
+            parser.error("--max-snapshots must be non-negative")
+        trainConfig = replace(trainConfig, maxSnapshots=args.max_snapshots)
     if args.plot:
         trainConfig = replace(trainConfig, plotCurve=True)
     runConfig = RunConfig(modelConfig=runConfig.modelConfig, trainConfig=trainConfig)

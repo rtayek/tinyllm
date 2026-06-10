@@ -33,6 +33,8 @@ def test_training_smoke(tmp_path: Path) -> None:
         maxSteps=5,
         evalInterval=1,
         evalIters=2,
+        snapshotInterval=1,
+        maxSnapshots=2,
         weightDecay=0.0,
         plotCurve=False,
         ckptPath=str(ckptPath),
@@ -45,7 +47,7 @@ def test_training_smoke(tmp_path: Path) -> None:
     model = TinyGPTLanguageModel(modelConfig).to(trainConfig.device)
 
     mock_logger = logging.getLogger("test_logger")
-    mock_early_stopping = EarlyStopping(patience=1, delta=0.0)
+    mock_early_stopping = EarlyStopping(patience=100, delta=0.0)
     evaluator = Evaluator(
         model=model,
         data_module=dataModule,
@@ -61,6 +63,11 @@ def test_training_smoke(tmp_path: Path) -> None:
     assert trainer.trainingCurve, "Training curve should not be empty after training"
     assert trainer.bestValLoss is not None
     assert ckptPath.exists(), "Checkpoint file should be written"
+    assert ckptPath.with_name("latest.pt").exists()
+    assert [path.name for path in sorted(tmp_path.glob("step-*.pt"))] == [
+        "step-000003.pt",
+        "step-000004.pt",
+    ]
 
 
 def test_missing_checkpoint_is_reported_as_new_run(

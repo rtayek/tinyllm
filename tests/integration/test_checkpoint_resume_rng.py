@@ -51,7 +51,9 @@ def test_checkpoint_restores_generator_state(tmp_path: Path) -> None:
 
     assert ckptPath.exists(), "Checkpoint file should be written"
 
-    checkpoint = torch.load(ckptPath, map_location=trainConfig.device, weights_only=False)  # pyright: ignore[reportUnknownMemberType]
+    latestPath = ckptPath.with_name("latest.pt")
+    assert latestPath.exists(), "Latest checkpoint should be written"
+    checkpoint = torch.load(latestPath, map_location=trainConfig.device, weights_only=False)  # pyright: ignore[reportUnknownMemberType]
     generatorState = checkpoint.get("generatorState", None)
     assert generatorState is not None
 
