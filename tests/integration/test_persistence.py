@@ -124,3 +124,21 @@ def test_checkpoint_manager_resumes_latest_checkpoint(
 
     assert manager.resumePath() == manager.latestPath
     assert step == 20
+
+
+def test_checkpoint_normalizes_rng_states_for_cpu_generator() -> None:
+    checkpoint = Checkpoint.fromDict(
+        {
+            "modelState": {},
+            "optimizerState": {},
+            "generatorState": torch.arange(8, dtype=torch.int64),
+            "evaluatorGeneratorState": torch.arange(8, dtype=torch.int16),
+        }
+    )
+
+    assert checkpoint.generatorState is not None
+    assert checkpoint.evaluatorGeneratorState is not None
+    assert checkpoint.generatorState.device.type == "cpu"
+    assert checkpoint.evaluatorGeneratorState.device.type == "cpu"
+    assert checkpoint.generatorState.dtype == torch.uint8
+    assert checkpoint.evaluatorGeneratorState.dtype == torch.uint8

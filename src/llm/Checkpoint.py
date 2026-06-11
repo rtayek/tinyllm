@@ -15,6 +15,14 @@ from .Model import TinyGPTLanguageModel
 CHECKPOINT_VERSION = 1
 
 
+def _cpu_rng_state(value: Any) -> Optional[torch.Tensor]:
+    if value is None:
+        return None
+    if not isinstance(value, torch.Tensor):
+        raise TypeError("Checkpoint RNG state must be a tensor")
+    return value.detach().to(device="cpu", dtype=torch.uint8).contiguous()
+
+
 @dataclass
 class Checkpoint:
     version: int
@@ -55,8 +63,10 @@ class Checkpoint:
             modelConfig=cast(Dict[str, Any], data.get("modelConfig", {})),
             trainConfig=cast(Dict[str, Any], data.get("trainConfig", {})),
             lrStrategyState=cast(Optional[Dict[str, Any]], data.get("lrStrategyState", None)),
-            generatorState=data.get("generatorState", None),
-            evaluatorGeneratorState=data.get("evaluatorGeneratorState", None),
+            generatorState=_cpu_rng_state(data.get("generatorState", None)),
+            evaluatorGeneratorState=_cpu_rng_state(
+                data.get("evaluatorGeneratorState", None)
+            ),
             earlyStoppingState=cast(
                 Optional[Dict[str, Any]],
                 data.get("earlyStoppingState", None),
