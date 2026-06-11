@@ -69,6 +69,26 @@ class Evaluator:
             self.model.train()
         return losses
 
+    def estimate_split(
+        self,
+        split: str,
+        generator: torch.Generator | None = None,
+    ) -> float:
+        was_training = self.model.training
+        self.model.eval()
+        loss_list: List[float] = []
+        activeGenerator = generator or self.generator
+        with torch.no_grad():
+            for _ in range(self.trainConfig.evalIters):
+                batchX, batchY = self.dataModule.getBatch(split, activeGenerator)
+                _, loss, _ = self.model(batchX, batchY)
+                if loss is None:
+                    raise RuntimeError(f"Loss is None for split '{split}'")
+                loss_list.append(float(loss.item()))
+        if was_training:
+            self.model.train()
+        return sum(loss_list) / float(len(loss_list))
+
     def evaluate(self, step: int, best_val_loss: Optional[float]) -> EvalResult:
         losses = self.estimate_loss()
         trainLoss = losses["train"]

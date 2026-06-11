@@ -162,9 +162,9 @@ short:
 This does not support substantial verbatim passage memorization. It also does
 not rule out distributed memorization of names, phrases, or corpus statistics.
 
-## Dataset Confounds
+## Historical Dataset Confounds
 
-The current split is a contiguous 90/10 split of one Project Gutenberg file.
+The legacy split was a contiguous 90/10 split of one Project Gutenberg file.
 It is not a clean train/test design for studying abstraction.
 
 - Validation starts partway through "The Copper Beeches".
@@ -182,8 +182,9 @@ evaluate on complete held-out stories.
 
 ### 1. Preserve Training Trajectories
 
-The project currently keeps only the best checkpoint. Save lightweight model
-snapshots at fixed steps, for example:
+The historical experiment kept only the best checkpoint. Current training
+keeps best, latest, and periodic snapshots. For structure analysis, choose
+snapshot intervals that capture early learning, for example:
 
 ```text
 0, 50, 100, 200, 400, 800, 1600, 3200
@@ -261,6 +262,10 @@ Use BPE later as a controlled comparison:
 - compare when each representation acquires syntax and long-range behavior.
 
 ## Next Concrete Experiment
+
+Status: the canonical 8/2/2 Sherlock split and periodic checkpoint support are
+implemented. The measurements in this document still need to be rerun against
+that checkpoint series.
 
 The highest-value next experiment is:
 

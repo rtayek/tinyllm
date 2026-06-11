@@ -24,6 +24,7 @@ class ModelConfig:
 
 @dataclass(frozen=True)
 class TrainConfig:
+    seed: int = 1337
     batchSize: int = 32
     learningRate: float = 5e-5
     warmupFrac: float = 0.1

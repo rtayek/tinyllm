@@ -257,6 +257,8 @@ def test_checkpoint_roundtrip(tmp_path: Path) -> None:
         versionMatches,
         drift,
         generator_state,
+        evaluator_generator_state,
+        early_stopping_state,
     ) = manager.loadCheckpoint(newModel, newOptimizer, lrStrategy=None)
 
     assert step == 10
@@ -265,6 +267,8 @@ def test_checkpoint_roundtrip(tmp_path: Path) -> None:
     assert versionMatches is True
     assert drift["model"] == {} and drift["train"] == {}
     assert generator_state is not None
+    assert evaluator_generator_state is None
+    assert early_stopping_state is None
     for pOld, pNew in zip(model.parameters(), newModel.parameters()):
         assert torch.equal(pOld, pNew)
 

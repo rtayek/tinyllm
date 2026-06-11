@@ -113,10 +113,14 @@ Training maintains:
 - `best.pt`: the lowest validation loss, used by default for inference.
 - `latest.pt`: the most recent evaluation state, preferred when resuming.
 - `step-NNNNNN.pt`: periodic snapshots, every 1,000 steps by default.
+- `run.json`: Git commit, corpus hashes, seed, and configuration.
+- `metrics.jsonl`: validation evaluations and the final test result.
 
 The three newest periodic snapshots are retained by default. Configure this
 with `--snapshot-interval` and `--max-snapshots`; use zero to disable snapshots
-or retention respectively.
+or retention respectively. After training, `best.pt` is evaluated on
+deterministically sampled test batches. Test loss is not used for early
+stopping.
 
 The convenience script starts a clean Sherlock training run:
 
@@ -126,7 +130,11 @@ sh train.sh
 
 `train.sh` uses the canonical Sherlock train, validation, and test splits. It
 deletes its prior checkpoints under `runs/sherlock-byte-default/` before
-training. Set `RUN_DIR` to give the experiment a different output directory.
+training, along with prior metrics, plots, and samples for that run. Set
+`RUN_DIR` to give the experiment a different output directory.
+
+Use `--seed` to select the training seed. Checkpoints preserve training and
+evaluation RNG state plus early-stopping progress.
 
 ## Inference
 

@@ -9,9 +9,10 @@ import torch
 from llm.Config import ModelConfig, TrainConfig
 from llm.Model import TinyGPTLanguageModel
 from llm.DataModule import SequenceDataModule
-from llm.Checkpoint import CheckpointManager, CHECKPOINT_VERSION
+from llm.Checkpoint import Checkpoint, CheckpointManager, CHECKPOINT_VERSION
 from llm.LRScheduleStrategy import WarmupCosineStrategy
 from llm.Evaluator import Evaluator # Import EvalResult and Evaluator directly
+from llm.RunArtifacts import RunArtifacts
 
 
 class LMTrainer:
@@ -34,13 +35,17 @@ class LMTrainer:
         assert 0 <= self.trainConfig.warmupFrac <= 1
         self.lrStrategy: WarmupCosineStrategy = WarmupCosineStrategy(self.optimizer, max_steps=self.trainConfig.maxSteps, warmup_frac=self.trainConfig.warmupFrac)
         self.checkpoints = CheckpointManager(self.modelConfig, self.trainConfig, logger=self.logger)
+        self.runArtifacts = RunArtifacts(self.modelConfig, self.trainConfig)
+        metadataPath = self.runArtifacts.writeRunMetadata()
+        if metadataPath is not None:
+            self.logger.info("Run metadata written to %s", metadataPath)
 
         self.globalStep: int = 0
         self.bestValLoss: Optional[float] = None
         self.trainingCurve: List[Tuple[int, float, float]] = []
 
         self.generator: torch.Generator = torch.Generator()
-        self.generator.manual_seed(1337)
+        self.generator.manual_seed(self.trainConfig.seed)
 
 
     def _trainStep(self) -> float:
@@ -68,6 +73,16 @@ class LMTrainer:
             step,
             self.bestValLoss,
             generatorState=self.generator.get_state(),
+            evaluatorGeneratorState=(
+                self.evaluator.generator.get_state()
+                if self.evaluator is not None
+                else None
+            ),
+            earlyStoppingState=(
+                self.evaluator.early_stopping.state_dict()
+                if self.evaluator is not None
+                else None
+            ),
             path=path,
         )
         self.logger.info("[step %s] Checkpoint saved to %s.", step, path)
@@ -99,6 +114,8 @@ class LMTrainer:
             version_matches,
             config_drift,
             generator_state,
+            evaluator_generator_state,
+            early_stopping_state,
         ) = self.checkpoints.loadCheckpoint(
             self.model,
             self.optimizer,
@@ -108,6 +125,11 @@ class LMTrainer:
         self.bestValLoss = best
         if generator_state is not None:
             self.generator.set_state(generator_state)
+        if self.evaluator is not None:
+            if evaluator_generator_state is not None:
+                self.evaluator.generator.set_state(evaluator_generator_state)
+            if early_stopping_state is not None:
+                self.evaluator.early_stopping.load_state_dict(early_stopping_state)
         if not lrStateRestored:
             self.lrStrategy.align_after_resume(step)
         if not checkpointExists:
@@ -127,9 +149,6 @@ class LMTrainer:
             self.logger.warning("Model config drift from checkpoint: %s", config_drift["model"])
         if config_drift.get("train"):
             self.logger.warning("Train config drift from checkpoint: %s", config_drift["train"])
-        if self.evaluator is not None:
-            self.evaluator.early_stopping.reset()
-
     def train(self) -> None:
         self.logger.info("Using device: %s", self.trainConfig.device)
         self.logger.info("Starting training loop...")
@@ -151,6 +170,17 @@ class LMTrainer:
                     raise RuntimeError("Non-finite evaluation loss encountered")
                 self.trainingCurve.append((step, train_loss, val_loss))
                 self._log_eval(step, evalResult)
+                self.runArtifacts.appendMetric(
+                    {
+                        "type": "evaluation",
+                        "step": step,
+                        "train_loss": train_loss,
+                        "validation_loss": val_loss,
+                        "fractional_improvement": evalResult.frac_improvement,
+                        "improved": bool(evalResult.improved),
+                        "no_improve_evals": evalResult.no_improve_evals,
+                    }
+                )
 
                 if bool(evalResult.improved):
                     self.bestValLoss = val_loss
@@ -177,6 +207,41 @@ class LMTrainer:
         self.logger.info("Last few evals (step, train, val):")
         for step, tr, va in self.trainingCurve[-5:]:
             self.logger.info("  %6d: %.4f, %.4f", step, tr, va)
+
+    def evaluateBestCheckpointOnTest(self) -> float | None:
+        if self.evaluator is None or self.dataModule.testSequence is None:
+            self.logger.info("No test split configured; skipping final test evaluation.")
+            return None
+        if not os.path.exists(self.checkpoints.ckptPath):
+            self.logger.warning(
+                "Best checkpoint not found at %s; skipping final test evaluation.",
+                self.checkpoints.ckptPath,
+            )
+            return None
+
+        checkpoint = Checkpoint.load(
+            self.checkpoints.ckptPath,
+            self.trainConfig.device,
+        )
+        self.model.load_state_dict(checkpoint.modelState)
+        testGenerator = torch.Generator()
+        testGenerator.manual_seed(self.trainConfig.seed + 2)
+        testLoss = self.evaluator.estimate_split("test", testGenerator)
+        self.logger.info(
+            "Best checkpoint test loss at step %s: %.4f",
+            checkpoint.step,
+            testLoss,
+        )
+        self.runArtifacts.appendMetric(
+            {
+                "type": "test",
+                "step": checkpoint.step,
+                "test_loss": testLoss,
+                "seed": self.trainConfig.seed + 2,
+                "iterations": self.trainConfig.evalIters,
+            }
+        )
+        return testLoss
 
     def plotTrainingCurve(self) -> None:
         if not self.trainConfig.plotCurve:

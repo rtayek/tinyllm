@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 
 class EarlyStopping:
@@ -11,6 +11,12 @@ class EarlyStopping:
 
     def reset(self) -> None:
         self.noImproveEvals = 0
+
+    def state_dict(self) -> Dict[str, Any]:
+        return {"noImproveEvals": self.noImproveEvals}
+
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
+        self.noImproveEvals = int(state.get("noImproveEvals", 0))
 
     def check(self, bestValLoss: Optional[float], currentValueLoss: float) -> Tuple[bool, Optional[float], bool, int]:
         if bestValLoss is None or bestValLoss <= 0:

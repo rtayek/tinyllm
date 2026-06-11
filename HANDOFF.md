@@ -1,6 +1,6 @@
 # tinyllm Handoff
 
-Last verified: June 9, 2026
+Last verified: June 10, 2026
 
 ## Project
 
@@ -29,9 +29,9 @@ tinyllm-prepare-corpora
 Verification:
 
 ```text
-pytest: 48 passed
+pytest: 51 passed
 pyright: 0 errors
-branch coverage: 80.2%
+branch coverage: 80.8%
 ```
 
 Default checkpoint:
@@ -112,6 +112,10 @@ Training also writes `latest.pt` at every evaluation and periodic
 using `best.pt` unless `--checkpoint` selects another file. Snapshots default
 to every 1,000 steps with the newest three retained.
 
+After training, `best.pt` is loaded and evaluated on deterministically sampled
+held-out test batches. That result is appended to `metrics.jsonl` and is not
+used for model selection.
+
 It contains:
 
 - Model weights
@@ -120,6 +124,8 @@ It contains:
 - Training step and best validation loss
 - Learning-rate scheduler state
 - Batch generator state
+- Evaluator generator state
+- Early-stopping state
 
 Checkpoint saves are atomic at the filesystem level: data is written to a
 temporary file in the checkpoint directory and then installed with
@@ -160,12 +166,14 @@ Start a clean run:
 sh train.sh
 ```
 
-`train.sh` uses the canonical Sherlock splits and deletes only its own
-checkpoint under `runs/sherlock-byte-default/`. Override `RUN_DIR` to isolate
-another experiment.
+`train.sh` uses the canonical Sherlock splits and clears its prior checkpoints,
+metrics, plots, and samples under `runs/sherlock-byte-default/`. Override
+`RUN_DIR` to isolate another experiment.
 
 Run-specific checkpoints under `runs/<experiment>/checkpoints/` place plots
-and generated samples under the same run directory.
+and generated samples under the same run directory. Training writes `run.json`
+with configuration and corpus hashes, and `metrics.jsonl` with validation and
+final test results.
 
 Training flags:
 
@@ -174,6 +182,7 @@ Training flags:
 --validation-corpus PATH
 --test-corpus PATH
 --checkpoint PATH
+--seed INTEGER
 --snapshot-interval STEPS
 --max-snapshots COUNT
 --plot
@@ -341,11 +350,11 @@ pytest tests/unit/test_infer.py
 - Fixed DataModule's final-window off-by-one error.
 - Unified CUDA-to-CPU fallback for training and inference.
 - Fixed KV-cache positional correctness and context-boundary rebuilding.
-- Simplified checkpoint handling to one normal checkpoint path.
+- Added separate best, latest, and retained periodic checkpoints.
 - Made checkpoint model configuration authoritative during inference.
 - Added atomic checkpoint writes that preserve the previous file on failure.
 - Removed duplicate early-stopping ownership from `LMTrainer`.
-- Made sample output create its ignored `tmp/` directory.
+- Grouped checkpoints, plots, samples, metadata, and metrics by run.
 - Declared NumPy as a runtime dependency.
 - Closed matplotlib figures after saving training plots.
 - Vectorized DataModule batch assembly.
@@ -363,7 +372,7 @@ pytest tests/unit/test_infer.py
   debug entry is mainly visible through programmatic logging.
 - `--plot` is redundant while `TrainConfig.plotCurve` defaults to `True`.
 - `src/llm/persistence.py` currently has no direct coverage and is the clearest
-  next target for improving the 80.4% branch-coverage baseline.
+  next target for improving branch coverage.
 - Coverage is reported but no `fail_under` threshold is enforced yet.
 - The codebase mixes camelCase and snake_case naming. Avoid broad renaming
   unless it is handled as a deliberate refactor.

@@ -24,10 +24,15 @@ runs/<run-id>/
 - parent checkpoint when resuming,
 - selected model artifact, if any.
 
+Training writes `run.json` and appends validation and final test records to
+`metrics.jsonl`. The test split is evaluated from `best.pt` after training and
+is not used for checkpoint selection or early stopping.
+
 Run contents are ignored by Git because checkpoints and repeated experiment
 outputs can become large. Promote intentionally retained inference artifacts
 to `models/`.
 
 Training uses `best.pt` for the lowest validation loss and `latest.pt` for
 recovery. Periodic `step-NNNNNN.pt` snapshots are pruned to the configured
-retention count.
+retention count. Checkpoints include training and evaluation RNG state plus
+early-stopping progress.

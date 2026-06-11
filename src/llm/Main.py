@@ -45,11 +45,10 @@ def build_data_module(modelConfig: ModelConfig, trainConfig: TrainConfig, active
 
 
 def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None = None) -> LMTrainer:
-    manual_seed(1337)
-
     runConfig = runConfig or RunConfig()
     modelConfig = runConfig.modelConfig
     trainConfig = runConfig.trainConfig
+    manual_seed(trainConfig.seed)
 
     activeLogger = log or logger
 
@@ -64,7 +63,16 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
 
     # Instantiate EarlyStopping and Evaluator
     earlyStopping = EarlyStopping(trainConfig.earlyStopPatience, trainConfig.earlyStopDelta)
-    evaluator = Evaluator(model, dataModule, trainConfig, earlyStopping, logger=activeLogger)
+    evaluatorGenerator = torch.Generator()
+    evaluatorGenerator.manual_seed(trainConfig.seed + 1)
+    evaluator = Evaluator(
+        model,
+        dataModule,
+        trainConfig,
+        earlyStopping,
+        generator=evaluatorGenerator,
+        logger=activeLogger,
+    )
 
     return LMTrainer(modelConfig, trainConfig, model, dataModule, logger=activeLogger, evaluator=evaluator)
 
@@ -75,6 +83,7 @@ def main(log_level: int = logging.INFO) -> None:
     parser.add_argument("--validation-corpus", type=str, default=None, help="Path to validation corpus")
     parser.add_argument("--test-corpus", type=str, default=None, help="Path to test corpus")
     parser.add_argument("--checkpoint", type=str, default=None, help="Path to training checkpoint")
+    parser.add_argument("--seed", type=int, default=None, help="Training random seed")
     parser.add_argument("--snapshot-interval", type=int, default=None, help="Steps between retained checkpoint snapshots")
     parser.add_argument("--max-snapshots", type=int, default=None, help="Maximum retained step snapshots")
     parser.add_argument("--plot", action="store_true", help="Enable plotting the training curve")
@@ -94,6 +103,10 @@ def main(log_level: int = logging.INFO) -> None:
         trainConfig = replace(trainConfig, testDataPath=args.test_corpus)
     if args.checkpoint:
         trainConfig = replace(trainConfig, ckptPath=args.checkpoint)
+    if args.seed is not None:
+        if args.seed < 0:
+            parser.error("--seed must be non-negative")
+        trainConfig = replace(trainConfig, seed=args.seed)
     if args.snapshot_interval is not None:
         if args.snapshot_interval < 0:
             parser.error("--snapshot-interval must be non-negative")
@@ -113,6 +126,7 @@ def main(log_level: int = logging.INFO) -> None:
     trainer.loadCheckpointIfExists()
 
     trainer.train()
+    trainer.evaluateBestCheckpointOnTest()
     trainer.plotTrainingCurve()
 
     textGenerator = AutoregressiveGenerator(trainer.model, trainer.trainConfig.device, activeLogger)

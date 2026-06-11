@@ -55,7 +55,11 @@ def test_checkpoint_restores_generator_state(tmp_path: Path) -> None:
     assert latestPath.exists(), "Latest checkpoint should be written"
     checkpoint = torch.load(latestPath, map_location=trainConfig.device, weights_only=False)  # pyright: ignore[reportUnknownMemberType]
     generatorState = checkpoint.get("generatorState", None)
+    evaluatorGeneratorState = checkpoint.get("evaluatorGeneratorState", None)
+    earlyStoppingState = checkpoint.get("earlyStoppingState", None)
     assert generatorState is not None
+    assert evaluatorGeneratorState is not None
+    assert earlyStoppingState is not None
 
     dataModuleTwo = ByteDataModule(modelConfig, trainConfig)
     modelTwo = TinyGPTLanguageModel(modelConfig).to(trainConfig.device)
@@ -71,7 +75,13 @@ def test_checkpoint_restores_generator_state(tmp_path: Path) -> None:
     trainerTwo.loadCheckpointIfExists()
 
     assert torch.equal(trainerTwo.generator.get_state(), generatorState)
-    assert evaluatorTwo.early_stopping.noImproveEvals == 0
+    assert torch.equal(
+        evaluatorTwo.generator.get_state(),
+        evaluatorGeneratorState,
+    )
+    assert evaluatorTwo.early_stopping.noImproveEvals == earlyStoppingState[
+        "noImproveEvals"
+    ]
 
     genCopy = torch.Generator()
     genCopy.set_state(generatorState)

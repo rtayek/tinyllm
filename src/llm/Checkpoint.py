@@ -26,6 +26,8 @@ class Checkpoint:
     trainConfig: Dict[str, Any]
     lrStrategyState: Optional[Dict[str, Any]] = None
     generatorState: Optional[torch.Tensor] = None
+    evaluatorGeneratorState: Optional[torch.Tensor] = None
+    earlyStoppingState: Optional[Dict[str, Any]] = None
 
     def toDict(self) -> Dict[str, Any]:
         return {
@@ -38,6 +40,8 @@ class Checkpoint:
             "trainConfig": self.trainConfig,
             "lrStrategyState": self.lrStrategyState,
             "generatorState": self.generatorState,
+            "evaluatorGeneratorState": self.evaluatorGeneratorState,
+            "earlyStoppingState": self.earlyStoppingState,
         }
 
     @staticmethod
@@ -52,6 +56,11 @@ class Checkpoint:
             trainConfig=cast(Dict[str, Any], data.get("trainConfig", {})),
             lrStrategyState=cast(Optional[Dict[str, Any]], data.get("lrStrategyState", None)),
             generatorState=data.get("generatorState", None),
+            evaluatorGeneratorState=data.get("evaluatorGeneratorState", None),
+            earlyStoppingState=cast(
+                Optional[Dict[str, Any]],
+                data.get("earlyStoppingState", None),
+            ),
         )
 
     def save(self, path: str, device: str | torch.device) -> None:
@@ -91,6 +100,8 @@ class Checkpoint:
         bestValLoss: Optional[float],
         lrStrategyState: Optional[Dict[str, Any]] = None,
         generatorState: Optional[torch.Tensor] = None,
+        evaluatorGeneratorState: Optional[torch.Tensor] = None,
+        earlyStoppingState: Optional[Dict[str, Any]] = None,
         version: int = CHECKPOINT_VERSION,
     ) -> "Checkpoint":
         return Checkpoint(
@@ -103,6 +114,8 @@ class Checkpoint:
             trainConfig=trainConfig.__dict__ if trainConfig is not None else {},
             lrStrategyState=lrStrategyState,
             generatorState=generatorState,
+            evaluatorGeneratorState=evaluatorGeneratorState,
+            earlyStoppingState=earlyStoppingState,
         )
 
 
@@ -133,6 +146,8 @@ class CheckpointManager:
         step: int,
         bestValLoss: Optional[float],
         generatorState: Optional[torch.Tensor] = None,
+        evaluatorGeneratorState: Optional[torch.Tensor] = None,
+        earlyStoppingState: Optional[Dict[str, Any]] = None,
         path: Optional[str] = None,
     ) -> None:
         checkpoint: Checkpoint = Checkpoint.fromTrainingState(
@@ -144,6 +159,8 @@ class CheckpointManager:
             bestValLoss=bestValLoss,
             lrStrategyState=lrStrategyState,
             generatorState=generatorState,
+            evaluatorGeneratorState=evaluatorGeneratorState,
+            earlyStoppingState=earlyStoppingState,
             version=CHECKPOINT_VERSION,
         )
         checkpoint.save(path or self.ckptPath, self.trainCfg.device)
@@ -167,10 +184,20 @@ class CheckpointManager:
         model: TinyGPTLanguageModel,
         optimizer: torch.optim.Optimizer,
         lrStrategy: Optional[Any] = None,
-    ) -> Tuple[int, Optional[float], bool, int, bool, Dict[str, Dict[str, Any]], Optional[torch.Tensor]]:
+    ) -> Tuple[
+        int,
+        Optional[float],
+        bool,
+        int,
+        bool,
+        Dict[str, Dict[str, Any]],
+        Optional[torch.Tensor],
+        Optional[torch.Tensor],
+        Optional[Dict[str, Any]],
+    ]:
         resumePath = self.resumePath()
         if not os.path.exists(resumePath):
-            return 0, None, False, CHECKPOINT_VERSION, True, {}, None
+            return 0, None, False, CHECKPOINT_VERSION, True, {}, None, None, None
 
         checkpoint = Checkpoint.load(resumePath, self.trainCfg.device)
         model.load_state_dict(checkpoint.modelState)
@@ -205,4 +232,14 @@ class CheckpointManager:
                 if k in self.trainCfg.__dict__ and self.trainCfg.__dict__[k] != v
             }
 
-        return step, bestValLoss, lrStateRestored, version, version_matches, configDrift, generator_state
+        return (
+            step,
+            bestValLoss,
+            lrStateRestored,
+            version,
+            version_matches,
+            configDrift,
+            generator_state,
+            checkpoint.evaluatorGeneratorState,
+            checkpoint.earlyStoppingState,
+        )

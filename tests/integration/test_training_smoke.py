@@ -111,3 +111,62 @@ def test_missing_checkpoint_is_reported_as_new_run(
 
     assert "starting a new run" in caplog.text
     assert "Loaded checkpoint version" not in caplog.text
+
+
+def test_best_checkpoint_is_evaluated_on_test_split(tmp_path: Path) -> None:
+    run_directory = tmp_path / "runs" / "test-evaluation"
+    checkpoint = run_directory / "checkpoints" / "best.pt"
+    model_config = ModelConfig(
+        blockSize=4,
+        vocabSize=32,
+        nEmbed=8,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
+    )
+    train_config = TrainConfig(
+        batchSize=2,
+        evalIters=2,
+        ckptPath=str(checkpoint),
+        validationDataPath=None,
+        testDataPath=None,
+        device="cpu",
+    )
+    data_module = SequenceDataModule(
+        model_config,
+        train_config,
+        torch.arange(100) % model_config.vocabSize,
+        validationSequence=torch.arange(40) % model_config.vocabSize,
+        testSequence=torch.arange(40) % model_config.vocabSize,
+    )
+    model = TinyGPTLanguageModel(model_config)
+    evaluator = Evaluator(
+        model,
+        data_module,
+        train_config,
+        EarlyStopping(patience=2, delta=0.0),
+    )
+    trainer = LMTrainer(
+        model_config,
+        train_config,
+        model,
+        data_module,
+        evaluator=evaluator,
+    )
+    trainer.bestValLoss = 1.0
+    trainer.checkpoints.saveCheckpoint(
+        trainer.model,
+        trainer.optimizer,
+        trainer.lrStrategy.state_dict(),
+        step=7,
+        bestValLoss=1.0,
+        path=str(checkpoint),
+    )
+
+    test_loss = trainer.evaluateBestCheckpointOnTest()
+
+    assert test_loss is not None
+    assert test_loss > 0
+    assert '"type": "test"' in (
+        run_directory / "metrics.jsonl"
+    ).read_text(encoding="utf-8")
