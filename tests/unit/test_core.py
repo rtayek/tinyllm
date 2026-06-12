@@ -226,6 +226,19 @@ def test_early_stopping_logic() -> None:
     assert improved is True and shouldStop is False and count == 0
 
 
+def test_early_stopping_keeps_significant_improvement_reference() -> None:
+    stopper = EarlyStopping(patience=2, delta=0.003)
+
+    stopper.check(None, 1.8025)
+    improved, frac, should_stop, count = stopper.check(1.8025, 1.7989)
+
+    assert improved is False
+    assert frac is not None and 0 < frac < stopper.delta
+    assert should_stop is False
+    assert count == 1
+    assert stopper.referenceLoss == 1.8025
+
+
 def test_checkpoint_roundtrip(tmp_path: Path) -> None:
     trainCkptPath: Path = tmp_path / "ckpt.pt"
     modelConfig = ModelConfig(blockSize=4, vocabSize=32, nEmbed=16, nHead=4, nLayer=2, dropout=0.0)

@@ -116,6 +116,10 @@ Training maintains:
 - `run.json`: Git commit, corpus hashes, seed, and configuration.
 - `metrics.jsonl`: validation evaluations and the final test result.
 
+`best.pt` tracks every new absolute validation-loss minimum.
+`earlyStopDelta` only determines whether an improvement is large enough to
+reset early-stopping patience.
+
 The three newest periodic snapshots are retained by default. Configure this
 with `--snapshot-interval` and `--max-snapshots`; use zero to disable snapshots
 or retention respectively. After training, `best.pt` is evaluated on

@@ -10,6 +10,7 @@ from llm.Model import TinyGPTLanguageModel
 from llm.Trainer import LMTrainer
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
+from llm.Checkpoint import Checkpoint
 
 
 def test_training_smoke(tmp_path: Path) -> None:
@@ -170,3 +171,66 @@ def test_best_checkpoint_is_evaluated_on_test_split(tmp_path: Path) -> None:
     assert '"type": "test"' in (
         run_directory / "metrics.jsonl"
     ).read_text(encoding="utf-8")
+
+
+def test_best_checkpoint_tracks_lower_loss_below_early_stop_delta(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    checkpoint = tmp_path / "best.pt"
+    model_config = ModelConfig(
+        blockSize=4,
+        vocabSize=32,
+        nEmbed=8,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
+    )
+    train_config = TrainConfig(
+        batchSize=2,
+        maxSteps=2,
+        evalInterval=1,
+        evalIters=1,
+        earlyStopPatience=2,
+        earlyStopDelta=0.003,
+        plotCurve=False,
+        ckptPath=str(checkpoint),
+        validationDataPath=None,
+        testDataPath=None,
+        device="cpu",
+    )
+    data_module = SequenceDataModule(
+        model_config,
+        train_config,
+        torch.arange(100) % model_config.vocabSize,
+    )
+    model = TinyGPTLanguageModel(model_config)
+    evaluator = Evaluator(
+        model,
+        data_module,
+        train_config,
+        EarlyStopping(patience=2, delta=0.003),
+    )
+    losses = iter(
+        [
+            {"train": 1.8, "val": 1.8025},
+            {"train": 1.79, "val": 1.7989},
+        ]
+    )
+    monkeypatch.setattr(evaluator, "estimate_loss", lambda: next(losses))
+    trainer = LMTrainer(
+        model_config,
+        train_config,
+        model,
+        data_module,
+        evaluator=evaluator,
+    )
+    monkeypatch.setattr(trainer, "_trainStep", lambda: 0.0)
+
+    trainer.train()
+
+    saved = Checkpoint.load(str(checkpoint), "cpu")
+    assert saved.step == 1
+    assert saved.bestValLoss is not None
+    assert abs(saved.bestValLoss - 1.7989) < 1e-9
+    assert evaluator.early_stopping.noImproveEvals == 1

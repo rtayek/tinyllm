@@ -144,7 +144,12 @@ class LMTrainer:
                 CHECKPOINT_VERSION,
             )
         else:
-            self.logger.info("Loaded checkpoint version %s from %s", version, resumePath)
+            self.logger.info(
+                "Loaded checkpoint version %s from %s; resuming at step %s",
+                version,
+                resumePath,
+                step,
+            )
         if config_drift.get("model"):
             self.logger.warning("Model config drift from checkpoint: %s", config_drift["model"])
         if config_drift.get("train"):
@@ -170,6 +175,7 @@ class LMTrainer:
                     raise RuntimeError("Non-finite evaluation loss encountered")
                 self.trainingCurve.append((step, train_loss, val_loss))
                 self._log_eval(step, evalResult)
+                isBest = self.bestValLoss is None or val_loss < self.bestValLoss
                 self.runArtifacts.appendMetric(
                     {
                         "type": "evaluation",
@@ -178,16 +184,21 @@ class LMTrainer:
                         "validation_loss": val_loss,
                         "fractional_improvement": evalResult.frac_improvement,
                         "improved": bool(evalResult.improved),
+                        "new_best": isBest,
                         "no_improve_evals": evalResult.no_improve_evals,
                     }
                 )
 
-                if bool(evalResult.improved):
+                if isBest:
                     self.bestValLoss = val_loss
-                else:
-                    self.logger.info("[step %s] No val improvement for %s evals.", step, evalResult.no_improve_evals)
+                if not bool(evalResult.improved):
+                    self.logger.info(
+                        "[step %s] No significant val improvement for %s evals.",
+                        step,
+                        evalResult.no_improve_evals,
+                    )
 
-                self._saveEvaluationCheckpoints(step, bool(evalResult.improved))
+                self._saveEvaluationCheckpoints(step, isBest)
 
                 if not bool(evalResult.improved):
                     if bool(evalResult.should_stop):

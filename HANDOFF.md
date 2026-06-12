@@ -1,6 +1,6 @@
 # tinyllm Handoff
 
-Last verified: June 10, 2026
+Last verified: June 11, 2026
 
 ## Project
 
@@ -29,17 +29,17 @@ tinyllm-prepare-corpora
 Verification:
 
 ```text
-pytest: 52 passed
+pytest: 54 passed
 pyright: 0 errors
-branch coverage: 80.8%
+branch coverage: 81.0%
 ```
 
 Default checkpoint:
 
 ```text
 runs/sherlock-byte-default/checkpoints/best.pt
-step: 3900
-best validation loss: 1.7970151352882384
+step: 3700
+best validation loss: 1.802475426197052
 corpus: canonical Sherlock training split
 ```
 
@@ -111,6 +111,9 @@ Training also writes `latest.pt` at every evaluation and periodic
 `step-NNNNNN.pt` snapshots. Resume prefers `latest.pt`, while inference keeps
 using `best.pt` unless `--checkpoint` selects another file. Snapshots default
 to every 1,000 steps with the newest three retained.
+
+`best.pt` tracks every new absolute validation-loss minimum.
+`earlyStopDelta` is separate and only determines whether patience resets.
 
 After training, `best.pt` is loaded and evaluated on deterministically sampled
 held-out test batches. That result is appended to `metrics.jsonl` and is not
