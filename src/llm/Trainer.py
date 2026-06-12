@@ -46,6 +46,7 @@ class LMTrainer:
 
         self.generator: torch.Generator = torch.Generator()
         self.generator.manual_seed(self.trainConfig.seed)
+        self.earlyStoppingExhausted = False
 
 
     def _trainStep(self) -> float:
@@ -103,7 +104,10 @@ class LMTrainer:
         if evalResult.frac_improvement is not None:
             self.logger.info("[step %s] fractional improvement: %.4f (need > %.4f)", step, evalResult.frac_improvement, self.trainConfig.earlyStopDelta)
 
-    def loadCheckpointIfExists(self) -> None:
+    def loadCheckpointIfExists(
+        self,
+        resetEarlyStopping: bool = False,
+    ) -> None:
         resumePath = self.checkpoints.resumePath()
         checkpointExists = os.path.exists(resumePath)
         (
@@ -130,6 +134,13 @@ class LMTrainer:
                 self.evaluator.generator.set_state(evaluator_generator_state)
             if early_stopping_state is not None:
                 self.evaluator.early_stopping.load_state_dict(early_stopping_state)
+            if resetEarlyStopping:
+                self.evaluator.early_stopping.reset()
+                self.logger.info("Restored early-stopping progress was reset.")
+            self.earlyStoppingExhausted = (
+                self.evaluator.early_stopping.noImproveEvals
+                >= self.evaluator.early_stopping.patience
+            )
         if not lrStateRestored:
             self.lrStrategy.align_after_resume(step)
         if not checkpointExists:
@@ -156,6 +167,13 @@ class LMTrainer:
             self.logger.warning("Train config drift from checkpoint: %s", config_drift["train"])
     def train(self) -> None:
         self.logger.info("Using device: %s", self.trainConfig.device)
+        if self.earlyStoppingExhausted:
+            self.logger.info(
+                "Training already stopped by early stopping at step %s. "
+                "Use --reset-early-stopping to continue.",
+                self.globalStep,
+            )
+            return
         self.logger.info("Starting training loop...")
 
         for step in range(self.globalStep, self.trainConfig.maxSteps):

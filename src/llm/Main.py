@@ -84,6 +84,8 @@ def main(log_level: int = logging.INFO) -> None:
     parser.add_argument("--test-corpus", type=str, default=None, help="Path to test corpus")
     parser.add_argument("--checkpoint", type=str, default=None, help="Path to training checkpoint")
     parser.add_argument("--seed", type=int, default=None, help="Training random seed")
+    parser.add_argument("--early-stop-patience", type=int, default=None, help="Evaluations without significant improvement before stopping")
+    parser.add_argument("--reset-early-stopping", action="store_true", help="Reset restored early-stopping progress when resuming")
     parser.add_argument("--snapshot-interval", type=int, default=None, help="Steps between retained checkpoint snapshots")
     parser.add_argument("--max-snapshots", type=int, default=None, help="Maximum retained step snapshots")
     parser.add_argument("--plot", action="store_true", help="Enable plotting the training curve")
@@ -107,6 +109,13 @@ def main(log_level: int = logging.INFO) -> None:
         if args.seed < 0:
             parser.error("--seed must be non-negative")
         trainConfig = replace(trainConfig, seed=args.seed)
+    if args.early_stop_patience is not None:
+        if args.early_stop_patience <= 0:
+            parser.error("--early-stop-patience must be greater than zero")
+        trainConfig = replace(
+            trainConfig,
+            earlyStopPatience=args.early_stop_patience,
+        )
     if args.snapshot_interval is not None:
         if args.snapshot_interval < 0:
             parser.error("--snapshot-interval must be non-negative")
@@ -123,7 +132,9 @@ def main(log_level: int = logging.INFO) -> None:
     trainer = buildTrainer(runConfig, log=activeLogger)
 
     activeLogger.info("Loading checkpoint (if any)...")
-    trainer.loadCheckpointIfExists()
+    trainer.loadCheckpointIfExists(
+        resetEarlyStopping=args.reset_early_stopping,
+    )
 
     trainer.train()
     trainer.evaluateBestCheckpointOnTest()

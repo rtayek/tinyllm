@@ -234,3 +234,82 @@ def test_best_checkpoint_tracks_lower_loss_below_early_stop_delta(
     assert saved.bestValLoss is not None
     assert abs(saved.bestValLoss - 1.7989) < 1e-9
     assert evaluator.early_stopping.noImproveEvals == 1
+
+
+def test_exhausted_early_stopping_requires_explicit_reset(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    checkpoint = tmp_path / "best.pt"
+    model_config = ModelConfig(
+        blockSize=4,
+        vocabSize=32,
+        nEmbed=8,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
+    )
+    train_config = TrainConfig(
+        batchSize=2,
+        maxSteps=10,
+        evalInterval=1,
+        evalIters=1,
+        earlyStopPatience=2,
+        plotCurve=False,
+        ckptPath=str(checkpoint),
+        validationDataPath=None,
+        testDataPath=None,
+        device="cpu",
+    )
+    data_module = SequenceDataModule(
+        model_config,
+        train_config,
+        torch.arange(100) % model_config.vocabSize,
+    )
+
+    def make_trainer() -> LMTrainer:
+        model = TinyGPTLanguageModel(model_config)
+        evaluator = Evaluator(
+            model,
+            data_module,
+            train_config,
+            EarlyStopping(patience=2, delta=0.003),
+        )
+        return LMTrainer(
+            model_config,
+            train_config,
+            model,
+            data_module,
+            evaluator=evaluator,
+        )
+
+    initial = make_trainer()
+    initial.checkpoints.saveCheckpoint(
+        initial.model,
+        initial.optimizer,
+        initial.lrStrategy.state_dict(),
+        step=5,
+        bestValLoss=1.0,
+        earlyStoppingState={
+            "noImproveEvals": 2,
+            "referenceLoss": 1.0,
+        },
+        path=initial.checkpoints.latestPath,
+    )
+
+    stopped = make_trainer()
+    stopped.loadCheckpointIfExists()
+    assert stopped.earlyStoppingExhausted is True
+
+    def fail_train() -> float:
+        raise AssertionError("completed run should not train")
+
+    monkeypatch.setattr(stopped, "_trainStep", fail_train)
+    stopped.train()
+    assert stopped.trainingCurve == []
+
+    continued = make_trainer()
+    continued.loadCheckpointIfExists(resetEarlyStopping=True)
+    assert continued.earlyStoppingExhausted is False
+    assert continued.evaluator is not None
+    assert continued.evaluator.early_stopping.noImproveEvals == 0

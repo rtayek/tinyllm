@@ -140,6 +140,22 @@ training, along with prior metrics, plots, and samples for that run. Set
 Use `--seed` to select the training seed. Checkpoints preserve training and
 evaluation RNG state plus early-stopping progress.
 
+If a run has already exhausted early stopping, relaunching it reports that it
+is complete. Continue deliberately by resetting the saved patience counter:
+
+```sh
+tinyllm-train --reset-early-stopping
+```
+
+To continue with a larger patience allowance:
+
+```sh
+tinyllm-train --reset-early-stopping --early-stop-patience 5
+```
+
+Changing only `--early-stop-patience` preserves the saved counter and compares
+it with the new limit.
+
 ## Inference
 
 Generate 400 new byte tokens from the unconditional start token:

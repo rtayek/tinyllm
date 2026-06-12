@@ -1,6 +1,6 @@
 # tinyllm Handoff
 
-Last verified: June 11, 2026
+Last verified: June 12, 2026
 
 ## Project
 
@@ -29,17 +29,17 @@ tinyllm-prepare-corpora
 Verification:
 
 ```text
-pytest: 54 passed
+pytest: 55 passed
 pyright: 0 errors
-branch coverage: 81.0%
+branch coverage: 80.7%
 ```
 
 Default checkpoint:
 
 ```text
 runs/sherlock-byte-default/checkpoints/best.pt
-step: 3700
-best validation loss: 1.802475426197052
+step: 4500
+best validation loss: 1.7905686581134796
 corpus: canonical Sherlock training split
 ```
 
@@ -186,6 +186,8 @@ Training flags:
 --test-corpus PATH
 --checkpoint PATH
 --seed INTEGER
+--early-stop-patience COUNT
+--reset-early-stopping
 --snapshot-interval STEPS
 --max-snapshots COUNT
 --plot
@@ -194,6 +196,13 @@ Training flags:
 
 CUDA is preferred by the default configuration. Training and inference both
 fall back to CPU when CUDA is unavailable.
+
+An exhausted early-stopping checkpoint is treated as a completed run instead
+of repeating its final evaluation on every launch. Continue explicitly with:
+
+```sh
+tinyllm-train --reset-early-stopping --early-stop-patience 5
+```
 
 ## Inference
 
