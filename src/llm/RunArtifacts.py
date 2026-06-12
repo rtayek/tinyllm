@@ -46,12 +46,15 @@ class RunArtifacts:
         checkpointPath = Path(self.trainConfig.ckptPath)
         latestPath = checkpointPath.with_name("latest.pt")
         parentCheckpoint = latestPath if latestPath.exists() else checkpointPath
+        training = self.trainConfig.toDict()
+        for pathField in ("dataPath", "validationDataPath", "testDataPath"):
+            training.pop(pathField, None)
         payload = {
-            "schema_version": 1,
+            "schema_version": 2,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "git_commit": self._git_commit(),
             "model": self.modelConfig.toDict(),
-            "training": self.trainConfig.toDict(),
+            "training": training,
             "parent_checkpoint": (
                 {
                     "path": str(parentCheckpoint),

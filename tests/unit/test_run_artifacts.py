@@ -32,9 +32,16 @@ def test_run_artifacts_write_metadata_and_metrics(tmp_path: Path) -> None:
     assert metadata_path is not None
     assert metrics_path is not None
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["schema_version"] == 2
     assert metadata["training"]["ckptPath"] == str(
         run / "checkpoints" / "best.pt"
     )
+    assert "dataPath" not in metadata["training"]
+    assert "validationDataPath" not in metadata["training"]
+    assert "testDataPath" not in metadata["training"]
+    assert metadata["corpora"]["train"]["path"] == str(train)
+    assert metadata["corpora"]["validation"]["path"] == str(validation)
+    assert metadata["corpora"]["test"]["path"] == str(test)
     assert metadata["corpora"]["train"]["sha256"] is not None
     metric = json.loads(metrics_path.read_text(encoding="utf-8"))
     assert metric["type"] == "evaluation"

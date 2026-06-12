@@ -24,6 +24,10 @@ runs/<run-id>/
 - parent checkpoint when resuming,
 - selected model artifact, if any.
 
+Schema version 2 stores corpus paths and hashes only under `corpora`; they are
+not duplicated in the `training` configuration. Full training configuration,
+including corpus paths, remains in checkpoints for resume and drift detection.
+
 Training writes `run.json` and appends validation and final test records to
 `metrics.jsonl`. The test split is evaluated from `best.pt` after training and
 is not used for checkpoint selection or early stopping.

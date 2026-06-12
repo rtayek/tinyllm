@@ -113,8 +113,11 @@ Training maintains:
 - `best.pt`: the lowest validation loss, used by default for inference.
 - `latest.pt`: the most recent evaluation state, preferred when resuming.
 - `step-NNNNNN.pt`: periodic snapshots, every 1,000 steps by default.
-- `run.json`: Git commit, corpus hashes, seed, and configuration.
+- `run.json`: Git commit, corpus paths and hashes, seed, and configuration.
 - `metrics.jsonl`: validation evaluations and the final test result.
+
+In `run.json` schema version 2, corpus paths are authoritative under `corpora`
+and are not duplicated in `training`.
 
 `best.pt` tracks every new absolute validation-loss minimum.
 `earlyStopDelta` only determines whether an improvement is large enough to
