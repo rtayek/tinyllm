@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+import llm.corpus as corpus_module
 from llm.corpus import (
     ALICE,
     PRIDE,
@@ -99,7 +100,10 @@ def test_splitters_require_expected_unit_counts() -> None:
         split_sherlock_stories("I. A SCANDAL IN BOHEMIA\n\nBody\n")
 
 
-def test_prepare_corpora_writes_manifests_units_and_splits(tmp_path: Path) -> None:
+def test_prepare_corpora_writes_manifests_units_and_splits(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     root = tmp_path / "corpora"
     raw_sources = {
         SHERLOCK: wrapped(sherlock_stories()),
@@ -117,6 +121,7 @@ def test_prepare_corpora_writes_manifests_units_and_splits(tmp_path: Path) -> No
         path.parent.mkdir(parents=True)
         path.write_text(source, encoding="utf-8")
 
+    monkeypatch.setattr(corpus_module, "WORKS", tuple(raw_sources))
     manifests = prepare_corpora(root)
 
     assert set(manifests) == {spec.identifier for spec in raw_sources}
