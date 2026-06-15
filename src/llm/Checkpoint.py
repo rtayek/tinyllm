@@ -121,7 +121,7 @@ class Checkpoint:
             step=step,
             bestValLoss=bestValLoss,
             modelConfig=modelConfig.__dict__ if modelConfig is not None else {},
-            trainConfig=trainConfig.toSerializableDict() if trainConfig is not None else {},
+            trainConfig=trainConfig.toDict() if trainConfig is not None else {},
             lrStrategyState=lrStrategyState,
             generatorState=generatorState,
             evaluatorGeneratorState=evaluatorGeneratorState,
