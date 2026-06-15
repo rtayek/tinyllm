@@ -27,10 +27,12 @@ def test_data_module_batch_shapes(tmp_path: Path) -> None:
     dataPath.write_bytes(b"abcdefghijklmnopqrstuvwxyz")
 
     modelConfig = ModelConfig(blockSize=4, vocabSize=256)
-    trainConfig = TrainConfig(batchSize=2, dataPath=str(dataPath))
+    trainConfig = TrainConfig(batchSize=2, dataPath=str(dataPath), device="cpu")
 
     dataModule = ByteDataModule(modelConfig, trainConfig)
-    batchX, batchY = dataModule.getBatch("train")
+    generator = torch.Generator()
+    generator.manual_seed(0)
+    batchX, batchY = dataModule.getBatch("train", generator)
 
     assert batchX.shape == (trainConfig.batchSize, modelConfig.blockSize)
     assert batchY.shape == (trainConfig.batchSize, modelConfig.blockSize)

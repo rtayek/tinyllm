@@ -16,7 +16,9 @@ def test_get_batch_accepts_exactly_one_valid_window() -> None:
     )
     data_module.trainSequence = torch.tensor([10, 11, 12, 13, 14])
 
-    batch_x, batch_y = data_module.getBatch("train")
+    generator = torch.Generator()
+    generator.manual_seed(0)
+    batch_x, batch_y = data_module.getBatch("train", generator)
 
     assert torch.equal(batch_x, torch.tensor([[10, 11, 12, 13]]))
     assert torch.equal(batch_y, torch.tensor([[11, 12, 13, 14]]))

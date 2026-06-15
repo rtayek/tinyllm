@@ -65,8 +65,6 @@ class LMTrainer:
         return float(loss.item())
 
     def _saveCheckpoint(self, step: int, path: str) -> None:
-        if self.bestValLoss is None:
-            return
         self.checkpoints.saveCheckpoint(
             self.model,
             self.optimizer,

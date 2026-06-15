@@ -39,7 +39,7 @@ class EarlyStopping:
 
     def check(self, bestValLoss: Optional[float], currentValueLoss: float) -> EarlyStopResult:
         referenceLoss = self.referenceLoss
-        if referenceLoss is None and bestValLoss is not None and bestValLoss > 0:
+        if referenceLoss is None and bestValLoss is not None:
             referenceLoss = bestValLoss
 
         if referenceLoss is None or referenceLoss <= 0:

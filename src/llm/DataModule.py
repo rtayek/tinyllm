@@ -81,8 +81,7 @@ class SequenceDataModule:
             )
 
         if generator is None:
-            generator = torch.Generator()
-            generator.manual_seed(1337)
+            raise ValueError("getBatch requires an explicit generator")
 
         high = source.size(0) - modelConfig.blockSize
         indices = torch.randint(
