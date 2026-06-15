@@ -37,9 +37,9 @@ class Evaluator:
 
     def estimate_loss(self) -> Dict[str, float]:
         was_training = self.model.training
-        self.model.eval()
         losses: Dict[str, float] = {}
         try:
+            self.model.eval()
             with torch.no_grad():
                 for split in ("train", "val"):
                     loss_list: List[float] = []
@@ -61,10 +61,10 @@ class Evaluator:
         generator: torch.Generator | None = None,
     ) -> float:
         was_training = self.model.training
-        self.model.eval()
         loss_list: List[float] = []
         activeGenerator = generator or self.generator
         try:
+            self.model.eval()
             with torch.no_grad():
                 for _ in range(self.trainConfig.evalIters):
                     batchX, batchY = self.dataModule.getBatch(split, activeGenerator)

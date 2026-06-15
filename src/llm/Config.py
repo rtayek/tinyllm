@@ -53,6 +53,10 @@ class TrainConfig:
     )
     device: str = "cuda"  # desired/default device; actual availability is checked at runtime
 
+    def __post_init__(self) -> None:
+        if self.evalIters < 1:
+            raise ValueError(f"evalIters must be >= 1, got {self.evalIters}")
+
     def runDirectory(self) -> Path | None:
         checkpointDir = Path(self.ckptPath).parent
         if checkpointDir.name == "checkpoints" and checkpointDir.parent != Path("."):
