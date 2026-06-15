@@ -46,9 +46,10 @@ class EarlyStopping:
             fracImprovement = None
             improved = True
         elif referenceLoss <= 0:
-            # Loss is at or below zero: fractional improvement undefined; treat as stagnation.
+            # Loss at or below zero: fractional improvement undefined.
+            # Treat as improved only if current loss is no worse (handles perfect/custom losses).
             fracImprovement = 0.0
-            improved = False
+            improved = currentValueLoss <= referenceLoss
         else:
             fracImprovement = (
                 referenceLoss - currentValueLoss

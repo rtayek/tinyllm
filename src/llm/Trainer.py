@@ -64,7 +64,9 @@ class LMTrainer:
 
         return float(loss.item())
 
-    def _saveCheckpoint(self, step: int, path: str) -> None:
+    def _saveCheckpoint(self, step: int, path: str, earlyStoppingState: Optional[dict[str, Any]] = None) -> None:
+        if earlyStoppingState is None and self.evaluator is not None:
+            earlyStoppingState = self.evaluator.early_stopping.state_dict()
         self.checkpoints.saveCheckpoint(
             self.model,
             self.optimizer,
@@ -77,18 +79,19 @@ class LMTrainer:
                 if self.evaluator is not None
                 else None
             ),
-            earlyStoppingState=(
-                self.evaluator.early_stopping.state_dict()
-                if self.evaluator is not None
-                else None
-            ),
+            earlyStoppingState=earlyStoppingState,
             path=path,
         )
         self.logger.info("[step %s] Checkpoint saved to %s.", step, path)
 
     def _saveEvaluationCheckpoints(self, step: int, improved: bool) -> None:
         if improved:
-            self._saveCheckpoint(step, self.checkpoints.ckptPath)
+            # best.pt gets a clean patience counter so resume always starts fresh from this model
+            self._saveCheckpoint(
+                step,
+                self.checkpoints.ckptPath,
+                earlyStoppingState={"noImproveEvals": 0, "referenceLoss": self.bestValLoss},
+            )
         self._saveCheckpoint(step, self.checkpoints.latestPath)
 
         interval = self.trainConfig.snapshotInterval
@@ -204,6 +207,7 @@ class LMTrainer:
 
                 if isBest:
                     self.bestValLoss = val_loss
+                    self.logger.info("[step %s] New best val loss: %.4f — checkpoint saved.", step, val_loss)
                 if not bool(evalResult.improved) and not isBest:
                     self.logger.info(
                         "[step %s] No significant val improvement for %s evals.",
