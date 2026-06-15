@@ -204,7 +204,7 @@ class LMTrainer:
 
                 if isBest:
                     self.bestValLoss = val_loss
-                if not bool(evalResult.improved):
+                if not bool(evalResult.improved) and not isBest:
                     self.logger.info(
                         "[step %s] No significant val improvement for %s evals.",
                         step,

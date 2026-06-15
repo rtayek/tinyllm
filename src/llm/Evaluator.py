@@ -36,24 +36,7 @@ class Evaluator:
         self.logger = logger or logging.getLogger(__name__)
 
     def estimate_loss(self) -> Dict[str, float]:
-        was_training = self.model.training
-        losses: Dict[str, float] = {}
-        try:
-            self.model.eval()
-            with torch.no_grad():
-                for split in ("train", "val"):
-                    loss_list: List[float] = []
-                    for _ in range(self.trainConfig.evalIters):
-                        batchX, batchY = self.dataModule.getBatch(split, self.generator)
-                        _, loss, _ = self.model(batchX, batchY)
-                        if loss is None:
-                            raise RuntimeError("Loss is None in estimateLoss")
-                        loss_list.append(float(loss.item()))
-                    losses[split] = sum(loss_list) / float(len(loss_list))
-        finally:
-            if was_training:
-                self.model.train()
-        return losses
+        return {split: self.estimate_split(split) for split in ("train", "val")}
 
     def estimate_split(
         self,
@@ -62,7 +45,7 @@ class Evaluator:
     ) -> float:
         was_training = self.model.training
         loss_list: List[float] = []
-        activeGenerator = generator or self.generator
+        activeGenerator = generator if generator is not None else self.generator
         try:
             self.model.eval()
             with torch.no_grad():
@@ -79,15 +62,15 @@ class Evaluator:
 
     def evaluate(self, step: int, best_val_loss: Optional[float]) -> EvalResult:
         losses = self.estimate_loss()
-        trainLoss = losses["train"]
-        valueLoss = losses["val"]
+        train_loss = losses["train"]
+        val_loss = losses["val"]
 
-        stop: EarlyStopResult = self.early_stopping.check(best_val_loss, valueLoss)
+        stop: EarlyStopResult = self.early_stopping.check(best_val_loss, val_loss)
 
         return EvalResult(
             step=step,
-            train_loss=trainLoss,
-            val_loss=valueLoss,
+            train_loss=train_loss,
+            val_loss=val_loss,
             frac_improvement=stop.frac_improvement,
             improved=stop.improved,
             should_stop=stop.should_stop,

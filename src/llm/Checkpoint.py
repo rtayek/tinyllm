@@ -120,7 +120,7 @@ class Checkpoint:
             optimizerState=optimizer.state_dict(),
             step=step,
             bestValLoss=bestValLoss,
-            modelConfig=modelConfig.__dict__ if modelConfig is not None else {},
+            modelConfig=modelConfig.toDict() if modelConfig is not None else {},
             trainConfig=trainConfig.toDict() if trainConfig is not None else {},
             lrStrategyState=lrStrategyState,
             generatorState=generatorState,
@@ -230,16 +230,18 @@ class CheckpointManager:
         savedModelConfig = checkpoint.modelConfig
         savedTrainConfig = checkpoint.trainConfig
         if savedModelConfig:
+            currentModelDict = self.modelCfg.toDict()
             configDrift["model"] = {
                 k: v
                 for k, v in savedModelConfig.items()
-                if k in self.modelCfg.__dict__ and self.modelCfg.__dict__[k] != v
+                if k in currentModelDict and currentModelDict[k] != v
             }
         if savedTrainConfig:
+            currentTrainDict = self.trainCfg.toDict()
             configDrift["train"] = {
                 k: v
                 for k, v in savedTrainConfig.items()
-                if k in self.trainCfg.__dict__ and self.trainCfg.__dict__[k] != v
+                if k in currentTrainDict and currentTrainDict[k] != v
             }
 
         return (

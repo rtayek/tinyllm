@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import Protocol, Sequence, runtime_checkable
+from typing import Protocol, Sequence
 import logging
 import torch
 
 from .Config import ModelConfig, TrainConfig
 
 
-@runtime_checkable
 class Tokenizer(Protocol):
     vocabSize: int
 

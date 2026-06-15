@@ -64,6 +64,6 @@ class EarlyStopping:
         return EarlyStopResult(
             improved=improved,
             frac_improvement=fracImprovement,
-            should_stop=self.noImproveEvals >= self.patience,
+            should_stop=self.is_exhausted(),
             no_improve_evals=self.noImproveEvals,
         )
