@@ -75,7 +75,7 @@ def test_checkpoint_save_preserves_existing_file_on_failure(
     monkeypatch.setattr(torch, "save", fail_save)
 
     with pytest.raises(OSError, match="simulated save failure"):
-        checkpoint.save(str(checkpoint_path), "cpu")
+        checkpoint.save(str(checkpoint_path))
 
     assert checkpoint_path.read_bytes() == b"existing checkpoint"
     assert list(tmp_path.glob(".checkpoint.pt.*.tmp")) == []

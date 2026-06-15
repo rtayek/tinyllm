@@ -137,10 +137,7 @@ class LMTrainer:
             if resetEarlyStopping:
                 self.evaluator.early_stopping.reset()
                 self.logger.info("Restored early-stopping progress was reset.")
-            self.earlyStoppingExhausted = (
-                self.evaluator.early_stopping.noImproveEvals
-                >= self.evaluator.early_stopping.patience
-            )
+            self.earlyStoppingExhausted = self.evaluator.early_stopping.is_exhausted()
         if not lrStateRestored:
             self.lrStrategy.align_after_resume(step)
         if not checkpointExists:

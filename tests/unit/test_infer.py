@@ -91,7 +91,7 @@ def test_build_generator_falls_back_to_cpu(
         step=0,
         bestValLoss=None,
     )
-    checkpoint.save(str(checkpoint_path), "cpu")
+    checkpoint.save(str(checkpoint_path))
     run_config = RunConfig(
         modelConfig=model_config,
         trainConfig=TrainConfig(
@@ -129,7 +129,7 @@ def test_build_generator_uses_checkpoint_model_config(
         step=1,
         bestValLoss=1.0,
     )
-    checkpoint.save(str(checkpoint_path), "cpu")
+    checkpoint.save(str(checkpoint_path))
     run_config = RunConfig(
         modelConfig=ModelConfig(),
         trainConfig=TrainConfig(

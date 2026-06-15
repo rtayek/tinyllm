@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List
 import logging
 
 import torch
@@ -9,7 +9,7 @@ import torch
 from .Config import TrainConfig
 from .Model import TinyGPTLanguageModel
 from .DataModule import SequenceDataModule
-from .EarlyStopping import EarlyStopping
+from .EarlyStopping import EarlyStopping, EarlyStopResult
 
 
 @dataclass
@@ -22,20 +22,6 @@ class EvalResult:
     should_stop: bool
     no_improve_evals: int
 
-    def toDict(self) -> Dict[str, Any]:
-        return dict(self.__dict__)
-
-    @classmethod
-    def fromDict(cls, data: Dict[str, Any]) -> "EvalResult":
-        return cls(
-            step=int(data.get("step", 0)),
-            train_loss=float(data.get("train_loss", 0.0)),
-            val_loss=float(data.get("val_loss", 0.0)),
-            frac_improvement=data.get("frac_improvement", None),
-            improved=bool(data.get("improved", False)),
-            should_stop=bool(data.get("should_stop", False)),
-            no_improve_evals=int(data.get("no_improve_evals", 0)),
-        )
 
 
 class Evaluator:
@@ -94,14 +80,14 @@ class Evaluator:
         trainLoss = losses["train"]
         valueLoss = losses["val"]
 
-        improved, frac_improvement, should_stop, no_improve = self.early_stopping.check(best_val_loss, valueLoss)
+        stop: EarlyStopResult = self.early_stopping.check(best_val_loss, valueLoss)
 
         return EvalResult(
             step=step,
             train_loss=trainLoss,
             val_loss=valueLoss,
-            frac_improvement=frac_improvement,
-            improved=improved,
-            should_stop=should_stop,
-            no_improve_evals=no_improve,
+            frac_improvement=stop.frac_improvement,
+            improved=stop.improved,
+            should_stop=stop.should_stop,
+            no_improve_evals=stop.no_improve_evals,
         )

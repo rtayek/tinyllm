@@ -73,7 +73,7 @@ class Checkpoint:
             ),
         )
 
-    def save(self, path: str, device: str | torch.device) -> None:
+    def save(self, path: str) -> None:
         target_dir = os.path.dirname(os.path.abspath(path))
         os.makedirs(target_dir, exist_ok=True)
         fd, temp_path = tempfile.mkstemp(
@@ -173,7 +173,7 @@ class CheckpointManager:
             earlyStoppingState=earlyStoppingState,
             version=CHECKPOINT_VERSION,
         )
-        checkpoint.save(path or self.ckptPath, self.trainCfg.device)
+        checkpoint.save(path or self.ckptPath)
 
     def snapshotPath(self, step: int) -> str:
         return str(self.checkpointDir / f"step-{step:06d}.pt")

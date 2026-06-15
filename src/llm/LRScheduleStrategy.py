@@ -1,22 +1,23 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import Any, Dict
 import math
 import torch
 
 
-class LRScheduleStrategy:
-    def step(self) -> None:
-        raise NotImplementedError
+class LRScheduleStrategy(ABC):
+    @abstractmethod
+    def step(self) -> None: ...
 
-    def state_dict(self) -> Dict[str, float]:
-        raise NotImplementedError
+    @abstractmethod
+    def state_dict(self) -> Dict[str, float]: ...
 
-    def load_state_dict(self, state: Dict[str, float]) -> None:
-        raise NotImplementedError
+    @abstractmethod
+    def load_state_dict(self, state: Dict[str, float]) -> None: ...
 
-    def align_after_resume(self, step: int) -> None:
-        raise NotImplementedError
+    @abstractmethod
+    def align_after_resume(self, step: int) -> None: ...
 
 
 class WarmupCosineStrategy(LRScheduleStrategy):

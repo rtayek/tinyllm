@@ -1,10 +1,18 @@
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Protocol, Sequence, runtime_checkable
 import logging
 import torch
 
 from .Config import ModelConfig, TrainConfig
+
+
+@runtime_checkable
+class Tokenizer(Protocol):
+    vocabSize: int
+
+    def encode(self, text: str) -> list[int]: ...
+    def decode(self, ids: Sequence[int]) -> str: ...
 
 
 class Utf8ByteTokenizer:
@@ -126,7 +134,7 @@ class ByteDataModule(SequenceDataModule):
 
 class TokenDataModule(SequenceDataModule):
     @staticmethod
-    def _read_tokens(path: str, tokenizer: Utf8ByteTokenizer) -> torch.Tensor:
+    def _read_tokens(path: str, tokenizer: Tokenizer) -> torch.Tensor:
         with open(path, "r", encoding="utf-8") as f:
             ids = list(tokenizer.encode(f.read()))
         if not ids:
@@ -137,7 +145,7 @@ class TokenDataModule(SequenceDataModule):
         self,
         modelConfig: ModelConfig,
         trainConfig: TrainConfig,
-        tokenizer: Utf8ByteTokenizer,
+        tokenizer: Tokenizer,
         logger: logging.Logger | None = None,
     ) -> None:
         sequence = self._read_tokens(trainConfig.dataPath, tokenizer)
@@ -171,4 +179,4 @@ class TokenDataModule(SequenceDataModule):
             logger,
         )
 
-        self.tokenizer: Utf8ByteTokenizer = tokenizer
+        self.tokenizer: Tokenizer = tokenizer

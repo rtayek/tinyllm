@@ -214,28 +214,28 @@ def test_cached_generation_logs_context_rebuild() -> None:
 def test_early_stopping_logic() -> None:
     stopper = EarlyStopping(patience=2, delta=0.1)
 
-    improved, _, shouldStop, _ = stopper.check(None, 1.0)
-    assert improved is True and shouldStop is False
+    r = stopper.check(None, 1.0)
+    assert r.improved is True and r.should_stop is False
 
     stopper.check(1.0, 1.05)
-    improved, _, shouldStop, count = stopper.check(1.0, 1.05)
-    assert improved is False and count == 2 and shouldStop is True
+    r = stopper.check(1.0, 1.05)
+    assert r.improved is False and r.no_improve_evals == 2 and r.should_stop is True
 
     stopper.reset()
-    improved, _, shouldStop, count = stopper.check(1.0, 0.8)
-    assert improved is True and shouldStop is False and count == 0
+    r = stopper.check(1.0, 0.8)
+    assert r.improved is True and r.should_stop is False and r.no_improve_evals == 0
 
 
 def test_early_stopping_keeps_significant_improvement_reference() -> None:
     stopper = EarlyStopping(patience=2, delta=0.003)
 
     stopper.check(None, 1.8025)
-    improved, frac, should_stop, count = stopper.check(1.8025, 1.7989)
+    r = stopper.check(1.8025, 1.7989)
 
-    assert improved is False
-    assert frac is not None and 0 < frac < stopper.delta
-    assert should_stop is False
-    assert count == 1
+    assert r.improved is False
+    assert r.frac_improvement is not None and 0 < r.frac_improvement < stopper.delta
+    assert r.should_stop is False
+    assert r.no_improve_evals == 1
     assert stopper.referenceLoss == 1.8025
 
 

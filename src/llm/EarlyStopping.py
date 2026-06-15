@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
+
+
+@dataclass
+class EarlyStopResult:
+    improved: bool
+    frac_improvement: Optional[float]
+    should_stop: bool
+    no_improve_evals: int
 
 
 class EarlyStopping:
@@ -9,6 +18,9 @@ class EarlyStopping:
         self.delta = delta
         self.noImproveEvals = 0
         self.referenceLoss: Optional[float] = None
+
+    def is_exhausted(self) -> bool:
+        return self.noImproveEvals >= self.patience
 
     def reset(self) -> None:
         self.noImproveEvals = 0
@@ -25,7 +37,7 @@ class EarlyStopping:
         reference = state.get("referenceLoss")
         self.referenceLoss = float(reference) if reference is not None else None
 
-    def check(self, bestValLoss: Optional[float], currentValueLoss: float) -> Tuple[bool, Optional[float], bool, int]:
+    def check(self, bestValLoss: Optional[float], currentValueLoss: float) -> EarlyStopResult:
         referenceLoss = self.referenceLoss
         if referenceLoss is None and bestValLoss is not None and bestValLoss > 0:
             referenceLoss = bestValLoss
@@ -45,5 +57,9 @@ class EarlyStopping:
         else:
             self.noImproveEvals += 1
 
-        shouldStop = self.noImproveEvals >= self.patience
-        return improved, fracImprovement, shouldStop, self.noImproveEvals
+        return EarlyStopResult(
+            improved=improved,
+            frac_improvement=fracImprovement,
+            should_stop=self.noImproveEvals >= self.patience,
+            no_improve_evals=self.noImproveEvals,
+        )
