@@ -103,3 +103,7 @@ dmypy.json
 # Per-experiment outputs. Keep directory documentation in Git.
 /runs/*
 !/runs/README.md
+
+# claude
+.claude/
+

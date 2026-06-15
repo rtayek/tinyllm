@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, cast
+from typing import Any, ClassVar, Dict, cast
 
 
 @dataclass(frozen=True)
@@ -59,8 +59,15 @@ class TrainConfig:
             return checkpointDir.parent
         return None
 
+    _PATH_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"dataPath", "validationDataPath", "testDataPath"}
+    )
+
     def toDict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
+
+    def toSerializableDict(self) -> Dict[str, Any]:
+        return {k: v for k, v in self.__dict__.items() if k not in self._PATH_FIELDS}
 
     @classmethod
     def fromDict(cls, data: Dict[str, Any]) -> "TrainConfig":
