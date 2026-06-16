@@ -14,6 +14,13 @@ class ModelConfig:
     nLayer: int = 4
     dropout: float = 0.2
     use_cache: bool = False
+
+    def __post_init__(self) -> None:
+        if self.blockSize < 1:
+            raise ValueError(f"blockSize must be >= 1, got {self.blockSize}")
+        if self.vocabSize < 1:
+            raise ValueError(f"vocabSize must be >= 1, got {self.vocabSize}")
+
     def toDict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
 
@@ -54,6 +61,12 @@ class TrainConfig:
     device: str = "cuda"  # desired/default device; actual availability is checked at runtime
 
     def __post_init__(self) -> None:
+        if self.batchSize < 1:
+            raise ValueError(f"batchSize must be >= 1, got {self.batchSize}")
+        if self.learningRate <= 0:
+            raise ValueError(f"learningRate must be > 0, got {self.learningRate}")
+        if not (0 <= self.warmupFrac <= 1):
+            raise ValueError(f"warmupFrac must be in [0, 1], got {self.warmupFrac}")
         if self.evalIters < 1:
             raise ValueError(f"evalIters must be >= 1, got {self.evalIters}")
 

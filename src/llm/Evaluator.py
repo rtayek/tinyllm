@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, List
+from typing import Dict, Optional
 import logging
 
 import torch
@@ -35,8 +35,25 @@ class Evaluator:
         self.generator = generator or torch.Generator()
         self.logger = logger or logging.getLogger(__name__)
 
+    def _accumulate_losses(self, split: str, generator: torch.Generator) -> float:
+        loss_list: list[float] = []
+        for _ in range(self.trainConfig.evalIters):
+            batchX, batchY = self.dataModule.getBatch(split, generator)
+            _, loss, _ = self.model(batchX, batchY)
+            if loss is None:
+                raise RuntimeError(f"Loss is None for split '{split}'")
+            loss_list.append(float(loss.item()))
+        return sum(loss_list) / float(len(loss_list))
+
     def estimate_loss(self) -> Dict[str, float]:
-        return {split: self.estimate_split(split) for split in ("train", "val")}
+        was_training = self.model.training
+        try:
+            self.model.eval()
+            with torch.no_grad():
+                return {split: self._accumulate_losses(split, self.generator) for split in ("train", "val")}
+        finally:
+            if was_training:
+                self.model.train()
 
     def estimate_split(
         self,
@@ -44,21 +61,14 @@ class Evaluator:
         generator: torch.Generator | None = None,
     ) -> float:
         was_training = self.model.training
-        loss_list: List[float] = []
         activeGenerator = generator if generator is not None else self.generator
         try:
             self.model.eval()
             with torch.no_grad():
-                for _ in range(self.trainConfig.evalIters):
-                    batchX, batchY = self.dataModule.getBatch(split, activeGenerator)
-                    _, loss, _ = self.model(batchX, batchY)
-                    if loss is None:
-                        raise RuntimeError(f"Loss is None for split '{split}'")
-                    loss_list.append(float(loss.item()))
+                return self._accumulate_losses(split, activeGenerator)
         finally:
             if was_training:
                 self.model.train()
-        return sum(loss_list) / float(len(loss_list))
 
     def evaluate(self, step: int, best_val_loss: Optional[float]) -> EvalResult:
         losses = self.estimate_loss()

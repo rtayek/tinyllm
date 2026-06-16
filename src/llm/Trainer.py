@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import math
 import os
-from typing import Any, Optional, List, Tuple, cast
+from typing import Any, Optional, cast
 import logging
 
 import torch
@@ -29,10 +30,6 @@ class LMTrainer:
         self.logger.info("MODEL CONFIG: %s", self.modelConfig)
         self.logger.info("TRAIN CONFIG: %s", self.trainConfig)
         self.optimizer: torch.optim.Optimizer = torch.optim.AdamW(model.parameters(), lr=self.trainConfig.learningRate, weight_decay=self.trainConfig.weightDecay)
-        assert self.trainConfig.batchSize > 0
-        assert self.modelConfig.blockSize > 0
-        assert self.trainConfig.learningRate > 0
-        assert 0 <= self.trainConfig.warmupFrac <= 1
         self.lrStrategy: WarmupCosineStrategy = WarmupCosineStrategy(self.optimizer, max_steps=self.trainConfig.maxSteps, warmup_frac=self.trainConfig.warmupFrac)
         self.checkpoints = CheckpointManager(self.modelConfig, self.trainConfig, logger=self.logger)
         self.runArtifacts = RunArtifacts(self.modelConfig, self.trainConfig)
@@ -42,11 +39,10 @@ class LMTrainer:
 
         self.globalStep: int = 0
         self.bestValLoss: Optional[float] = None
-        self.trainingCurve: List[Tuple[int, float, float]] = []
+        self.trainingCurve: list[tuple[int, float, float]] = []
 
         self.generator: torch.Generator = torch.Generator()
         self.generator.manual_seed(self.trainConfig.seed)
-        self.earlyStoppingExhausted = False
 
 
     def _trainStep(self) -> float:
@@ -138,7 +134,6 @@ class LMTrainer:
             if resetEarlyStopping:
                 self.evaluator.early_stopping.reset()
                 self.logger.info("Restored early-stopping progress was reset.")
-            self.earlyStoppingExhausted = self.evaluator.early_stopping.is_exhausted()
         if not lrStateRestored:
             self.lrStrategy.align_after_resume(step)
         if not checkpointExists:
@@ -165,7 +160,7 @@ class LMTrainer:
             self.logger.warning("Train config drift from checkpoint: %s", config_drift["train"])
     def train(self) -> None:
         self.logger.info("Using device: %s", self.trainConfig.device)
-        if self.earlyStoppingExhausted:
+        if self.evaluator is not None and self.evaluator.early_stopping.is_exhausted():
             self.logger.info(
                 "Training already stopped by early stopping at step %s. "
                 "Use --reset-early-stopping to continue.",
@@ -185,9 +180,7 @@ class LMTrainer:
                 evalResult: Any = self.evaluator.evaluate(step, self.bestValLoss)
                 train_loss = float(cast(float, evalResult.train_loss))
                 val_loss = float(cast(float, evalResult.val_loss))
-                if not torch.isfinite(torch.tensor(train_loss)) or not torch.isfinite(
-                    torch.tensor(val_loss)
-                ):
+                if not math.isfinite(train_loss) or not math.isfinite(val_loss):
                     raise RuntimeError("Non-finite evaluation loss encountered")
                 self.trainingCurve.append((step, train_loss, val_loss))
                 self._log_eval(step, evalResult)
@@ -217,13 +210,12 @@ class LMTrainer:
 
                 self._saveEvaluationCheckpoints(step, isBest)
 
-                if not bool(evalResult.improved):
-                    if bool(evalResult.should_stop):
-                        self.logger.info("[step %s] Early stopping triggered: no val improvement for %s evals.", step, evalResult.no_improve_evals)
-                        break
+                if evalResult.should_stop:
+                    self.logger.info("[step %s] Early stopping triggered: no val improvement for %s evals.", step, evalResult.no_improve_evals)
+                    break
 
             lossValue = self._trainStep()
-            if not torch.isfinite(torch.tensor(lossValue)):
+            if not math.isfinite(lossValue):
                 raise RuntimeError("Non-finite training loss encountered")
 
         self.logger.info("Training loop finished.")

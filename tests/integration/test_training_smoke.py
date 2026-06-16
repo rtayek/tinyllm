@@ -299,7 +299,7 @@ def test_exhausted_early_stopping_requires_explicit_reset(
 
     stopped = make_trainer()
     stopped.loadCheckpointIfExists()
-    assert stopped.earlyStoppingExhausted is True
+    assert stopped.evaluator is not None and stopped.evaluator.early_stopping.is_exhausted()
 
     def fail_train() -> float:
         raise AssertionError("completed run should not train")
@@ -310,6 +310,6 @@ def test_exhausted_early_stopping_requires_explicit_reset(
 
     continued = make_trainer()
     continued.loadCheckpointIfExists(resetEarlyStopping=True)
-    assert continued.earlyStoppingExhausted is False
     assert continued.evaluator is not None
+    assert not continued.evaluator.early_stopping.is_exhausted()
     assert continued.evaluator.early_stopping.noImproveEvals == 0
