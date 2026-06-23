@@ -1,6 +1,6 @@
 # tinyllm Handoff
 
-Last verified: June 12, 2026
+Last verified: June 22, 2026
 
 ## Project
 
@@ -16,7 +16,7 @@ Environment:
 conda activate tinyllm
 ```
 
-The package uses a `src/` layout and exposes:
+The package uses a `src/` layout and exposes three CLI entry points:
 
 ```text
 tinyllm-train
@@ -40,7 +40,7 @@ Default checkpoint:
 runs/sherlock-byte-default/checkpoints/best.pt
 step: 4500
 best validation loss: 1.7905686581134796
-corpus: canonical Sherlock training split
+corpus: canonical Sherlock training split (8 stories train / 2 val / 2 test)
 ```
 
 Model configuration stored in the checkpoint:
@@ -66,15 +66,23 @@ src/llm/Transformer.py     decoder blocks, attention, and KV cache
 src/llm/Model.py           language model, loss, and generation sampling
 src/llm/Trainer.py         training loop and checkpoint resume
 src/llm/Evaluator.py       train/validation loss estimation
+src/llm/EarlyStopping.py   patience-based early stopping, state_dict round-trip
+src/llm/LRScheduleStrategy.py  warmup + cosine LR schedule
 src/llm/Checkpoint.py      full training checkpoint representation and manager
+src/llm/RunArtifacts.py    run.json metadata and metrics.jsonl writer
 src/llm/TextGenerator.py   prompt encoding and byte-to-text decoding
 src/llm/infer.py           inference CLI and checkpoint-based model construction
 src/llm/Main.py            training CLI and trainer construction
+src/llm/persistence.py     model-only export/load utility (no test coverage)
+src/llm/plot_utils.py      training curve plotting
+src/llm/tensor_utils.py    device helpers (also contains unused distributed stubs)
 ```
 
 Research findings about what the current checkpoint has learned, including
 n-gram baselines, causal ablations, attention measurements, and recommended
-experiments, are documented in `LEARNED_STRUCTURE.md`.
+experiments, are documented in `LEARNED_STRUCTURE.md`. Note that those
+measurements were taken against an older checkpoint on the legacy corpus;
+they have not yet been reproduced against the current canonical split.
 
 The vocabulary is the 256 possible byte values. Prompts are encoded with
 UTF-8. `generateBytes()` is lossless; generated text uses UTF-8 replacement
@@ -83,21 +91,39 @@ override available to callers.
 
 ### Tokenizer Direction
 
-The current model already uses tokens: each token is one byte. This keeps the
-implementation simple, lossless, and independent of a trained tokenizer, but
-it produces longer sequences than a subword tokenizer and limits how much text
-fits in the 128-token context window.
+The current model uses byte-level tokens: each token is one UTF-8 byte. This
+keeps the implementation simple, lossless, and independent of a trained
+tokenizer, but it produces longer sequences than a subword tokenizer and limits
+how much text fits in the 128-token context window.
 
-Keep byte tokens while the project is focused on transformer mechanics. If the
-goal shifts toward better generated language and more efficient context usage,
-the recommended next step is byte-level BPE rather than word-level tokens. A
-reasonable starting point would be a vocabulary of 2,000-8,000 tokens and a
-context length of 256-512 tokens, with tied input/output embeddings to limit
-parameter growth.
+Keep byte tokens while the project is focused on transformer mechanics and
+representation research. The recommended scaling path is:
 
-Changing tokenization is a model-format change. Existing checkpoints would not
-be compatible, training would need to restart, and checkpoints should store
-tokenizer metadata that inference validates before loading the model.
+1. Add more training data (more Gutenberg corpora).
+2. Scale up model capacity (more layers, wider embeddings, longer blockSize).
+3. Add BPE tokenization as a controlled comparison — not a replacement.
+
+If BPE is added, a reasonable starting point is 2,000–8,000 tokens and a
+context length of 256–512. Changing tokenization is a model-format break:
+existing checkpoints are incompatible, training must restart, and checkpoints
+should store tokenizer metadata that inference validates on load.
+
+## Config Validation
+
+Both `ModelConfig` and `TrainConfig` validate their fields in `__post_init__`:
+
+`ModelConfig` rejects:
+- `blockSize < 1`
+- `vocabSize < 1`
+
+`TrainConfig` rejects:
+- `batchSize < 1`
+- `learningRate <= 0`
+- `warmupFrac` outside `[0, 1]`
+- `evalIters < 1`
+
+These checks fire at construction time, including when restoring from a
+checkpoint dict via `fromDict`.
 
 ## Checkpoints
 
@@ -119,16 +145,16 @@ After training, `best.pt` is loaded and evaluated on deterministically sampled
 held-out test batches. That result is appended to `metrics.jsonl` and is not
 used for model selection.
 
-It contains:
+Each checkpoint contains:
 
 - Model weights
 - Optimizer state
 - Model and training configuration
 - Training step and best validation loss
 - Learning-rate scheduler state
-- Batch generator state
-- Evaluator generator state
-- Early-stopping state
+- Batch generator RNG state
+- Evaluator generator RNG state
+- Early-stopping counter and reference loss
 
 Checkpoint saves are atomic at the filesystem level: data is written to a
 temporary file in the checkpoint directory and then installed with
@@ -236,7 +262,7 @@ Inference flags:
 --seed INTEGER
 ```
 
-Defaults preserve the original behavior:
+Defaults:
 
 ```text
 checkpoint: runs/sherlock-byte-default/checkpoints/best.pt
@@ -248,10 +274,12 @@ seed: ambient random state
 ```
 
 An explicit seed uses a local PyTorch generator and produces repeatable output.
+Inference does not currently expose `--log-level`; KV-cache rebuild debug
+messages are only visible through programmatic logging.
 
 ## KV Cache
 
-KV-cache positional handling was fixed and pinned with tests.
+KV-cache positional handling is implemented and tested.
 
 The implementation:
 
@@ -275,8 +303,8 @@ Run only cache tests:
 pytest tests/unit/test_core.py -k cached -v
 ```
 
-`ModelConfig.use_cache` is currently `False` in both defaults and the saved
-checkpoint. Set it to `True` in a model configuration to use cached decoding.
+`ModelConfig.use_cache` is `False` in both defaults and the saved checkpoint.
+Set it to `True` in a model configuration to use cached decoding.
 
 ## Data
 
@@ -289,8 +317,7 @@ tinyllm-prepare-corpora
 ```
 
 Each work contains `raw/`, `clean/`, `units/`, `splits/`, and `manifest.json`.
-The current normal-fiction collection contains Sherlock Holmes, Alice's
-Adventures in Wonderland, and Jane Austen's Pride and Prejudice.
+The current collection contains three public-domain fiction works:
 
 ```text
 corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/
@@ -301,19 +328,22 @@ corpora/jane-austen/pride-and-prejudice/
 New experiment outputs belong under `runs/<experiment>/`, while selected
 reusable model artifacts belong under `models/`.
 
-The DataModule sampling boundary was fixed. A split containing exactly
-`blockSize + 1` bytes now produces its single valid training window.
-Batch windows are assembled with vectorized tensor indexing rather than a
-Python loop.
+### getBatch requires an explicit generator
+
+`SequenceDataModule.getBatch` requires a `torch.Generator` argument and raises
+`ValueError` if `None` is passed. There is no internal default fallback.
+All callers — `Trainer`, `Evaluator`, and tests — must supply a generator.
 
 ## Training Reliability
 
 - `Evaluator` is the sole owner of the `EarlyStopping` instance.
-- Checkpoint resume resets the evaluator's actual early-stopping state.
+- Checkpoint resume restores the evaluator's early-stopping counter and
+  reference loss from the saved state.
 - Checkpoints use temporary-file plus atomic-replacement writes.
-- Training keeps separate best, latest, and retained milestone checkpoints.
-- Training curve figures are closed after saving to avoid figure accumulation.
-- NumPy is declared in both `pyproject.toml` and `requirements.txt`.
+- Training keeps separate best, latest, and retained periodic snapshots.
+- Training curve figures are closed after saving to avoid accumulation.
+- NumPy is declared as a runtime dependency in both `pyproject.toml` and
+  `requirements.txt`.
 
 ## Tests
 
@@ -354,37 +384,77 @@ pytest tests/unit/test_core.py -k cached -v
 pytest tests/unit/test_infer.py
 ```
 
-## Recent Completed Work
+## Known Issues and Technical Debt
 
-- Added prompt-based inference.
-- Added `--tokens`, `--temperature`, `--top-k`, and `--seed`.
-- Added deterministic seeded sampling.
-- Fixed DataModule's final-window off-by-one error.
-- Unified CUDA-to-CPU fallback for training and inference.
-- Fixed KV-cache positional correctness and context-boundary rebuilding.
-- Added separate best, latest, and retained periodic checkpoints.
-- Made checkpoint model configuration authoritative during inference.
-- Added atomic checkpoint writes that preserve the previous file on failure.
-- Removed duplicate early-stopping ownership from `LMTrainer`.
-- Grouped checkpoints, plots, samples, metadata, and metrics by run.
-- Declared NumPy as a runtime dependency.
-- Closed matplotlib figures after saving training plots.
-- Vectorized DataModule batch assembly.
-- Made invalid generated UTF-8 bytes visible with replacement characters.
-- Added `pytest-cov` and branch-coverage configuration.
-- Updated README and expanded unit/integration coverage.
+These are confirmed issues from code review. None are blocking but all should
+be addressed before the next major feature addition.
 
-## Remaining Considerations
+**Bugs:**
 
-- Generated text is still mostly locally English-like rather than coherent.
-  The model is small and the Sherlock corpus is approximately 600 KB.
-- Sampling controls may improve local quality but cannot replace more data,
-  capacity, or training.
-- Inference does not currently expose `--log-level`, so the KV-cache rebuild
-  debug entry is mainly visible through programmatic logging.
-- `--plot` is redundant while `TrainConfig.plotCurve` defaults to `True`.
-- `src/llm/persistence.py` currently has no direct coverage and is the clearest
-  next target for improving branch coverage.
-- Coverage is reported but no `fail_under` threshold is enforced yet.
-- The codebase mixes camelCase and snake_case naming. Avoid broad renaming
-  unless it is handled as a deliberate refactor.
+- `Evaluator.estimate_loss` and `estimate_split` set `model.eval()` but do not
+  use `try/finally` to restore training mode. An exception mid-evaluation
+  leaves a training-mode model stuck in eval mode. `generate_autoregressive`
+  uses `try/finally` correctly and should be the pattern.
+
+- `EarlyStopping.check` seeds `referenceLoss` from `bestValLoss` only when
+  `referenceLoss is None and bestValLoss > 0`. The `> 0` guard is fragile:
+  a valid very-small loss (e.g. 0.001) is fine; zero or a corrupted negative
+  value silently treats the next evaluation as an unconditional improvement.
+
+**Design:**
+
+- `LRScheduleStrategy.load_state_dict` manually sets `scheduler._step_count`,
+  a PyTorch private attribute, to keep internal counters aligned after resume.
+  This will break silently if PyTorch changes its scheduler internals. The
+  `align_after_resume` fallback path (calling `step()` N times) is safer and
+  should replace the private-field approach.
+
+- `tensor_utils.py` imports `torch.distributed` and `numpy` unconditionally
+  and defines `seed_everything`, `get_master_process`, `get_num_gpus`, and
+  `get_ddp_free_model` — none of which are used anywhere in the codebase.
+  These are dead code from an earlier distributed design and should be removed.
+
+- `persistence.py` has zero test coverage. Its `load-model` subcommand
+  distinguishes a full checkpoint from a model-only file by checking for a
+  `"modelState"` key — a heuristic that would misfire on a custom model whose
+  `state_dict` happens to contain that key.
+
+- `__init__.py` exports `ByteDataModule` but not `TokenDataModule` or
+  `SequenceDataModule`, even though `TokenDataModule` is what the default
+  training path uses. The public API should export all three, or the
+  asymmetry should be documented as intentional.
+
+**Style:**
+
+- A commented-out `logSample` call remains at the bottom of `Main.main()`.
+  Remove it or replace with a `--log-sample` flag.
+
+- `plot_utils.py` uses `vars(modelConfig)` to dump config, but
+  `modelConfig.toDict()` already exists for this purpose. Use the dedicated
+  method for consistency.
+
+- No `fail_under` coverage threshold is enforced. Consider adding one to
+  `pyproject.toml` once `persistence.py` is covered.
+
+## Naming Convention
+
+Production code uses `camelCase` for methods and attributes. PyTorch-protocol
+methods (`state_dict`, `load_state_dict`, `step`) use `snake_case` to match
+PyTorch's own conventions. Test functions use `snake_case` throughout. Avoid
+broad renaming unless handled as a deliberate refactor.
+
+## Roadmap
+
+Planned work in priority order:
+
+1. **More training data** — add more Project Gutenberg corpora to increase
+   total training text beyond the current ~600 KB across three works.
+2. **Scale the model** — increase `nLayer`, `nEmbed`, and `blockSize` once
+   there is data worth training on.
+3. **Fix known issues** — address the `try/finally`, dead code, and
+   `persistence.py` coverage gaps listed above.
+4. **BPE tokenization** — add as a controlled comparison path after scaling,
+   not as a replacement for byte tokens. A handoff document for this
+   implementation exists at `HANDOFF_BPE_TOKENIZER.md`.
+5. **RL / self-improvement** — reward-signal experiments once the base model
+   generates coherent text.

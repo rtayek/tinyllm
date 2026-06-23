@@ -66,7 +66,7 @@ Lewis Carroll / Alice's Adventures in Wonderland
 Jane Austen / Pride and Prejudice
 ```
 
-Select all three explicit splits with the training CLI:
+Train on a different corpus by passing explicit split paths:
 
 ```sh
 tinyllm-train \
@@ -228,3 +228,6 @@ from llm import (
     TrainConfig,
 )
 ```
+
+Note: `TokenDataModule` and `SequenceDataModule` are available in
+`llm.DataModule` but are not currently re-exported from the top-level package.
