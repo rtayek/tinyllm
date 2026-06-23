@@ -295,5 +295,3 @@ Add BPE only as a controlled comparison after scaling:
 - train byte and BPE models on the same text,
 - approximately match parameter count and training compute,
 - compare when each representation acquires syntax and long-range behavior.
-
-A handoff document for the BPE implementation is at `HANDOFF_BPE_TOKENIZER.md`.

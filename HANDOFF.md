@@ -1,6 +1,6 @@
 # tinyllm Handoff
 
-Last verified: June 22, 2026
+Last verified: June 23, 2026
 
 ## Project
 
@@ -29,9 +29,9 @@ tinyllm-prepare-corpora
 Verification:
 
 ```text
-pytest: 55 passed
+pytest: 54 collected, 53 passed (1 CUDA skip: test_checkpoint_roundtrip)
 pyright: 0 errors
-branch coverage: 80.7%
+branch coverage: 80.1%
 ```
 
 Default checkpoint:
@@ -389,18 +389,6 @@ pytest tests/unit/test_infer.py
 These are confirmed issues from code review. None are blocking but all should
 be addressed before the next major feature addition.
 
-**Bugs:**
-
-- `Evaluator.estimate_loss` and `estimate_split` set `model.eval()` but do not
-  use `try/finally` to restore training mode. An exception mid-evaluation
-  leaves a training-mode model stuck in eval mode. `generate_autoregressive`
-  uses `try/finally` correctly and should be the pattern.
-
-- `EarlyStopping.check` seeds `referenceLoss` from `bestValLoss` only when
-  `referenceLoss is None and bestValLoss > 0`. The `> 0` guard is fragile:
-  a valid very-small loss (e.g. 0.001) is fine; zero or a corrupted negative
-  value silently treats the next evaluation as an unconditional improvement.
-
 **Design:**
 
 - `LRScheduleStrategy.load_state_dict` manually sets `scheduler._step_count`,
@@ -454,7 +442,6 @@ Planned work in priority order:
 3. **Fix known issues** — address the `try/finally`, dead code, and
    `persistence.py` coverage gaps listed above.
 4. **BPE tokenization** — add as a controlled comparison path after scaling,
-   not as a replacement for byte tokens. A handoff document for this
-   implementation exists at `HANDOFF_BPE_TOKENIZER.md`.
+   not as a replacement for byte tokens.
 5. **RL / self-improvement** — reward-signal experiments once the base model
    generates coherent text.
