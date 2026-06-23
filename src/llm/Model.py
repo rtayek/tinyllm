@@ -2,7 +2,6 @@ from __future__ import annotations
 
 
 import logging
-from typing import List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -17,27 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 class TinyGPTLanguageModel(nn.Module):
-    """
-    Language model built on top of TransformerCore.
-
-    Responsibilities:
-      - hold a TransformerCore
-      - add an lm_head to map hidden states → vocab logits
-      - compute cross-entropy LM loss when targets are provided
-      - implement autoregressive generate(...)
-    """
-
     def __init__(self, cfg: ModelConfig) -> None:
         super().__init__()  # pyright: ignore[reportUnknownMemberType]
         self.cfg = cfg
-
-        # The pure transformer stack
         self.core = DecoderCore(cfg)
-
-        # LM head: projects hidden states to vocab logits
         self.lmHead = nn.Linear(cfg.nEmbed, cfg.vocabSize, bias=False)
-
-        # Weight init for all submodules (core + head)
         self.apply(self.initWeights)
 
     def initWeights(self, module: nn.Module) -> None:
@@ -51,33 +34,18 @@ class TinyGPTLanguageModel(nn.Module):
     def forward(
         self,
         indices: Tensor,
-        targets: Optional[Tensor] = None,
-        past_key_values: Optional[List[Tuple[Tensor, Tensor]]] = None,
+        targets: Tensor | None = None,
+        past_key_values: list[tuple[Tensor, Tensor]] | None = None,
         use_cache: bool = False,
-    ) -> Tuple[Tensor, Optional[Tensor], Optional[List[Tuple[Tensor, Tensor]]]]:
-        """
-        Args:
-            indices: (batch, time) token IDs
-            targets: optional (batch, time) for LM loss
-            past_key_values: optional kv-cache for autoregressive decoding
-            use_cache: if True, returns updated kv-cache
-
-        Returns:
-            logits: (batch, time, vocabSize)
-            loss: scalar tensor or None
-            new_kv: list[(k, v)] or None
-        """
-        # Let the core do the transformer work
+    ) -> tuple[Tensor, Tensor | None, list[tuple[Tensor, Tensor]] | None]:
         hidden, new_kv = self.core(
             indices,
             past_key_values=past_key_values,
             use_cache=use_cache,
         )
-
-        # Project hidden states to vocab logits
         logits = self.lmHead(hidden)
 
-        loss: Optional[Tensor] = None
+        loss: Tensor | None = None
         if targets is not None:
             if targets.shape != indices.shape:
                 raise ValueError(
@@ -99,14 +67,6 @@ class TinyGPTLanguageModel(nn.Module):
         topK: int | None = None,
         seed: int | None = None,
     ) -> Tensor:
-        """
-        Autoregressive generation:
-
-        Repeatedly:
-          - run the model on the current context (with kv-cache)
-          - sample the next token from logits
-          - append to the sequence
-        """
         if indices.dim() != 2:
             raise ValueError(f"indices must be 2D (batch, time), got {indices.shape}")
         if temperature <= 0:
@@ -124,7 +84,7 @@ class TinyGPTLanguageModel(nn.Module):
         was_training = self.training
         self.eval()
         try:
-            past_key_values: Optional[List[Tuple[Tensor, Tensor]]] = None
+            past_key_values: list[tuple[Tensor, Tensor]] | None = None
             for _ in range(maxNewTokens):
                 if self.cfg.use_cache:
                     cache_is_full = (
@@ -145,7 +105,6 @@ class TinyGPTLanguageModel(nn.Module):
                     else:
                         input_indices = indices[:, -1:]
                 else:
-                    # If caching is disabled, always feed the full context (up to blockSize)
                     input_indices = indices[:, -self.cfg.blockSize :]
 
                 logits, _, new_past_key_values = self(

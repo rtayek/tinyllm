@@ -12,7 +12,7 @@ from llm.Model import TinyGPTLanguageModel
 from llm.DataModule import SequenceDataModule
 from llm.Checkpoint import Checkpoint, CheckpointManager, CHECKPOINT_VERSION
 from llm.LRScheduleStrategy import WarmupCosineStrategy
-from llm.Evaluator import Evaluator # Import EvalResult and Evaluator directly
+from llm.Evaluator import Evaluator
 from llm.RunArtifacts import RunArtifacts
 
 
@@ -158,6 +158,7 @@ class LMTrainer:
             self.logger.warning("Model config drift from checkpoint: %s", config_drift["model"])
         if config_drift.get("train"):
             self.logger.warning("Train config drift from checkpoint: %s", config_drift["train"])
+
     def train(self) -> None:
         self.logger.info("Using device: %s", self.trainConfig.device)
         if self.evaluator is not None and self.evaluator.early_stopping.is_exhausted():
@@ -192,7 +193,7 @@ class LMTrainer:
                         "train_loss": train_loss,
                         "validation_loss": val_loss,
                         "fractional_improvement": evalResult.frac_improvement,
-                        "improved": bool(evalResult.improved),
+                        "improved": evalResult.improved,
                         "new_best": isBest,
                         "no_improve_evals": evalResult.no_improve_evals,
                     }
@@ -201,7 +202,7 @@ class LMTrainer:
                 if isBest:
                     self.bestValLoss = val_loss
                     self.logger.info("[step %s] New best val loss: %.4f — checkpoint saved.", step, val_loss)
-                if not bool(evalResult.improved) and not isBest:
+                if not evalResult.improved and not isBest:
                     self.logger.info(
                         "[step %s] No significant val improvement for %s evals.",
                         step,
@@ -220,7 +221,6 @@ class LMTrainer:
 
         self.logger.info("Training loop finished.")
         if self.bestValLoss is not None:
-            self.logger.info("Best validation loss: %s", self.bestValLoss)
             self.logger.info("Training done. Best val loss %.4f reached at some earlier step (see checkpoint metadata).", self.bestValLoss)
         else:
             self.logger.info("No validation loss recorded; training exited before evaluation.")

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple, Any, cast
+from typing import Any, cast
 
 import matplotlib  # type: ignore[import]
 
@@ -12,10 +12,7 @@ import matplotlib.pyplot as plt  # type: ignore[import]
 from .Config import ModelConfig, TrainConfig
 
 
-def plot_training_curve(training_curve: List[Tuple[int, float, float]], modelConfig: ModelConfig, trainConfig: TrainConfig) -> Tuple[str, str]:
-    """
-    Plot and save the training/validation loss curves.
-    """
+def plot_training_curve(training_curve: list[tuple[int, float, float]], modelConfig: ModelConfig, trainConfig: TrainConfig) -> tuple[str, str]:
     steps = [x[0] for x in training_curve]
     trainLosses = [x[1] for x in training_curve]
     valueLosses = [x[2] for x in training_curve]

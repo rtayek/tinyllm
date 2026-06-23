@@ -29,7 +29,7 @@ def manual_seed(seed: int) -> torch.Generator:
 
 
 def build_data_module(modelConfig: ModelConfig, trainConfig: TrainConfig, activeLogger: logging.Logger) -> SequenceDataModule:
-    mode = getattr(trainConfig, "dataModule", "token").lower()
+    mode = trainConfig.dataModule.lower()
     if mode in ("byte", "bytes"):
         activeLogger.info("Loading data module: raw bytes")
         return ByteDataModule(modelConfig, trainConfig, logger=activeLogger)
@@ -52,7 +52,6 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
 
     activeLogger = log or logger
 
-    # 🔍 Reconcile desired device vs actual availability
     device = resolve_device(trainConfig.device, activeLogger)
     trainConfig = replace(trainConfig, device=device)
 
@@ -61,7 +60,6 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
     activeLogger.info("Building model...")
     model = TinyGPTLanguageModel(modelConfig).to(trainConfig.device)
 
-    # Instantiate EarlyStopping and Evaluator
     earlyStopping = EarlyStopping(trainConfig.earlyStopPatience, trainConfig.earlyStopDelta)
     evaluatorGenerator = torch.Generator()
     evaluatorGenerator.manual_seed(trainConfig.seed + 1)
@@ -148,7 +146,6 @@ def main(log_level: int = logging.INFO) -> None:
         else Path("tmp") / "sample.txt"
     )
     textGenerator.saveSample(maxNewTokens=200, prompt="", path=samplePath)
-    #textGenerator.logSample(maxNewTokens=200, prompt="")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -29,7 +28,7 @@ class CausalSelfAttention(nn.Module):
         mask = torch.tril(torch.ones(blockSize, blockSize))
         self.register_buffer("mask", mask.view(1, 1, blockSize, blockSize))
 
-    def forward(self, x: Tensor, past_key_value: Optional[Tuple[Tensor, Tensor]] = None) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
+    def forward(self, x: Tensor, past_key_value: tuple[Tensor, Tensor] | None = None) -> tuple[Tensor, tuple[Tensor, Tensor]]:
         batch, time, channels = x.shape
 
         k_new = self.key(x).view(batch, time, self.nHead, self.headDim).transpose(1, 2)
@@ -81,55 +80,29 @@ class DecoderBlock(nn.Module):
             nn.Dropout(dropout),
         )
 
-    def forward(self, x: Tensor, past_key_value: Optional[Tuple[Tensor, Tensor]] = None) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
+    def forward(self, x: Tensor, past_key_value: tuple[Tensor, Tensor] | None = None) -> tuple[Tensor, tuple[Tensor, Tensor]]:
         att_out, present = self.selfAttention(self.layerNorm1(x), past_key_value=past_key_value)
         x = x + att_out
         x = x + self.mlp(self.layerNorm2(x))
         return x, present
 
 class DecoderCore(nn.Module):
-    """
-    Pure Transformer decoder stack:
-      - token + position embeddings
-      - N Block layers (each with MultiHeadSelfAttention + MLP)
-      - final layer norm
-
-    No lm_head, no loss, no text generation. It just maps
-    token indices → hidden states (and optional kv-cache).
-    """
-
     def __init__(self, cfg: ModelConfig) -> None:
         super().__init__()  # pyright: ignore[reportUnknownMemberType]
         self.cfg = cfg
-
-        # Embeddings
         self.tokenEmbedding = nn.Embedding(cfg.vocabSize, cfg.nEmbed)
         self.positionEmbedding = nn.Embedding(cfg.blockSize, cfg.nEmbed)
-
-        # Stack of Transformer blocks
         self.blocks = nn.ModuleList(
             [DecoderBlock(cfg.nEmbed, cfg.nHead, cfg.dropout, cfg.blockSize) for _ in range(cfg.nLayer)]
         )
-
-        # Final layer norm
         self.finalLayerNorm = nn.LayerNorm(cfg.nEmbed)
 
     def forward(
         self,
         indices: Tensor,
-        past_key_values: Optional[List[Tuple[Tensor, Tensor]]] = None,
+        past_key_values: list[tuple[Tensor, Tensor]] | None = None,
         use_cache: bool = False,
-    ) -> Tuple[Tensor, Optional[List[Tuple[Tensor, Tensor]]]]:
-        """
-        Args:
-            indices: (batch, time) token IDs
-            past_key_values: optional list of (k, v) for each block
-            use_cache: if True, returns new kv-cache for autoregressive generation
-
-        Returns:
-            hidden_states: (batch, time, nEmbed)
-            new_kv: list[(k, v)] or None
-        """
+    ) -> tuple[Tensor, list[tuple[Tensor, Tensor]] | None]:
         if indices.dim() != 2:
             raise ValueError(f"indices must be 2D (batch, time), got {indices.shape}")
 
@@ -141,7 +114,6 @@ class DecoderCore(nn.Module):
         if indices.dtype != torch.long:
             indices = indices.long()
 
-        # Validate past_key_values length if provided
         if past_key_values is not None and len(past_key_values) != len(self.blocks):
             raise ValueError(
                 f"past_key_values length {len(past_key_values)} does not match number of blocks {len(self.blocks)}"
@@ -172,9 +144,8 @@ class DecoderCore(nn.Module):
         pos_emb = self.positionEmbedding(positions) # (1, T, nEmbed)
         x = tok_emb + pos_emb
 
-        new_kv: Optional[List[Tuple[Tensor, Tensor]]] = [] if use_cache else None
+        new_kv: list[tuple[Tensor, Tensor]] | None = [] if use_cache else None
 
-        # Pass through each Transformer block
         for i, block in enumerate(self.blocks):
             past = None
             if past_key_values is not None:
@@ -185,7 +156,6 @@ class DecoderCore(nn.Module):
             if use_cache and new_kv is not None:
                 new_kv.append(present)
 
-        # Final layer norm
         x = self.finalLayerNorm(x)
 
         return x, new_kv

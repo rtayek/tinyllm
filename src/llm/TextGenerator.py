@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 import logging
 
 import torch
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .Model import TinyGPTLanguageModel
 
 class AutoregressiveGenerator:
-    def __init__(self, model: "TinyGPTLanguageModel", device: str, logger: Optional[logging.Logger] = None) -> None:
+    def __init__(self, model: "TinyGPTLanguageModel", device: str, logger: logging.Logger | None = None) -> None:
         self.model: "TinyGPTLanguageModel" = model
         self.device: str = device
         self.logger: logging.Logger = logger or logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class AutoregressiveGenerator:
             )
 
         firstSeq: torch.Tensor = generated[0]
-        raw_list: List[int] = tensor_to_int_list(
+        raw_list: list[int] = tensor_to_int_list(
             firstSeq.to(dtype=torch.long).view(-1)
         )
         return bytes(raw_list)
