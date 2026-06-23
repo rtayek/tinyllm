@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from dataclasses import replace
 from typing import Sequence
 
@@ -95,7 +96,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
 
     print("\n=== GENERATED TEXT ===\n")
-    print(text)
+    sys.stdout.buffer.write((text + "\n").encode(sys.stdout.encoding or "utf-8", errors="replace"))
 
 
 if __name__ == "__main__":

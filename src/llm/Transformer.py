@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections import OrderedDict
 
 import torch
 import torch.nn as nn
@@ -73,12 +74,12 @@ class DecoderBlock(nn.Module):
         self.layerNorm1 = nn.LayerNorm(nEmbed)
         self.layerNorm2 = nn.LayerNorm(nEmbed)
 
-        self.mlp = nn.Sequential( # multi‑layer perceptron
-            nn.Linear(nEmbed, 4 * nEmbed),
-            nn.GELU(),
-            nn.Linear(4 * nEmbed, nEmbed),
-            nn.Dropout(dropout),
-        )
+        self.mlp = nn.Sequential(OrderedDict([  # multi-layer perceptron
+            ("fc1", nn.Linear(nEmbed, 4 * nEmbed)),
+            ("act", nn.GELU()),
+            ("fc2", nn.Linear(4 * nEmbed, nEmbed)),
+            ("drop", nn.Dropout(dropout)),
+        ]))
 
     def forward(self, x: Tensor, past_key_value: tuple[Tensor, Tensor] | None = None) -> tuple[Tensor, tuple[Tensor, Tensor]]:
         att_out, present = self.selfAttention(self.layerNorm1(x), past_key_value=past_key_value)
