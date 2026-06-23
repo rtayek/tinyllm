@@ -44,9 +44,11 @@ def main() -> None:
             weights_only=True,
         )
         model_state: Dict[str, Any]
-        if isinstance(state, dict) and "modelState" in state:
+        if isinstance(state, dict) and "modelConfig" in state:
+            # Full training checkpoint: extract just the model weights.
             model_state = cast(Dict[str, Any], state["modelState"])
         else:
+            # Model-only export: the dict is the state_dict directly.
             model_state = cast(Dict[str, Any], state)
 
         model = TinyGPTLanguageModel(model_cfg)

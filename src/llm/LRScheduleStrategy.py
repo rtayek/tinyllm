@@ -48,11 +48,13 @@ class WarmupCosineStrategy(LRScheduleStrategy):
     def load_state_dict(self, state: Dict[str, float]) -> None:
         last = state.get("last_epoch")
         if last is not None:
-            self.scheduler.last_epoch = int(last)
-            # keep internal step counters aligned to avoid skipping a step
-            if hasattr(self.scheduler, "_step_count"):
-                self.scheduler._step_count = int(last) + 1
+            self.align_after_resume(int(last) + 1)
 
     def align_after_resume(self, step: int) -> None:
-        if step > 0:
-            self.scheduler.last_epoch = step - 1
+        """Restore the scheduler to `step` after a checkpoint resume.
+
+        Sets last_epoch directly on a freshly constructed scheduler (no prior
+        step() calls), which is the safe use of this attribute and avoids the
+        PyTorch warning about calling scheduler.step() before optimizer.step().
+        """
+        self.scheduler.last_epoch = step - 1

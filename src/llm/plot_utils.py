@@ -30,7 +30,7 @@ def plot_training_curve(training_curve: list[tuple[int, float, float]], modelCon
     config_dump_path = outputDirectory / f"config_{timestamp}.txt"
     with open(config_dump_path, "w", encoding="utf-8") as f:
         f.write("MODEL CONFIGURATION:\n")
-        for field, value in vars(modelConfig).items():
+        for field, value in modelConfig.toDict().items():
             f.write(f"{field} = {value}\n")
         f.write("\nTRAINING CONFIGURATION:\n")
         for field, value in vars(trainConfig).items():

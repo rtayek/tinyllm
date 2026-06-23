@@ -3,7 +3,7 @@
 from .Config import RunConfig, ModelConfig, TrainConfig
 from .Model import TinyGPTLanguageModel
 from .Trainer import LMTrainer
-from .DataModule import ByteDataModule
+from .DataModule import ByteDataModule, TokenDataModule, SequenceDataModule
 from .TextGenerator import AutoregressiveGenerator
 
 __all__ = [
@@ -13,5 +13,7 @@ __all__ = [
     "TinyGPTLanguageModel",
     "LMTrainer",
     "ByteDataModule",
+    "TokenDataModule",
+    "SequenceDataModule",
     "AutoregressiveGenerator",
 ]
