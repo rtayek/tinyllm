@@ -37,10 +37,17 @@ class EarlyStopping:
         reference = state.get("referenceLoss")
         self.referenceLoss = float(reference) if reference is not None else None
 
-    def check(self, bestValLoss: Optional[float], currentValueLoss: float) -> EarlyStopResult:
+    def check(self, initialReferenceLoss: Optional[float], currentValueLoss: float) -> EarlyStopResult:
+        """Check whether training has improved enough to reset patience.
+
+        ``initialReferenceLoss`` is used only as a fallback on the very first
+        call, when ``self.referenceLoss`` has not yet been set (e.g. the first
+        evaluation of a fresh run).  On every subsequent call ``self.referenceLoss``
+        drives the comparison and ``initialReferenceLoss`` is ignored.
+        """
         referenceLoss = self.referenceLoss
-        if referenceLoss is None and bestValLoss is not None:
-            referenceLoss = bestValLoss
+        if referenceLoss is None and initialReferenceLoss is not None:
+            referenceLoss = initialReferenceLoss
 
         if referenceLoss is None:
             fracImprovement = None

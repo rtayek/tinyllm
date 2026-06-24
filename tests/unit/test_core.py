@@ -264,26 +264,16 @@ def test_checkpoint_roundtrip(tmp_path: Path) -> None:
     newModel = TinyGPTLanguageModel(modelConfig)
     newOptimizer = torch.optim.AdamW(newModel.parameters(), lr=trainConfig.learningRate, weight_decay=trainConfig.weightDecay)
 
-    (
-        step,
-        bestValLoss,
-        lrRestored,
-        _version,
-        versionMatches,
-        drift,
-        generator_state,
-        evaluator_generator_state,
-        early_stopping_state,
-    ) = manager.loadCheckpoint(newModel, newOptimizer, lrStrategy=None)
+    result = manager.loadCheckpoint(newModel, newOptimizer, lrStrategy=None)
 
-    assert step == 10
-    assert bestValLoss == 0.5
-    assert lrRestored is False
-    assert versionMatches is True
-    assert drift["model"] == {} and drift["train"] == {}
-    assert generator_state is not None
-    assert evaluator_generator_state is None
-    assert early_stopping_state is None
+    assert result.step == 10
+    assert result.bestValLoss == 0.5
+    assert result.lrStateRestored is False
+    assert result.versionMatches is True
+    assert result.configDrift["model"] == {} and result.configDrift["train"] == {}
+    assert result.generatorState is not None
+    assert result.evaluatorGeneratorState is None
+    assert result.earlyStoppingState is None
     for pOld, pNew in zip(model.parameters(), newModel.parameters()):
         assert torch.equal(pOld, pNew)
 

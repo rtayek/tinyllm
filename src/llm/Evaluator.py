@@ -26,7 +26,13 @@ class EvalResult:
 
 class Evaluator:
     def __init__(
-        self, model: TinyGPTLanguageModel, data_module: SequenceDataModule, trainConfig: TrainConfig, early_stopping: EarlyStopping, generator: Optional[torch.Generator] = None, logger: Optional[logging.Logger] = None
+        self,
+        model: TinyGPTLanguageModel,
+        data_module: SequenceDataModule,
+        trainConfig: TrainConfig,
+        early_stopping: EarlyStopping,
+        generator: Optional[torch.Generator] = None,
+        logger: Optional[logging.Logger] = None,
     ) -> None:
         self.model = model
         self.dataModule = data_module

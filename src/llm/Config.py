@@ -102,6 +102,10 @@ class RunConfig:
     def fromDict(cls, data: Dict[str, Any]) -> "RunConfig":
         modelData = data.get("model", {})
         trainData = data.get("train", {})
-        modelConfig = ModelConfig.fromDict(cast(Dict[str, Any], modelData)) if isinstance(modelData, dict) else ModelConfig()
-        trainConfig = TrainConfig.fromDict(cast(Dict[str, Any], trainData)) if isinstance(trainData, dict) else TrainConfig()
+        if not isinstance(modelData, dict):
+            raise ValueError(f"Expected 'model' to be a dict, got {type(modelData).__name__}")
+        if not isinstance(trainData, dict):
+            raise ValueError(f"Expected 'train' to be a dict, got {type(trainData).__name__}")
+        modelConfig = ModelConfig.fromDict(cast(Dict[str, Any], modelData)) if modelData else ModelConfig()
+        trainConfig = TrainConfig.fromDict(cast(Dict[str, Any], trainData)) if trainData else TrainConfig()
         return cls(modelConfig=modelConfig, trainConfig=trainConfig)

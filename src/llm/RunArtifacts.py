@@ -43,6 +43,10 @@ class RunArtifacts:
             return None
         self.runDirectory.mkdir(parents=True, exist_ok=True)
         path = self.runDirectory / "run.json"
+        if path.exists():
+            # Preserve the original run record on resume; don't overwrite
+            # git_commit, created_at, or parent_checkpoint.
+            return path
         checkpointPath = Path(self.trainConfig.ckptPath)
         latestPath = checkpointPath.with_name("latest.pt")
         parentCheckpoint = latestPath if latestPath.exists() else checkpointPath

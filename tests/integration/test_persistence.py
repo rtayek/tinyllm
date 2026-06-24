@@ -1,12 +1,14 @@
 import torch
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
 from llm.Config import ModelConfig, TrainConfig
 from llm.Model import TinyGPTLanguageModel
 from llm.Checkpoint import Checkpoint, CheckpointManager
+import llm.persistence as persistence_module
 
 
 def test_checkpoint_export_and_load(tmp_path: Path) -> None:
@@ -120,10 +122,10 @@ def test_checkpoint_manager_resumes_latest_checkpoint(
 
     loaded_model = TinyGPTLanguageModel(model_config)
     loaded_optimizer = torch.optim.AdamW(loaded_model.parameters())
-    step, *_ = manager.loadCheckpoint(loaded_model, loaded_optimizer)
+    result = manager.loadCheckpoint(loaded_model, loaded_optimizer)
 
     assert manager.resumePath() == manager.latestPath
-    assert step == 20
+    assert result.step == 20
 
 
 def test_checkpoint_normalizes_rng_states_for_cpu_generator() -> None:
@@ -142,3 +144,53 @@ def test_checkpoint_normalizes_rng_states_for_cpu_generator() -> None:
     assert checkpoint.evaluatorGeneratorState.device.type == "cpu"
     assert checkpoint.generatorState.dtype == torch.uint8
     assert checkpoint.evaluatorGeneratorState.dtype == torch.uint8
+
+
+def test_persistence_cli_export_model(tmp_path: Path) -> None:
+    """export-model subcommand writes a loadable model-only state dict."""
+    model_config = ModelConfig(blockSize=4, vocabSize=32, nEmbed=8, nHead=2, nLayer=1, dropout=0.0)
+    train_config = TrainConfig(ckptPath=str(tmp_path / "best.pt"), device="cpu")
+    model = TinyGPTLanguageModel(model_config)
+    optimizer = torch.optim.AdamW(model.parameters())
+    checkpoint = Checkpoint.fromTrainingState(
+        model=model, optimizer=optimizer,
+        modelConfig=model_config, trainConfig=train_config,
+        step=1, bestValLoss=1.0,
+    )
+    checkpoint.save(train_config.ckptPath)
+    out_path = str(tmp_path / "model_only.pt")
+
+    with patch("sys.argv", ["persistence", "export-model", "--ckpt", train_config.ckptPath, "--out", out_path]):
+        with patch.object(persistence_module, "RunConfig", return_value=type("R", (), {"modelConfig": model_config, "trainConfig": train_config})()):
+            persistence_module.main()
+
+    assert Path(out_path).exists()
+    loaded = TinyGPTLanguageModel(model_config)
+    loaded.load_state_dict(torch.load(out_path, map_location="cpu", weights_only=True))  # pyright: ignore[reportUnknownMemberType]
+    for p_orig, p_loaded in zip(model.parameters(), loaded.parameters()):
+        assert torch.equal(p_orig, p_loaded)
+
+
+def test_persistence_cli_load_model_from_checkpoint(tmp_path: Path) -> None:
+    """load-model subcommand accepts a full checkpoint and writes a model-only file."""
+    model_config = ModelConfig(blockSize=4, vocabSize=32, nEmbed=8, nHead=2, nLayer=1, dropout=0.0)
+    train_config = TrainConfig(ckptPath=str(tmp_path / "best.pt"), device="cpu")
+    model = TinyGPTLanguageModel(model_config)
+    optimizer = torch.optim.AdamW(model.parameters())
+    checkpoint = Checkpoint.fromTrainingState(
+        model=model, optimizer=optimizer,
+        modelConfig=model_config, trainConfig=train_config,
+        step=1, bestValLoss=1.0,
+    )
+    checkpoint.save(train_config.ckptPath)
+    out_path = str(tmp_path / "reloaded.pt")
+
+    with patch("sys.argv", ["persistence", "load-model", "--model", train_config.ckptPath, "--out", out_path]):
+        with patch.object(persistence_module, "RunConfig", return_value=type("R", (), {"modelConfig": model_config, "trainConfig": train_config})()):
+            persistence_module.main()
+
+    assert Path(out_path).exists()
+    loaded = TinyGPTLanguageModel(model_config)
+    loaded.load_state_dict(torch.load(out_path, map_location="cpu", weights_only=True))  # pyright: ignore[reportUnknownMemberType]
+    for p_orig, p_loaded in zip(model.parameters(), loaded.parameters()):
+        assert torch.equal(p_orig, p_loaded)

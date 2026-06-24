@@ -10,7 +10,7 @@ import torch
 from llm.Config import ModelConfig, TrainConfig
 from llm.Model import TinyGPTLanguageModel
 from llm.DataModule import SequenceDataModule
-from llm.Checkpoint import Checkpoint, CheckpointManager, CHECKPOINT_VERSION
+from llm.Checkpoint import Checkpoint, CheckpointManager, CheckpointLoadResult, CHECKPOINT_VERSION
 from llm.LRScheduleStrategy import WarmupCosineStrategy
 from llm.Evaluator import Evaluator
 from llm.RunArtifacts import RunArtifacts
@@ -18,7 +18,13 @@ from llm.RunArtifacts import RunArtifacts
 
 class LMTrainer:
     def __init__(
-        self, modelConfig: ModelConfig, trainConfig: TrainConfig, model: TinyGPTLanguageModel, dataModule: SequenceDataModule, logger: Optional[logging.Logger] = None, evaluator: Optional[Evaluator] = None
+        self,
+        modelConfig: ModelConfig,
+        trainConfig: TrainConfig,
+        model: TinyGPTLanguageModel,
+        dataModule: SequenceDataModule,
+        logger: Optional[logging.Logger] = None,
+        evaluator: Optional[Evaluator] = None,
     ) -> None:
         self.modelConfig = modelConfig
         self.trainConfig = trainConfig
@@ -29,8 +35,16 @@ class LMTrainer:
 
         self.logger.info("MODEL CONFIG: %s", self.modelConfig)
         self.logger.info("TRAIN CONFIG: %s", self.trainConfig)
-        self.optimizer: torch.optim.Optimizer = torch.optim.AdamW(model.parameters(), lr=self.trainConfig.learningRate, weight_decay=self.trainConfig.weightDecay)
-        self.lrStrategy: WarmupCosineStrategy = WarmupCosineStrategy(self.optimizer, max_steps=self.trainConfig.maxSteps, warmup_frac=self.trainConfig.warmupFrac)
+        self.optimizer: torch.optim.Optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=self.trainConfig.learningRate,
+            weight_decay=self.trainConfig.weightDecay,
+        )
+        self.lrStrategy: WarmupCosineStrategy = WarmupCosineStrategy(
+            self.optimizer,
+            max_steps=self.trainConfig.maxSteps,
+            warmup_frac=self.trainConfig.warmupFrac,
+        )
         self.checkpoints = CheckpointManager(self.modelConfig, self.trainConfig, logger=self.logger)
         self.runArtifacts = RunArtifacts(self.modelConfig, self.trainConfig)
         metadataPath = self.runArtifacts.writeRunMetadata()
@@ -40,6 +54,7 @@ class LMTrainer:
         self.globalStep: int = 0
         self.bestValLoss: Optional[float] = None
         self.trainingCurve: list[tuple[int, float, float]] = []
+        self._resumedFromStep: int = -1  # set by loadCheckpointIfExists to skip redundant eval on resume
 
         self.generator: torch.Generator = torch.Generator()
         self.generator.manual_seed(self.trainConfig.seed)
@@ -107,57 +122,51 @@ class LMTrainer:
     ) -> None:
         resumePath = self.checkpoints.resumePath()
         checkpointExists = os.path.exists(resumePath)
-        (
-            step,
-            best,
-            lrStateRestored,
-            version,
-            version_matches,
-            config_drift,
-            generator_state,
-            evaluator_generator_state,
-            early_stopping_state,
-        ) = self.checkpoints.loadCheckpoint(
+        result: CheckpointLoadResult = self.checkpoints.loadCheckpoint(
             self.model,
             self.optimizer,
             self.lrStrategy,
         )
-        self.globalStep = step
-        self.bestValLoss = best
-        if generator_state is not None:
-            self.generator.set_state(generator_state)
+        self.globalStep = result.step
+        self.bestValLoss = result.bestValLoss
+        # Only skip the first eval if we actually resumed — a fresh run at step 0
+        # should still evaluate before its first training step.
+        if checkpointExists:
+            self._resumedFromStep = result.step
+        if result.generatorState is not None:
+            self.generator.set_state(result.generatorState)
         if self.evaluator is not None:
-            if evaluator_generator_state is not None:
-                self.evaluator.generator.set_state(evaluator_generator_state)
-            if early_stopping_state is not None:
-                self.evaluator.early_stopping.load_state_dict(early_stopping_state)
+            if result.evaluatorGeneratorState is not None:
+                self.evaluator.generator.set_state(result.evaluatorGeneratorState)
+            if result.earlyStoppingState is not None:
+                self.evaluator.early_stopping.load_state_dict(result.earlyStoppingState)
             if resetEarlyStopping:
                 self.evaluator.early_stopping.reset()
                 self.logger.info("Restored early-stopping progress was reset.")
-        if not lrStateRestored:
-            self.lrStrategy.align_after_resume(step)
+        if not result.lrStateRestored:
+            self.lrStrategy.align_after_resume(result.step)
         if not checkpointExists:
             self.logger.info(
                 "No checkpoint found at %s; starting a new run.",
                 resumePath,
             )
-        elif not version_matches:
+        elif not result.versionMatches:
             self.logger.warning(
                 "Checkpoint version %s does not match expected %s; LR state not restored.",
-                version,
+                result.version,
                 CHECKPOINT_VERSION,
             )
         else:
             self.logger.info(
                 "Loaded checkpoint version %s from %s; resuming at step %s",
-                version,
+                result.version,
                 resumePath,
-                step,
+                result.step,
             )
-        if config_drift.get("model"):
-            self.logger.warning("Model config drift from checkpoint: %s", config_drift["model"])
-        if config_drift.get("train"):
-            self.logger.warning("Train config drift from checkpoint: %s", config_drift["train"])
+        if result.configDrift.get("model"):
+            self.logger.warning("Model config drift from checkpoint: %s", result.configDrift["model"])
+        if result.configDrift.get("train"):
+            self.logger.warning("Train config drift from checkpoint: %s", result.configDrift["train"])
 
     def train(self) -> None:
         self.logger.info("Using device: %s", self.trainConfig.device)
@@ -173,7 +182,7 @@ class LMTrainer:
         for step in range(self.globalStep, self.trainConfig.maxSteps):
             self.globalStep = step
 
-            if step % self.trainConfig.evalInterval == 0:
+            if step % self.trainConfig.evalInterval == 0 and step != self._resumedFromStep:
                 self.logger.info("[step %s] Running evaluation...", step)
 
                 if self.evaluator is None:

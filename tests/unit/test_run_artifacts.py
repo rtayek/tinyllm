@@ -57,3 +57,23 @@ def test_run_artifacts_ignore_legacy_checkpoint_path(tmp_path: Path) -> None:
 
     assert artifacts.writeRunMetadata() is None
     assert artifacts.appendMetric({"type": "test"}) is None
+
+
+def test_write_run_metadata_is_not_overwritten_on_resume(tmp_path: Path) -> None:
+    run = tmp_path / "runs" / "experiment"
+    config = TrainConfig(
+        ckptPath=str(run / "checkpoints" / "best.pt"),
+        device="cpu",
+    )
+    artifacts = RunArtifacts(ModelConfig(), config)
+
+    first_path = artifacts.writeRunMetadata()
+    assert first_path is not None
+    original_text = first_path.read_text(encoding="utf-8")
+    original_created_at = json.loads(original_text)["created_at"]
+
+    # Simulate a resume: calling writeRunMetadata again should not overwrite.
+    second_path = artifacts.writeRunMetadata()
+    assert second_path == first_path
+    assert first_path.read_text(encoding="utf-8") == original_text
+    assert json.loads(first_path.read_text(encoding="utf-8"))["created_at"] == original_created_at

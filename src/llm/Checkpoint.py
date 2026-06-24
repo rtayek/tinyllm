@@ -1,18 +1,35 @@
 from __future__ import annotations
 
+import inspect
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any, cast
+from typing import Optional, Dict, Any, cast
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import torch
 
 from .Config import ModelConfig, TrainConfig
 from .Model import TinyGPTLanguageModel
 
+_TORCH_LOAD_SUPPORTS_WEIGHTS_ONLY = "weights_only" in inspect.signature(cast(Any, torch.load)).parameters  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+
+
 CHECKPOINT_VERSION = 1
+
+
+@dataclass
+class CheckpointLoadResult:
+    step: int = 0
+    bestValLoss: Optional[float] = None
+    lrStateRestored: bool = False
+    version: int = CHECKPOINT_VERSION
+    versionMatches: bool = True
+    configDrift: Dict[str, Dict[str, Any]] = field(default_factory=lambda: cast(Dict[str, Dict[str, Any]], {}))
+    generatorState: Optional[torch.Tensor] = None
+    evaluatorGeneratorState: Optional[torch.Tensor] = None
+    earlyStoppingState: Optional[Dict[str, Any]] = None
 
 
 def _cpu_rng_state(value: Any) -> Optional[torch.Tensor]:
@@ -94,9 +111,9 @@ class Checkpoint:
 
     @staticmethod
     def load(path: str, device: str | torch.device) -> "Checkpoint":
-        try:
+        if _TORCH_LOAD_SUPPORTS_WEIGHTS_ONLY:
             data = cast(Dict[str, Any], torch.load(path, map_location=device, weights_only=False))  # pyright: ignore[reportUnknownMemberType]
-        except TypeError:
+        else:
             data = cast(Dict[str, Any], torch.load(path, map_location=device))  # pyright: ignore[reportUnknownMemberType]
         return Checkpoint.fromDict(data)
 
@@ -194,30 +211,17 @@ class CheckpointManager:
         model: TinyGPTLanguageModel,
         optimizer: torch.optim.Optimizer,
         lrStrategy: Optional[Any] = None,
-    ) -> Tuple[
-        int,
-        Optional[float],
-        bool,
-        int,
-        bool,
-        Dict[str, Dict[str, Any]],
-        Optional[torch.Tensor],
-        Optional[torch.Tensor],
-        Optional[Dict[str, Any]],
-    ]:
+    ) -> CheckpointLoadResult:
         resumePath = self.resumePath()
         if not os.path.exists(resumePath):
-            return 0, None, False, CHECKPOINT_VERSION, True, {}, None, None, None
+            return CheckpointLoadResult()
 
         checkpoint = Checkpoint.load(resumePath, self.trainCfg.device)
         model.load_state_dict(checkpoint.modelState)
         optimizer.load_state_dict(checkpoint.optimizerState)
-        step = checkpoint.step
-        bestValLoss = checkpoint.bestValLoss
 
         version = checkpoint.version
         version_matches = version == CHECKPOINT_VERSION
-        generator_state = checkpoint.generatorState
 
         lrStateRestored = False
         if lrStrategy is not None and version_matches:
@@ -244,14 +248,14 @@ class CheckpointManager:
                 if k in currentTrainDict and currentTrainDict[k] != v
             }
 
-        return (
-            step,
-            bestValLoss,
-            lrStateRestored,
-            version,
-            version_matches,
-            configDrift,
-            generator_state,
-            checkpoint.evaluatorGeneratorState,
-            checkpoint.earlyStoppingState,
+        return CheckpointLoadResult(
+            step=checkpoint.step,
+            bestValLoss=checkpoint.bestValLoss,
+            lrStateRestored=lrStateRestored,
+            version=version,
+            versionMatches=version_matches,
+            configDrift=configDrift,
+            generatorState=checkpoint.generatorState,
+            evaluatorGeneratorState=checkpoint.evaluatorGeneratorState,
+            earlyStoppingState=checkpoint.earlyStoppingState,
         )
