@@ -9,6 +9,11 @@ from llm.corpus import (
     ALICE,
     PRIDE,
     SHERLOCK,
+    SENSE_AND_SENSIBILITY,
+    EMMA,
+    MANSFIELD_PARK,
+    PERSUASION,
+    NORTHANGER_ABBEY,
     clean_alice,
     clean_pride_and_prejudice,
     clean_sherlock,
@@ -144,3 +149,24 @@ def test_prepare_corpora_writes_manifests_units_and_splits(
             data = (work_dir / record["path"]).read_bytes()
             assert record["bytes"] == len(data)
             assert record["sha256"] == hashlib.sha256(data).hexdigest()
+
+
+def test_new_austen_workspecs_are_well_formed() -> None:
+    """Validate structural consistency of the five new Austen WorkSpec entries."""
+    new_works = [
+        SENSE_AND_SENSIBILITY,
+        EMMA,
+        MANSFIELD_PARK,
+        PERSUASION,
+        NORTHANGER_ABBEY,
+    ]
+    for spec in new_works:
+        train, val, test = spec.split_counts
+        assert train + val + test == spec.expected_units, (
+            f"{spec.title}: split counts {spec.split_counts} don't sum to {spec.expected_units}"
+        )
+        assert spec.identifier.startswith("jane-austen/")
+        assert spec.author == "Jane Austen"
+        assert spec.unit_type == "chapter"
+        assert spec.source_url.startswith("https://www.gutenberg.org/")
+        assert spec.ebook_id.isdigit()

@@ -11,6 +11,7 @@ from llm.Trainer import LMTrainer
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 from llm.Checkpoint import Checkpoint
+from llm.TrainingCallback import CheckpointCallback
 
 
 def test_training_smoke(tmp_path: Path) -> None:
@@ -57,6 +58,7 @@ def test_training_smoke(tmp_path: Path) -> None:
         logger=mock_logger,
     )
     trainer = LMTrainer(modelConfig, trainConfig, model, dataModule, evaluator=evaluator, logger=mock_logger)
+    trainer.callbacks = [CheckpointCallback(trainer, mock_logger)]
 
     trainer.loadCheckpointIfExists()
     trainer.train()
@@ -225,6 +227,7 @@ def test_best_checkpoint_tracks_lower_loss_below_early_stop_delta(
         data_module,
         evaluator=evaluator,
     )
+    trainer.callbacks = [CheckpointCallback(trainer, logging.getLogger("test"))]
     monkeypatch.setattr(trainer, "_trainStep", lambda: 0.0)
 
     trainer.train()

@@ -14,6 +14,7 @@ from llm.Checkpoint import Checkpoint, CheckpointManager, CheckpointLoadResult, 
 from llm.LRScheduleStrategy import WarmupCosineStrategy
 from llm.Evaluator import Evaluator
 from llm.RunArtifacts import RunArtifacts
+from llm.TrainingCallback import TrainingCallback
 
 
 class LMTrainer:
@@ -25,6 +26,7 @@ class LMTrainer:
         dataModule: SequenceDataModule,
         logger: Optional[logging.Logger] = None,
         evaluator: Optional[Evaluator] = None,
+        callbacks: Optional[list[TrainingCallback]] = None,
     ) -> None:
         self.modelConfig = modelConfig
         self.trainConfig = trainConfig
@@ -32,6 +34,7 @@ class LMTrainer:
         self.dataModule = dataModule
         self.logger = logger or logging.getLogger(__name__)
         self.evaluator = evaluator
+        self.callbacks: list[TrainingCallback] = callbacks or []
 
         self.logger.info("MODEL CONFIG: %s", self.modelConfig)
         self.logger.info("TRAIN CONFIG: %s", self.trainConfig)
@@ -47,9 +50,6 @@ class LMTrainer:
         )
         self.checkpoints = CheckpointManager(self.modelConfig, self.trainConfig, logger=self.logger)
         self.runArtifacts = RunArtifacts(self.modelConfig, self.trainConfig)
-        metadataPath = self.runArtifacts.writeRunMetadata()
-        if metadataPath is not None:
-            self.logger.info("Run metadata written to %s", metadataPath)
 
         self.globalStep: int = 0
         self.bestValLoss: Optional[float] = None
@@ -95,26 +95,13 @@ class LMTrainer:
         )
         self.logger.info("[step %s] Checkpoint saved to %s.", step, path)
 
-    def _saveEvaluationCheckpoints(self, step: int, improved: bool) -> None:
-        if improved:
-            # best.pt gets a clean patience counter so resume always starts fresh from this model
-            self._saveCheckpoint(
-                step,
-                self.checkpoints.ckptPath,
-                earlyStoppingState={"noImproveEvals": 0, "referenceLoss": self.bestValLoss},
-            )
-        self._saveCheckpoint(step, self.checkpoints.latestPath)
+    def _fire_on_eval(self, result: Any, is_best: bool) -> None:
+        for cb in self.callbacks:
+            cb.on_eval(result, is_best)
 
-        interval = self.trainConfig.snapshotInterval
-        if interval > 0 and step > 0 and step % interval == 0:
-            self._saveCheckpoint(step, self.checkpoints.snapshotPath(step))
-            self.checkpoints.pruneSnapshots()
-
-    def _log_eval(self, step: int, evalResult: Any) -> None:
-        self.logger.info("[step %s] train loss %.4f, val loss %.4f", step, evalResult.train_loss, evalResult.val_loss)
-
-        if evalResult.frac_improvement is not None:
-            self.logger.info("[step %s] fractional improvement: %.4f (need > %.4f)", step, evalResult.frac_improvement, self.trainConfig.earlyStopDelta)
+    def _fire_on_train_end(self) -> None:
+        for cb in self.callbacks:
+            cb.on_train_end(self.trainingCurve)
 
     def loadCheckpointIfExists(
         self,
@@ -193,35 +180,18 @@ class LMTrainer:
                 if not math.isfinite(train_loss) or not math.isfinite(val_loss):
                     raise RuntimeError("Non-finite evaluation loss encountered")
                 self.trainingCurve.append((step, train_loss, val_loss))
-                self._log_eval(step, evalResult)
-                isBest = self.bestValLoss is None or val_loss < self.bestValLoss
-                self.runArtifacts.appendMetric(
-                    {
-                        "type": "evaluation",
-                        "step": step,
-                        "train_loss": train_loss,
-                        "validation_loss": val_loss,
-                        "fractional_improvement": evalResult.frac_improvement,
-                        "improved": evalResult.improved,
-                        "new_best": isBest,
-                        "no_improve_evals": evalResult.no_improve_evals,
-                    }
-                )
 
+                isBest = self.bestValLoss is None or val_loss < self.bestValLoss
                 if isBest:
                     self.bestValLoss = val_loss
-                    self.logger.info("[step %s] New best val loss: %.4f — checkpoint saved.", step, val_loss)
-                if not evalResult.improved and not isBest:
-                    self.logger.info(
-                        "[step %s] No significant val improvement for %s evals.",
-                        step,
-                        evalResult.no_improve_evals,
-                    )
 
-                self._saveEvaluationCheckpoints(step, isBest)
+                self._fire_on_eval(evalResult, isBest)
 
                 if evalResult.should_stop:
-                    self.logger.info("[step %s] Early stopping triggered: no val improvement for %s evals.", step, evalResult.no_improve_evals)
+                    self.logger.info(
+                        "[step %s] Early stopping triggered: no val improvement for %s evals.",
+                        step, evalResult.no_improve_evals,
+                    )
                     break
 
             lossValue = self._trainStep()
@@ -230,12 +200,14 @@ class LMTrainer:
 
         self.logger.info("Training loop finished.")
         if self.bestValLoss is not None:
-            self.logger.info("Training done. Best val loss %.4f reached at some earlier step (see checkpoint metadata).", self.bestValLoss)
+            self.logger.info(
+                "Training done. Best val loss %.4f reached at some earlier step (see checkpoint metadata).",
+                self.bestValLoss,
+            )
         else:
             self.logger.info("No validation loss recorded; training exited before evaluation.")
-        self.logger.info("Last few evals (step, train, val):")
-        for step, tr, va in self.trainingCurve[-5:]:
-            self.logger.info("  %6d: %.4f, %.4f", step, tr, va)
+
+        self._fire_on_train_end()
 
     def evaluateBestCheckpointOnTest(self) -> float | None:
         if self.evaluator is None or self.dataModule.testSequence is None:
@@ -271,23 +243,6 @@ class LMTrainer:
             }
         )
         return testLoss
-
-    def plotTrainingCurve(self) -> None:
-        if not self.trainConfig.plotCurve:
-            self.logger.info("Plotting disabled by config.")
-            return
-        if not self.trainingCurve:
-            self.logger.info("No trainingCurve data to plot.")
-            return
-
-        try:
-            from .plot_utils import plot_training_curve
-
-            filepath, config_dump_path = plot_training_curve(self.trainingCurve, self.modelConfig, self.trainConfig)
-            self.logger.info("[plot] Saved plot to %s", filepath)
-            self.logger.info("[plot] Saved config to %s", config_dump_path)
-        except Exception as e:
-            self.logger.info("Could not plot training curve: %s", e)
 
     def printSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
         from .TextGenerator import AutoregressiveGenerator

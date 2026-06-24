@@ -50,20 +50,32 @@ Cleaning:
 - records source and generated-file hashes in each manifest,
 - splits works at chapter or story boundaries.
 
+The collection currently includes:
+
+```text
+Arthur Conan Doyle / The Adventures of Sherlock Holmes   (12 stories)
+Lewis Carroll / Alice's Adventures in Wonderland          (12 chapters)
+Jane Austen / Pride and Prejudice                         (61 chapters)
+Jane Austen / Sense and Sensibility                       (50 chapters)
+Jane Austen / Emma                                        (55 chapters)
+Jane Austen / Mansfield Park                              (48 chapters)
+Jane Austen / Persuasion                                  (24 chapters)
+Jane Austen / Northanger Abbey                            (31 chapters)
+```
+
+The raw Gutenberg sources for the five new Austen novels must be downloaded
+before the pipeline can process them:
+
+```sh
+tinyllm-prepare-corpora --download-austen
+```
+
 The Sherlock story-level research split is:
 
 ```text
 corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/train.txt
 corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/validation.txt
 corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/test.txt
-```
-
-The collection currently includes:
-
-```text
-Arthur Conan Doyle / The Adventures of Sherlock Holmes
-Lewis Carroll / Alice's Adventures in Wonderland
-Jane Austen / Pride and Prejudice
 ```
 
 Train on a different corpus by passing explicit split paths:
@@ -74,6 +86,14 @@ tinyllm-train \
   --validation-corpus corpora/jane-austen/pride-and-prejudice/splits/validation.txt \
   --test-corpus corpora/jane-austen/pride-and-prejudice/splits/test.txt \
   --checkpoint runs/pride-byte/checkpoints/best.pt
+```
+
+To train on all Austen novels combined, concatenate the splits first:
+
+```sh
+cat corpora/jane-austen/*/splits/train.txt      > corpora/jane-austen/combined/splits/train.txt
+cat corpora/jane-austen/*/splits/validation.txt > corpora/jane-austen/combined/splits/validation.txt
+cat corpora/jane-austen/*/splits/test.txt       > corpora/jane-austen/combined/splits/test.txt
 ```
 
 The model uses UTF-8 bytes as tokens and has a vocabulary size of 256.
@@ -114,6 +134,7 @@ Training maintains:
 - `latest.pt`: the most recent evaluation state, preferred when resuming.
 - `step-NNNNNN.pt`: periodic snapshots, every 1,000 steps by default.
 - `run.json`: Git commit, corpus paths and hashes, seed, and configuration.
+  Written once at the start of a fresh run; never overwritten on resume.
 - `metrics.jsonl`: validation evaluations and the final test result.
 
 In `run.json` schema version 2, corpus paths are authoritative under `corpora`
@@ -221,13 +242,17 @@ Public components are available from `llm`:
 from llm import (
     AutoregressiveGenerator,
     ByteDataModule,
+    TokenDataModule,
+    SequenceDataModule,
     LMTrainer,
     ModelConfig,
     RunConfig,
     TinyGPTLanguageModel,
     TrainConfig,
+    TrainingCallback,
+    LoggingCallback,
+    MetricsCallback,
+    CheckpointCallback,
+    TrainingCurveCallback,
 )
 ```
-
-Note: `TokenDataModule` and `SequenceDataModule` are available in
-`llm.DataModule` but are not currently re-exported from the top-level package.

@@ -13,6 +13,8 @@ from llm.Trainer import LMTrainer
 from llm.TextGenerator import AutoregressiveGenerator
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
+from llm.RunArtifacts import RunArtifacts
+from llm.TrainingCallback import TrainingCallback, LoggingCallback, MetricsCallback, CheckpointCallback, TrainingCurveCallback
 from llm.tensor_utils import resolve_device
 
 logger = logging.getLogger(__name__)
@@ -72,7 +74,29 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
         logger=activeLogger,
     )
 
-    return LMTrainer(modelConfig, trainConfig, model, dataModule, logger=activeLogger, evaluator=evaluator)
+    runArtifacts = RunArtifacts(modelConfig, trainConfig)
+
+    # Callbacks are registered in the order they fire on each event.
+    # CheckpointCallback holds a reference to the trainer and is patched in
+    # after construction to break the circular dependency.
+    trainer = LMTrainer(
+        modelConfig, trainConfig, model, dataModule,
+        logger=activeLogger,
+        evaluator=evaluator,
+    )
+    metadataPath = runArtifacts.writeRunMetadata()
+    if metadataPath is not None:
+        activeLogger.info("Run metadata written to %s", metadataPath)
+
+    callbacks: list[TrainingCallback] = [
+        LoggingCallback(trainConfig, activeLogger),
+        MetricsCallback(runArtifacts),
+        CheckpointCallback(trainer, activeLogger),
+        TrainingCurveCallback(modelConfig, trainConfig, activeLogger),
+    ]
+    trainer.callbacks = callbacks
+    trainer.runArtifacts = runArtifacts
+    return trainer
 
 
 def main(log_level: int = logging.INFO) -> None:
@@ -136,7 +160,6 @@ def main(log_level: int = logging.INFO) -> None:
 
     trainer.train()
     trainer.evaluateBestCheckpointOnTest()
-    trainer.plotTrainingCurve()
 
     textGenerator = AutoregressiveGenerator(trainer.model, trainer.trainConfig.device, activeLogger)
     runDirectory = trainer.trainConfig.runDirectory()

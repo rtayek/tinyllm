@@ -82,6 +82,17 @@ def clean_alice(text: str) -> str:
     return _clean_from_first_heading(text, CHAPTER_HEADING)
 
 
+def clean_austen(text: str) -> str:
+    """Clean a standard Jane Austen Gutenberg text.
+
+    Strips the Gutenberg wrapper and front matter up to the first chapter
+    heading.  Works for Sense and Sensibility, Emma, Mansfield Park,
+    Persuasion, and Northanger Abbey, all of which use plain ``CHAPTER I.``
+    style headings with no volume-reset or illustration blocks.
+    """
+    return _clean_from_first_heading(text, CHAPTER_HEADING)
+
+
 def clean_sherlock(text: str) -> str:
     return _clean_from_first_heading(text, SHERLOCK_HEADING)
 
@@ -128,6 +139,26 @@ def split_pride_chapters(text: str) -> list[tuple[str, str]]:
     return _split_units(text, CHAPTER_HEADING, 61)
 
 
+def split_sense_and_sensibility_chapters(text: str) -> list[tuple[str, str]]:
+    return _split_units(text, CHAPTER_HEADING, 50)
+
+
+def split_emma_chapters(text: str) -> list[tuple[str, str]]:
+    return _split_units(text, CHAPTER_HEADING, 55)
+
+
+def split_mansfield_park_chapters(text: str) -> list[tuple[str, str]]:
+    return _split_units(text, CHAPTER_HEADING, 48)
+
+
+def split_persuasion_chapters(text: str) -> list[tuple[str, str]]:
+    return _split_units(text, CHAPTER_HEADING, 24)
+
+
+def split_northanger_abbey_chapters(text: str) -> list[tuple[str, str]]:
+    return _split_units(text, CHAPTER_HEADING, 31)
+
+
 SHERLOCK = WorkSpec(
     "arthur-conan-doyle/adventures-of-sherlock-holmes",
     "Arthur Conan Doyle",
@@ -164,7 +195,67 @@ PRIDE = WorkSpec(
     clean_pride_and_prejudice,
     split_pride_chapters,
 )
-WORKS = (SHERLOCK, ALICE, PRIDE)
+SENSE_AND_SENSIBILITY = WorkSpec(
+    "jane-austen/sense-and-sensibility",
+    "Jane Austen",
+    "Sense and Sensibility",
+    "161",
+    "https://www.gutenberg.org/cache/epub/161/pg161.txt",
+    "chapter",
+    50,
+    (40, 5, 5),
+    clean_austen,
+    split_sense_and_sensibility_chapters,
+)
+EMMA = WorkSpec(
+    "jane-austen/emma",
+    "Jane Austen",
+    "Emma",
+    "158",
+    "https://www.gutenberg.org/cache/epub/158/pg158.txt",
+    "chapter",
+    55,
+    (44, 5, 6),
+    clean_austen,
+    split_emma_chapters,
+)
+MANSFIELD_PARK = WorkSpec(
+    "jane-austen/mansfield-park",
+    "Jane Austen",
+    "Mansfield Park",
+    "141",
+    "https://www.gutenberg.org/cache/epub/141/pg141.txt",
+    "chapter",
+    48,
+    (38, 5, 5),
+    clean_austen,
+    split_mansfield_park_chapters,
+)
+PERSUASION = WorkSpec(
+    "jane-austen/persuasion",
+    "Jane Austen",
+    "Persuasion",
+    "105",
+    "https://www.gutenberg.org/cache/epub/105/pg105.txt",
+    "chapter",
+    24,
+    (19, 2, 3),
+    clean_austen,
+    split_persuasion_chapters,
+)
+NORTHANGER_ABBEY = WorkSpec(
+    "jane-austen/northanger-abbey",
+    "Jane Austen",
+    "Northanger Abbey",
+    "121",
+    "https://www.gutenberg.org/cache/epub/121/pg121.txt",
+    "chapter",
+    31,
+    (24, 3, 4),
+    clean_austen,
+    split_northanger_abbey_chapters,
+)
+WORKS = (SHERLOCK, ALICE, PRIDE, SENSE_AND_SENSIBILITY, EMMA, MANSFIELD_PARK, PERSUASION, NORTHANGER_ABBEY)
 
 
 def slugify(value: str) -> str:
@@ -276,15 +367,28 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Download Pride and Prejudice if its stored raw source is missing",
     )
+    parser.add_argument(
+        "--download-austen",
+        action="store_true",
+        help="Download all five remaining Austen novels if their stored raw sources are missing",
+    )
     return parser.parse_args(argv)
+
+
+def _download_if_missing(root: Path, spec: WorkSpec) -> None:
+    source = root / spec.identifier / "raw" / "gutenberg.txt"
+    if not source.exists():
+        source.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(spec.source_url, source)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
-    pride_source = args.root / PRIDE.identifier / "raw" / "gutenberg.txt"
-    if args.download_pride and not pride_source.exists():
-        pride_source.parent.mkdir(parents=True, exist_ok=True)
-        urllib.request.urlretrieve(PRIDE.source_url, pride_source)
+    if args.download_pride:
+        _download_if_missing(args.root, PRIDE)
+    if args.download_austen:
+        for spec in (SENSE_AND_SENSIBILITY, EMMA, MANSFIELD_PARK, PERSUASION, NORTHANGER_ABBEY):
+            _download_if_missing(args.root, spec)
     for identifier, path in prepare_corpora(args.root).items():
         print(f"{identifier}: {path}")
 

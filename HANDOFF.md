@@ -29,53 +29,38 @@ tinyllm-prepare-corpora
 Verification:
 
 ```text
-pytest: 54 collected, 53 passed (1 CUDA skip: test_checkpoint_roundtrip)
+pytest: 73 collected, 73 passed
 pyright: 0 errors
-branch coverage: 80.1%
+branch coverage: 83.4%
 ```
 
-Default checkpoint:
-
-```text
-runs/sherlock-byte-default/checkpoints/best.pt
-step: 4500
-best validation loss: 1.7905686581134796
-corpus: canonical Sherlock training split (8 stories train / 2 val / 2 test)
-```
-
-Model configuration stored in the checkpoint:
-
-```text
-vocabSize: 256
-blockSize: 128
-nEmbed: 256
-nHead: 4
-nLayer: 4
-dropout: 0.2
-use_cache: false
-```
+The default Sherlock checkpoint has been invalidated by the MLP state-dict key
+rename (see Architecture section). A clean retrain is required before inference
+works on the default checkpoint path.
 
 ## Architecture
 
 Important modules:
 
 ```text
-src/llm/Config.py          ModelConfig, TrainConfig, RunConfig
-src/llm/DataModule.py      UTF-8 byte tokenization and batch sampling
-src/llm/Transformer.py     decoder blocks, attention, and KV cache
-src/llm/Model.py           language model, loss, and generation sampling
-src/llm/Trainer.py         training loop and checkpoint resume
-src/llm/Evaluator.py       train/validation loss estimation
-src/llm/EarlyStopping.py   patience-based early stopping, state_dict round-trip
-src/llm/LRScheduleStrategy.py  warmup + cosine LR schedule
-src/llm/Checkpoint.py      full training checkpoint representation and manager
-src/llm/RunArtifacts.py    run.json metadata and metrics.jsonl writer
-src/llm/TextGenerator.py   prompt encoding and byte-to-text decoding
-src/llm/infer.py           inference CLI and checkpoint-based model construction
-src/llm/Main.py            training CLI and trainer construction
-src/llm/persistence.py     model-only export/load utility (no test coverage)
-src/llm/plot_utils.py      training curve plotting
-src/llm/tensor_utils.py    device helpers (also contains unused distributed stubs)
+src/llm/Config.py             ModelConfig, TrainConfig, RunConfig
+src/llm/DataModule.py         UTF-8 byte tokenization and batch sampling
+src/llm/Transformer.py        decoder blocks, attention, and KV cache
+src/llm/Model.py              language model, loss, and generation sampling
+src/llm/Trainer.py            training loop and checkpoint resume
+src/llm/Evaluator.py          train/validation loss estimation
+src/llm/EarlyStopping.py      patience-based early stopping, state_dict round-trip
+src/llm/LRScheduleStrategy.py warmup + cosine LR schedule
+src/llm/Checkpoint.py         full training checkpoint, CheckpointLoadResult, CheckpointManager
+src/llm/RunArtifacts.py       run.json metadata and metrics.jsonl writer
+src/llm/TrainingCallback.py   TrainingCallback protocol and concrete implementations
+src/llm/TextGenerator.py      prompt encoding and byte-to-text decoding
+src/llm/infer.py              inference CLI and checkpoint-based model construction
+src/llm/Main.py               training CLI, buildTrainer, callback wiring
+src/llm/persistence.py        model-only export/load utility
+src/llm/plot_utils.py         training curve plotting
+src/llm/tensor_utils.py       device helpers
+src/llm/corpus.py             corpus pipeline for all supported works
 ```
 
 Research findings about what the current checkpoint has learned, including
@@ -88,6 +73,42 @@ The vocabulary is the 256 possible byte values. Prompts are encoded with
 UTF-8. `generateBytes()` is lossless; generated text uses UTF-8 replacement
 characters for invalid sequences by default, with an explicit error-policy
 override available to callers.
+
+### MLP State Dict Keys
+
+The MLP submodules inside `DecoderBlock` are now named:
+
+```text
+mlp.fc1.weight   mlp.fc1.bias
+mlp.fc2.weight   mlp.fc2.bias
+```
+
+Checkpoints saved before this change used positional keys (`mlp.0.weight`,
+`mlp.2.weight`) and are incompatible. Any existing checkpoint must be
+discarded and the model retrained from scratch.
+
+### Training Callbacks
+
+The training loop fires events through a `TrainingCallback` protocol with two
+hooks:
+
+```python
+on_eval(result: EvalResult, is_best: bool) -> None
+on_train_end(curve: list[tuple[int, float, float]]) -> None
+```
+
+`buildTrainer` in `Main.py` registers four callbacks in order:
+
+```text
+LoggingCallback        — eval log lines and end-of-run summary
+MetricsCallback        — metrics.jsonl writes via RunArtifacts
+CheckpointCallback     — best.pt / latest.pt / snapshot saves
+TrainingCurveCallback  — training curve plot at end of run
+```
+
+Tests that construct `LMTrainer` directly and need checkpoints to be saved
+must register `CheckpointCallback` explicitly. Tests that only check
+`trainingCurve` or `bestValLoss` need no callbacks.
 
 ### Tokenizer Direction
 
@@ -125,6 +146,9 @@ Both `ModelConfig` and `TrainConfig` validate their fields in `__post_init__`:
 These checks fire at construction time, including when restoring from a
 checkpoint dict via `fromDict`.
 
+`RunConfig.fromDict` raises `ValueError` if the `model` or `train` keys are
+not dicts (previously it silently fell back to defaults).
+
 ## Checkpoints
 
 Normal training and inference use one authoritative default file:
@@ -138,8 +162,18 @@ Training also writes `latest.pt` at every evaluation and periodic
 using `best.pt` unless `--checkpoint` selects another file. Snapshots default
 to every 1,000 steps with the newest three retained.
 
-`best.pt` tracks every new absolute validation-loss minimum.
-`earlyStopDelta` is separate and only determines whether patience resets.
+`best.pt` tracks every new absolute validation-loss minimum. When `best.pt` is
+written, its early-stopping counter is reset to zero so that resuming from it
+always starts with a clean patience budget. `earlyStopDelta` is separate and
+only determines whether patience resets.
+
+On resume, the first evaluation is skipped if it would duplicate the
+evaluation already recorded at the resumed step. This prevents duplicate
+entries in `metrics.jsonl`.
+
+`run.json` is written once at the start of a fresh run and never overwritten on
+resume, preserving the original `git_commit`, `created_at`, and
+`parent_checkpoint` fields.
 
 After training, `best.pt` is loaded and evaluated on deterministically sampled
 held-out test batches. That result is appended to `metrics.jsonl` and is not
@@ -160,6 +194,14 @@ Checkpoint saves are atomic at the filesystem level: data is written to a
 temporary file in the checkpoint directory and then installed with
 `os.replace()`. If serialization fails, the previous checkpoint remains
 untouched and the temporary file is removed.
+
+`CheckpointManager.loadCheckpoint` returns a `CheckpointLoadResult` dataclass
+(replacing the previous 9-tuple) with named fields:
+
+```text
+step, bestValLoss, lrStateRestored, version, versionMatches,
+configDrift, generatorState, evaluatorGeneratorState, earlyStoppingState
+```
 
 Inference reads the saved `ModelConfig`, constructs the matching model, and
 loads `modelState`. A separate model-only file is not used automatically.
@@ -184,9 +226,10 @@ Select another corpus and its held-out splits:
 
 ```sh
 tinyllm-train \
-  --corpus corpora/lewis-carroll/alices-adventures-in-wonderland/splits/train.txt \
-  --validation-corpus corpora/lewis-carroll/alices-adventures-in-wonderland/splits/validation.txt \
-  --test-corpus corpora/lewis-carroll/alices-adventures-in-wonderland/splits/test.txt
+  --corpus corpora/jane-austen/pride-and-prejudice/splits/train.txt \
+  --validation-corpus corpora/jane-austen/pride-and-prejudice/splits/validation.txt \
+  --test-corpus corpora/jane-austen/pride-and-prejudice/splits/test.txt \
+  --checkpoint runs/pride-byte/checkpoints/best.pt
 ```
 
 Start a clean run:
@@ -232,50 +275,41 @@ tinyllm-train --reset-early-stopping --early-stop-patience 5
 
 ## Inference
 
-Basic prompt generation:
+Generate 400 new byte tokens from the unconditional start token:
 
 ```sh
-tinyllm-infer \
-  --prompt "Mr. Sherlock Holmes" \
-  --tokens 400
+tinyllm-infer
 ```
 
-Controlled and reproducible sampling:
+Generate from a prompt:
 
 ```sh
-tinyllm-infer \
-  --prompt "Mr. Sherlock Holmes" \
-  --tokens 400 \
-  --temperature 0.8 \
-  --top-k 50 \
-  --seed 123
+tinyllm-infer --prompt "Mr. Sherlock Holmes"
+tinyllm-infer --prompt "To Sherlock Holmes she is always the woman." --tokens 200
+tinyllm-infer --prompt "Mr. Sherlock Holmes" --temperature 0.8 --top-k 50 --seed 123
+tinyllm-infer --checkpoint runs/pride-byte/checkpoints/best.pt --prompt "Elizabeth"
 ```
 
-Inference flags:
+Sampling options:
 
-```text
---checkpoint PATH
---prompt TEXT
---tokens COUNT
---temperature FLOAT
---top-k COUNT
---seed INTEGER
+- `--checkpoint`: selects a run checkpoint; defaults to the Sherlock run.
+- `--temperature`: controls randomness; lower values favor likely tokens.
+- `--top-k`: limits sampling to the K most likely next bytes.
+- `--seed`: makes repeated runs reproducible.
+
+The shell wrapper accepts the same arguments:
+
+```sh
+sh infer.sh --prompt "Mr. Sherlock Holmes" --tokens 200
 ```
 
-Defaults:
+Output is written directly to `sys.stdout.buffer` with the terminal's own
+encoding, substituting `?` for characters the terminal cannot display. This
+avoids `UnicodeEncodeError` on Windows cp1252 consoles when the model generates
+invalid UTF-8.
 
-```text
-checkpoint: runs/sherlock-byte-default/checkpoints/best.pt
-prompt: ""
-tokens: 400
-temperature: 1.0
-top-k: unrestricted
-seed: ambient random state
-```
-
-An explicit seed uses a local PyTorch generator and produces repeatable output.
-Inference does not currently expose `--log-level`; KV-cache rebuild debug
-messages are only visible through programmatic logging.
+Training and inference use CUDA when configured and available. If CUDA is
+requested but unavailable, both paths fall back to CPU.
 
 ## KV Cache
 
@@ -317,16 +351,43 @@ tinyllm-prepare-corpora
 ```
 
 Each work contains `raw/`, `clean/`, `units/`, `splits/`, and `manifest.json`.
-The current collection contains three public-domain fiction works:
+The current collection contains eight public-domain fiction works:
 
 ```text
-corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/
-corpora/lewis-carroll/alices-adventures-in-wonderland/
-corpora/jane-austen/pride-and-prejudice/
+corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/   (12 stories)
+corpora/lewis-carroll/alices-adventures-in-wonderland/       (12 chapters)
+corpora/jane-austen/pride-and-prejudice/                     (61 chapters)
+corpora/jane-austen/sense-and-sensibility/                   (50 chapters)
+corpora/jane-austen/emma/                                    (55 chapters)
+corpora/jane-austen/mansfield-park/                          (48 chapters)
+corpora/jane-austen/persuasion/                              (24 chapters)
+corpora/jane-austen/northanger-abbey/                        (31 chapters)
 ```
+
+The five new Austen novels must be downloaded before the pipeline can process
+them:
+
+```sh
+tinyllm-prepare-corpora --download-austen
+```
+
+`--download-pride` downloads Pride and Prejudice if its raw source is missing.
+`--download-austen` downloads all five remaining Austen novels.
 
 New experiment outputs belong under `runs/<experiment>/`, while selected
 reusable model artifacts belong under `models/`.
+
+### Training on all Austen novels combined
+
+Cat the splits together before training:
+
+```sh
+cat corpora/jane-austen/*/splits/train.txt      > corpora/jane-austen/combined/splits/train.txt
+cat corpora/jane-austen/*/splits/validation.txt > corpora/jane-austen/combined/splits/validation.txt
+cat corpora/jane-austen/*/splits/test.txt       > corpora/jane-austen/combined/splits/test.txt
+```
+
+Then pass the combined paths to `tinyllm-train`.
 
 ### getBatch requires an explicit generator
 
@@ -342,8 +403,8 @@ All callers — `Trainer`, `Evaluator`, and tests — must supply a generator.
 - Checkpoints use temporary-file plus atomic-replacement writes.
 - Training keeps separate best, latest, and retained periodic snapshots.
 - Training curve figures are closed after saving to avoid accumulation.
-- NumPy is declared as a runtime dependency in both `pyproject.toml` and
-  `requirements.txt`.
+- `run.json` is written once and never overwritten on resume.
+- Duplicate evaluation at resume step is suppressed via `_resumedFromStep`.
 
 ## Tests
 
@@ -382,47 +443,49 @@ pytest -v
 pytest tests/unit/test_core.py
 pytest tests/unit/test_core.py -k cached -v
 pytest tests/unit/test_infer.py
+pytest tests/unit/test_training_callbacks.py
 ```
 
 ## Known Issues and Technical Debt
 
-These are confirmed issues from code review. None are blocking but all should
-be addressed before the next major feature addition.
+These are confirmed issues from code review. None are blocking.
 
 **Design:**
 
-- `LRScheduleStrategy.load_state_dict` manually sets `scheduler._step_count`,
-  a PyTorch private attribute, to keep internal counters aligned after resume.
-  This will break silently if PyTorch changes its scheduler internals. The
-  `align_after_resume` fallback path (calling `step()` N times) is safer and
-  should replace the private-field approach.
+- `CheckpointCallback` holds a back-reference to `LMTrainer` (typed as `Any`)
+  to access RNG state and the checkpoint manager. The clean fix is a
+  `CheckpointContext` value object populated by the trainer at eval time and
+  passed into `on_eval`, removing the circular dependency entirely.
 
-- `tensor_utils.py` imports `torch.distributed` and `numpy` unconditionally
-  and defines `seed_everything`, `get_master_process`, `get_num_gpus`, and
-  `get_ddp_free_model` — none of which are used anywhere in the codebase.
-  These are dead code from an earlier distributed design and should be removed.
+- `CheckpointManager.loadCheckpoint` mutates its `model` and `optimizer`
+  arguments by calling `load_state_dict` on them. The method name implies it
+  returns data; the mutation is a hidden side effect. Rename to
+  `restoreCheckpoint`, or split into a data-loading step and a restoration step.
 
-- `persistence.py` has zero test coverage. Its `load-model` subcommand
-  distinguishes a full checkpoint from a model-only file by checking for a
-  `"modelState"` key — a heuristic that would misfire on a custom model whose
-  `state_dict` happens to contain that key.
+- `TrainConfig.fromDict` is incompatible with `toSerializableDict`: path fields
+  stripped by the latter are required by the former. Round-tripping through the
+  `run.json` payload would crash. No caller does this today.
 
-- `__init__.py` exports `ByteDataModule` but not `TokenDataModule` or
-  `SequenceDataModule`, even though `TokenDataModule` is what the default
-  training path uses. The public API should export all three, or the
-  asymmetry should be documented as intentional.
+- `SequenceDataModule` takes a full `TrainConfig` but only uses `batchSize` and
+  `device`. This over-wide dependency makes unit tests verbose.
 
-**Style:**
+- `AutoregressiveGenerator` takes a redundant `device: str` parameter; the
+  model already knows its device via `next(model.parameters()).device`.
 
-- A commented-out `logSample` call remains at the bottom of `Main.main()`.
-  Remove it or replace with a `--log-sample` flag.
+- `tensor_utils.get_device()` is defined but has no callers. Should be removed.
 
-- `plot_utils.py` uses `vars(modelConfig)` to dump config, but
-  `modelConfig.toDict()` already exists for this purpose. Use the dedicated
-  method for consistency.
+- Naming is inconsistent: `Evaluator` and `EarlyStopping` use `snake_case`
+  methods; most other production classes use `camelCase`. The documented
+  convention is camelCase for production code, snake_case for PyTorch protocol
+  methods only.
 
-- No `fail_under` coverage threshold is enforced. Consider adding one to
-  `pyproject.toml` once `persistence.py` is covered.
+- `build_data_module` in `Main.py` uses a string switch on
+  `trainConfig.dataModule`. Adding a new data module requires editing this
+  function (open/closed violation). A registry dict would be extensible.
+
+**Coverage:**
+
+- No `fail_under` threshold is enforced in `pyproject.toml`.
 
 ## Naming Convention
 
@@ -435,13 +498,16 @@ broad renaming unless handled as a deliberate refactor.
 
 Planned work in priority order:
 
-1. **More training data** — add more Project Gutenberg corpora to increase
-   total training text beyond the current ~600 KB across three works.
-2. **Scale the model** — increase `nLayer`, `nEmbed`, and `blockSize` once
-   there is data worth training on.
-3. **Fix known issues** — address the `try/finally`, dead code, and
-   `persistence.py` coverage gaps listed above.
-4. **BPE tokenization** — add as a controlled comparison path after scaling,
+1. **Retrain on expanded corpus** — the MLP key rename invalidated the existing
+   checkpoint; retrain on the combined Austen corpus (~3× more data than before)
+   to establish a new baseline.
+2. **Reproduce baselines** — run n-gram models (unigram through 5-gram) and the
+   context/structure-destruction probes on the new canonical split.
+3. **Scale the model** — increase `nLayer`, `nEmbed`, and `blockSize` once
+   there is data worth training on and a baseline to compare against.
+4. **Fix known issues** — `CheckpointContext`, `get_device()` removal,
+   `AutoregressiveGenerator` device param, naming consistency.
+5. **BPE tokenization** — add as a controlled comparison path after scaling,
    not as a replacement for byte tokens.
-5. **RL / self-improvement** — reward-signal experiments once the base model
+6. **RL / self-improvement** — reward-signal experiments once the base model
    generates coherent text.
