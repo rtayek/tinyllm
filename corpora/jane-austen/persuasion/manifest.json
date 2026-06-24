@@ -1,0 +1,243 @@
+{
+  "schema_version": 1,
+  "id": "jane-austen/persuasion",
+  "author": "Jane Austen",
+  "title": "Persuasion",
+  "language": "en",
+  "genre": "fiction",
+  "encoding": "utf-8",
+  "unit_type": "chapter",
+  "source": {
+    "provider": "Project Gutenberg",
+    "ebook_id": "105",
+    "url": "https://www.gutenberg.org/cache/epub/105/pg105.txt",
+    "path": "raw/gutenberg.txt",
+    "bytes": 497555,
+    "sha256": "64ffb821b9e9eb1040c103a44c28893c94ebe33ffbb911288b5022efaecbfefc"
+  },
+  "cleaning": {
+    "tool": "llm.corpus",
+    "version": 1,
+    "path": "clean/full.txt",
+    "bytes": 468974,
+    "sha256": "6631e4aac43af318e21a02ecbbe78f771cc5832c836f2f98fb9a61dcb2b0aaa1"
+  },
+  "units": [
+    {
+      "index": 1,
+      "heading": "CHAPTER I.",
+      "path": "units/chapters/01-chapter-i.txt",
+      "bytes": 15171,
+      "sha256": "a95e5c936661b8f85cad0bf97eabb7c80dce657563c645766f1ecb7721b50a44"
+    },
+    {
+      "index": 2,
+      "heading": "CHAPTER II.",
+      "path": "units/chapters/02-chapter-ii.txt",
+      "bytes": 11363,
+      "sha256": "4c43c3ab1abee0113f2a3137a7af251ea0c722a8155370d918cb44fde2eb46d3"
+    },
+    {
+      "index": 3,
+      "heading": "CHAPTER III.",
+      "path": "units/chapters/03-chapter-iii.txt",
+      "bytes": 15882,
+      "sha256": "c667aa6613f2ba67f7dcb3dab72ba1054634d7ed6969f8d5083763781f867fcb"
+    },
+    {
+      "index": 4,
+      "heading": "CHAPTER IV.",
+      "path": "units/chapters/04-chapter-iv.txt",
+      "bytes": 10571,
+      "sha256": "302336e1341b197394d1858ece8df68a9338e37505ca6f6eae532c53787deb00"
+    },
+    {
+      "index": 5,
+      "heading": "CHAPTER V.",
+      "path": "units/chapters/05-chapter-v.txt",
+      "bytes": 18516,
+      "sha256": "c64a3303c5ef871109f3f742f272c098ee3dbe0ad1e24e12f7d30fa8056b1fcf"
+    },
+    {
+      "index": 6,
+      "heading": "CHAPTER VI.",
+      "path": "units/chapters/06-chapter-vi.txt",
+      "bytes": 21313,
+      "sha256": "2556871c8b08e1a6b6b338c491136361acc75b2c738c2a5316c239c43b630a8c"
+    },
+    {
+      "index": 7,
+      "heading": "CHAPTER VII.",
+      "path": "units/chapters/07-chapter-vii.txt",
+      "bytes": 18642,
+      "sha256": "b7f051dbb172984c8640bc377a57a210a44e55ef80b11f375a35c25eda9fd82b"
+    },
+    {
+      "index": 8,
+      "heading": "CHAPTER VIII.",
+      "path": "units/chapters/08-chapter-viii.txt",
+      "bytes": 18689,
+      "sha256": "2c99e086d9b6be0db9dfc48eac5d52041ff1c06c2d96327fda19f0e3779f09d5"
+    },
+    {
+      "index": 9,
+      "heading": "CHAPTER IX.",
+      "path": "units/chapters/09-chapter-ix.txt",
+      "bytes": 16197,
+      "sha256": "641bb56a01e5f13fc5fade87340b3feae3bd7c8bb5a1dab1d92245dbe038d800"
+    },
+    {
+      "index": 10,
+      "heading": "CHAPTER X.",
+      "path": "units/chapters/10-chapter-x.txt",
+      "bytes": 21711,
+      "sha256": "9b9efe5e2eda1adcfe0451aec5fe6e04362d430367cabe8f5fee7f4a65b30a62"
+    },
+    {
+      "index": 11,
+      "heading": "CHAPTER XI.",
+      "path": "units/chapters/11-chapter-xi.txt",
+      "bytes": 17438,
+      "sha256": "56c32e761932e6344b1b283b864e1932f96ddc09519fcf5b2fe95752b38f0deb"
+    },
+    {
+      "index": 12,
+      "heading": "CHAPTER XII.",
+      "path": "units/chapters/12-chapter-xii.txt",
+      "bytes": 31045,
+      "sha256": "4ced8474ca6870e7611b6845673b310124699b01e2de1415621531442e7a8318"
+    },
+    {
+      "index": 13,
+      "heading": "CHAPTER XIII.",
+      "path": "units/chapters/13-chapter-xiii.txt",
+      "bytes": 15391,
+      "sha256": "e546723ffda24d56f9065b28d4b4833051caf586c69240f32ee1087cd199342a"
+    },
+    {
+      "index": 14,
+      "heading": "CHAPTER XIV.",
+      "path": "units/chapters/14-chapter-xiv.txt",
+      "bytes": 14145,
+      "sha256": "16e41df3540bcbe822ecbfd8fb234fc983af764b1d9308084923d4410f2f33cb"
+    },
+    {
+      "index": 15,
+      "heading": "CHAPTER XV.",
+      "path": "units/chapters/15-chapter-xv.txt",
+      "bytes": 15817,
+      "sha256": "3840d27d0ccc84284525b6783e10412254f53581bea623012a61581825488fe8"
+    },
+    {
+      "index": 16,
+      "heading": "CHAPTER XVI.",
+      "path": "units/chapters/16-chapter-xvi.txt",
+      "bytes": 13786,
+      "sha256": "0b2fcf0e467d3f85edbe29fb37c1000ab67a52b1dfb0412c5a5f5bdd1f2f3568"
+    },
+    {
+      "index": 17,
+      "heading": "CHAPTER XVII.",
+      "path": "units/chapters/17-chapter-xvii.txt",
+      "bytes": 19851,
+      "sha256": "da110d02df591611cfd0338361f81bd7951501026f6eff0f32c4e8afa6b2f9ad"
+    },
+    {
+      "index": 18,
+      "heading": "CHAPTER XVIII.",
+      "path": "units/chapters/18-chapter-xviii.txt",
+      "bytes": 22565,
+      "sha256": "dfa777b47552af31417b10938b4d9b6f04ac8ebb432caeb194eb7ca07bd30d55"
+    },
+    {
+      "index": 19,
+      "heading": "CHAPTER XIX.",
+      "path": "units/chapters/19-chapter-xix.txt",
+      "bytes": 13440,
+      "sha256": "2f8377dbb35c5fb507813f12fba52852e6b45863731be95ca10f018f2f489e04"
+    },
+    {
+      "index": 20,
+      "heading": "CHAPTER XX.",
+      "path": "units/chapters/20-chapter-xx.txt",
+      "bytes": 19771,
+      "sha256": "7b6ea14cff18410251146785d5e7fe196d5c5532fb0ff16beef0284a8c958a24"
+    },
+    {
+      "index": 21,
+      "heading": "CHAPTER XXI.",
+      "path": "units/chapters/21-chapter-xxi.txt",
+      "bytes": 38561,
+      "sha256": "ddc584904b759428d6bbee1e0d5da74952d6e3b61c8cf9a8e1f4df0e2fd298a7"
+    },
+    {
+      "index": 22,
+      "heading": "CHAPTER XXII.",
+      "path": "units/chapters/22-chapter-xxii.txt",
+      "bytes": 33100,
+      "sha256": "b23a9d48dda3028753f4b95dce2944cf4adccb71b9ab5b1a3899de2b872723bb"
+    },
+    {
+      "index": 23,
+      "heading": "CHAPTER XXIII.",
+      "path": "units/chapters/23-chapter-xxiii.txt",
+      "bytes": 36908,
+      "sha256": "10c24fe6a3064ac20ecb3d1e935b3579f512b2c418f385939709a833b0ca32ca"
+    },
+    {
+      "index": 24,
+      "heading": "CHAPTER XXIV.",
+      "path": "units/chapters/24-chapter-xxiv.txt",
+      "bytes": 9055,
+      "sha256": "7b47c84f8804cca58879b2de604eafab4186e2d1cd4b15eaa2b4fe64632c724b"
+    }
+  ],
+  "splits": {
+    "strategy": "ordered logical units",
+    "train": {
+      "units": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "path": "splits/train.txt",
+      "bytes": 331569,
+      "sha256": "fffd0ca90d92840bf2e0488699d10c1951939c9afca44a6e0237b5e48262c78d"
+    },
+    "validation": {
+      "units": [
+        20,
+        21
+      ],
+      "path": "splits/validation.txt",
+      "bytes": 58334,
+      "sha256": "e1bda37d78d66e01c7ebc80ea6b8f6114c41b56715cdba03755e1ced70168292"
+    },
+    "test": {
+      "units": [
+        22,
+        23,
+        24
+      ],
+      "path": "splits/test.txt",
+      "bytes": 79067,
+      "sha256": "9f93c4015f1bbf3247077202cb4b6b77b7e80c9ea9780cfa1655665f989d3124"
+    }
+  }
+}
