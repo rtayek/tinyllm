@@ -351,7 +351,7 @@ def main() -> None:
         avg = sum(ctx_losses) / len(ctx_losses)
         delta = avg - avg_base
         pct = 100.0 * delta / avg_base
-        marginal = f"{avg - prev_avg:+.4f}" if prev_avg is not None else "       —"
+        marginal = f"{avg - prev_avg:+.4f}" if prev_avg is not None else "       -"
         print(f"  context_{ctx:<4}  {avg:>8.4f}  {delta:>+7.4f}  {pct:>+6.1f}%  {marginal:>9}")
         prev_avg = avg
 
