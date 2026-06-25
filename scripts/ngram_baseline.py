@@ -19,16 +19,9 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-BOOKS: list[tuple[str, str]] = [
-    ("Pride and Prejudice",   "corpora/jane-austen/pride-and-prejudice/splits/validation.txt"),
-    ("Sense and Sensibility", "corpora/jane-austen/sense-and-sensibility/splits/validation.txt"),
-    ("Emma",                  "corpora/jane-austen/emma/splits/validation.txt"),
-    ("Mansfield Park",        "corpora/jane-austen/mansfield-park/splits/validation.txt"),
-    ("Persuasion",            "corpora/jane-austen/persuasion/splits/validation.txt"),
-    ("Northanger Abbey",      "corpora/jane-austen/northanger-abbey/splits/validation.txt"),
-    ("Sherlock Holmes",       "corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/validation.txt"),
-    ("Alice in Wonderland",   "corpora/lewis-carroll/alices-adventures-in-wonderland/splits/validation.txt"),
-]
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from llm.research_books import RESEARCH_BOOKS
 
 DEFAULT_TRAIN = "corpora/jane-austen/combined/splits/train.txt"
 VOCAB_SIZE = 256
@@ -146,12 +139,13 @@ def main() -> None:
 
     # Load available validation books
     val_books: list[tuple[str, bytes]] = []
-    for name, path in BOOKS:
-        p = Path(path)
+    for book in RESEARCH_BOOKS:
+        name = book.name
+        p = book.validation_path
         if p.exists():
             val_books.append((name, p.read_bytes()))
         else:
-            print(f"  Skipping {name} -- {path} not found")
+            print(f"  Skipping {name} -- {p} not found")
 
     if not val_books:
         print("No validation files found.")

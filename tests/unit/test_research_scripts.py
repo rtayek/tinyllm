@@ -7,6 +7,8 @@ from types import ModuleType
 import pytest
 import torch
 
+from llm.research_books import RESEARCH_BOOKS, research_book_pairs
+
 
 REPO_ROOT = Path(__file__).parents[2]
 
@@ -29,6 +31,14 @@ def test_ngram_training_counts_final_prediction() -> None:
     assert model.counts[(97,)][98] == 1
     assert model.counts[(98,)][99] == 1
     assert model.cross_entropy(b"bc") < 6.0
+
+
+def test_shared_research_book_registry_has_expected_books() -> None:
+    pairs = research_book_pairs()
+
+    assert pairs == [(book.name, book.validationPath) for book in RESEARCH_BOOKS]
+    assert pairs[0][0] == "Pride and Prejudice"
+    assert pairs[-1][0] == "Alice in Wonderland"
 
 
 def test_context_sizes_include_configured_block_size() -> None:

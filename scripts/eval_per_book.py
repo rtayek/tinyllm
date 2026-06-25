@@ -23,18 +23,8 @@ from llm.DataModule import SequenceDataModule
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 from llm.Model import TinyGPTLanguageModel
+from llm.research_books import RESEARCH_BOOKS
 from llm.tensor_utils import resolve_device
-
-BOOKS = [
-    ("Pride and Prejudice",   "corpora/jane-austen/pride-and-prejudice/splits/validation.txt"),
-    ("Sense and Sensibility", "corpora/jane-austen/sense-and-sensibility/splits/validation.txt"),
-    ("Emma",                  "corpora/jane-austen/emma/splits/validation.txt"),
-    ("Mansfield Park",        "corpora/jane-austen/mansfield-park/splits/validation.txt"),
-    ("Persuasion",            "corpora/jane-austen/persuasion/splits/validation.txt"),
-    ("Northanger Abbey",      "corpora/jane-austen/northanger-abbey/splits/validation.txt"),
-    ("Sherlock Holmes",       "corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/validation.txt"),
-    ("Alice in Wonderland",   "corpora/lewis-carroll/alices-adventures-in-wonderland/splits/validation.txt"),
-]
 
 
 def load_tokens(path: Path) -> torch.Tensor:
@@ -90,8 +80,9 @@ def main() -> None:
         "seed": args.seed,
         "books": [],
     }
-    for name, val_path in BOOKS:
-        path = Path(val_path)
+    for book in RESEARCH_BOOKS:
+        name = book.name
+        path = book.validation_path
         if not path.exists():
             print(f"  {name:<26}  {'(not found)':>8}")
             continue

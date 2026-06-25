@@ -47,6 +47,66 @@ class FakeGenerator:
         type(self).save_calls += 1
 
 
+def test_parse_train_cli_builds_run_config(tmp_path: Path) -> None:
+    cli_config = main_module.parseTrainCli(
+        [
+            "--corpus",
+            "train.txt",
+            "--validation-corpus",
+            "val.txt",
+            "--test-corpus",
+            "test.txt",
+            "--run-dir",
+            str(tmp_path / "runs" / "exp"),
+            "--seed",
+            "123",
+            "--block-size",
+            "256",
+            "--n-embed",
+            "128",
+            "--n-head",
+            "4",
+            "--n-layer",
+            "3",
+            "--max-steps",
+            "10",
+            "--early-stop-patience",
+            "5",
+            "--reset-early-stopping",
+            "--snapshot-interval",
+            "2",
+            "--max-snapshots",
+            "1",
+            "--plot",
+            "--log-level",
+            "DEBUG",
+        ]
+    )
+
+    assert cli_config.logLevel == logging.DEBUG
+    assert cli_config.resetEarlyStopping is True
+    assert cli_config.runConfig.modelConfig.blockSize == 256
+    assert cli_config.runConfig.modelConfig.nEmbed == 128
+    assert cli_config.runConfig.modelConfig.nHead == 4
+    assert cli_config.runConfig.modelConfig.nLayer == 3
+    train_config = cli_config.runConfig.trainConfig
+    assert train_config.dataPath == "train.txt"
+    assert train_config.validationDataPath == "val.txt"
+    assert train_config.testDataPath == "test.txt"
+    assert train_config.seed == 123
+    assert train_config.maxSteps == 10
+    assert train_config.earlyStopPatience == 5
+    assert train_config.snapshotInterval == 2
+    assert train_config.maxSnapshots == 1
+    assert train_config.plotCurve is True
+    assert Path(train_config.ckptPath).as_posix().endswith("exp/checkpoints/best.pt")
+
+
+def test_parse_train_cli_rejects_invalid_shape_flag() -> None:
+    with pytest.raises(SystemExit):
+        main_module.parseTrainCli(["--n-head", "0"])
+
+
 def test_main_accepts_model_shape_and_run_dir_flags(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

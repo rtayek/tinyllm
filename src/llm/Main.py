@@ -2,7 +2,7 @@ import argparse
 import logging
 from dataclasses import replace
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Callable, NamedTuple, Sequence
 
 import torch
 
@@ -18,6 +18,12 @@ from llm.TrainingCallback import TrainingCallback, LoggingCallback, MetricsCallb
 from llm.tensor_utils import resolve_device
 
 logger = logging.getLogger(__name__)
+
+
+class TrainCliConfig(NamedTuple):
+    runConfig: RunConfig
+    resetEarlyStopping: bool
+    logLevel: int
 
 
 def setupLogging(level: int = logging.INFO) -> logging.Logger:
@@ -102,10 +108,7 @@ def writeRunMetadata(trainer: LMTrainer, logger: logging.Logger) -> None:
         logger.info("Run metadata written to %s", metadataPath)
 
 
-def main(argv: Sequence[str] | int | None = None, log_level: int = logging.INFO) -> None:
-    if isinstance(argv, int):
-        log_level = argv
-        argv = None
+def buildParser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Train the tiny LLM")
     parser.add_argument("--corpus", type=str, default=None, help="Path to training corpus (overrides TrainConfig.dataPath)")
     parser.add_argument("--validation-corpus", type=str, default=None, help="Path to validation corpus")
@@ -124,11 +127,15 @@ def main(argv: Sequence[str] | int | None = None, log_level: int = logging.INFO)
     parser.add_argument("--max-snapshots", type=int, default=None, help="Maximum retained step snapshots")
     parser.add_argument("--plot", action="store_true", help="Enable plotting the training curve")
     parser.add_argument("--log-level", type=str, default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR)")
-    args = parser.parse_args(argv)
+    return parser
 
-    level = getattr(logging, args.log_level.upper(), log_level)
-    activeLogger = setupLogging(level=level)
 
+def runConfigFromArgs(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+    defaultLogLevel: int = logging.INFO,
+) -> TrainCliConfig:
+    level = getattr(logging, args.log_level.upper(), defaultLogLevel)
     runConfig = RunConfig()
     modelConfig = runConfig.modelConfig
     trainConfig = runConfig.trainConfig
@@ -186,14 +193,35 @@ def main(argv: Sequence[str] | int | None = None, log_level: int = logging.INFO)
         trainConfig = replace(trainConfig, maxSnapshots=args.max_snapshots)
     if args.plot:
         trainConfig = replace(trainConfig, plotCurve=True)
-    runConfig = RunConfig(modelConfig=modelConfig, trainConfig=trainConfig)
+    return TrainCliConfig(
+        runConfig=RunConfig(modelConfig=modelConfig, trainConfig=trainConfig),
+        resetEarlyStopping=args.reset_early_stopping,
+        logLevel=level,
+    )
+
+
+def parseTrainCli(
+    argv: Sequence[str] | None = None,
+    defaultLogLevel: int = logging.INFO,
+) -> TrainCliConfig:
+    parser = buildParser()
+    args = parser.parse_args(argv)
+    return runConfigFromArgs(args, parser, defaultLogLevel=defaultLogLevel)
+
+
+def main(argv: Sequence[str] | int | None = None, log_level: int = logging.INFO) -> None:
+    if isinstance(argv, int):
+        log_level = argv
+        argv = None
+    cliConfig = parseTrainCli(argv, defaultLogLevel=log_level)
+    activeLogger = setupLogging(level=cliConfig.logLevel)
 
     activeLogger.info("Building trainer...")
-    trainer = buildTrainer(runConfig, log=activeLogger)
+    trainer = buildTrainer(cliConfig.runConfig, log=activeLogger)
 
     activeLogger.info("Loading checkpoint (if any)...")
     trainer.loadCheckpointIfExists(
-        resetEarlyStopping=args.reset_early_stopping,
+        resetEarlyStopping=cliConfig.resetEarlyStopping,
     )
 
     writeRunMetadata(trainer, activeLogger)

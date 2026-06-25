@@ -46,6 +46,7 @@ from llm.DataModule import SequenceDataModule
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 from llm.Model import TinyGPTLanguageModel
+from llm.research_books import RESEARCH_BOOKS
 from llm.tensor_utils import resolve_device
 from llm.corruptions import (
     PLACEHOLDERS,
@@ -57,22 +58,6 @@ from llm.corruptions import (
     corrupt_shuffle_words,
     make_corrupt_replace_names,
 )
-
-# ---------------------------------------------------------------------------
-# Books
-# ---------------------------------------------------------------------------
-
-BOOKS: list[tuple[str, str]] = [
-    ("Pride and Prejudice",   "corpora/jane-austen/pride-and-prejudice/splits/validation.txt"),
-    ("Sense and Sensibility", "corpora/jane-austen/sense-and-sensibility/splits/validation.txt"),
-    ("Emma",                  "corpora/jane-austen/emma/splits/validation.txt"),
-    ("Mansfield Park",        "corpora/jane-austen/mansfield-park/splits/validation.txt"),
-    ("Persuasion",            "corpora/jane-austen/persuasion/splits/validation.txt"),
-    ("Northanger Abbey",      "corpora/jane-austen/northanger-abbey/splits/validation.txt"),
-    ("Sherlock Holmes",       "corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/validation.txt"),
-    ("Alice in Wonderland",   "corpora/lewis-carroll/alices-adventures-in-wonderland/splits/validation.txt"),
-]
-
 
 # ---------------------------------------------------------------------------
 # Evaluation helpers
@@ -269,10 +254,11 @@ def main() -> None:
 
     # Load all book data
     book_data: list[tuple[str, bytes, torch.Tensor]] = []
-    for book_name, val_path in BOOKS:
-        path = Path(val_path)
+    for book in RESEARCH_BOOKS:
+        book_name = book.name
+        path = book.validation_path
         if not path.exists():
-            print(f"  Skipping {book_name} — {val_path} not found")
+            print(f"  Skipping {book_name} — {path} not found")
             continue
         raw = path.read_bytes()
         tokens = load_tokens(path)
