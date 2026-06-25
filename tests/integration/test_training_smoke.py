@@ -10,7 +10,7 @@ from llm.Model import TinyGPTLanguageModel
 from llm.Trainer import LMTrainer
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
-from llm.Checkpoint import Checkpoint
+from llm.Checkpoint import Checkpoint, CheckpointManager
 from llm.TrainingCallback import CheckpointCallback
 
 
@@ -138,6 +138,70 @@ def test_short_training_resumes_from_latest_checkpoint(tmp_path: Path) -> None:
     second_latest = Checkpoint.load(str(checkpoint.with_name("latest.pt")), "cpu")
     assert second_latest.step == 3
     assert resumed.trainingCurve[0][0] == 2
+
+
+def test_resume_rejects_incompatible_model_config(tmp_path: Path) -> None:
+    data_path = tmp_path / "input.txt"
+    data_path.write_bytes(b"hello tiny resume training\n" * 100)
+    checkpoint = tmp_path / "checkpoints" / "best.pt"
+    saved_model_config = ModelConfig(
+        blockSize=8,
+        vocabSize=256,
+        nEmbed=16,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
+    )
+    requested_model_config = ModelConfig(
+        blockSize=16,
+        vocabSize=256,
+        nEmbed=16,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
+    )
+    train_config = TrainConfig(
+        batchSize=2,
+        maxSteps=1,
+        evalInterval=1,
+        evalIters=1,
+        plotCurve=False,
+        ckptPath=str(checkpoint),
+        dataPath=str(data_path),
+        validationDataPath=None,
+        testDataPath=None,
+        device="cpu",
+    )
+    data_module = ByteDataModule(saved_model_config, train_config)
+    saved_model = TinyGPTLanguageModel(saved_model_config)
+    optimizer = torch.optim.AdamW(saved_model.parameters())
+    saved_manager = CheckpointManager(saved_model_config, train_config)
+    saved_manager.saveCheckpoint(
+        saved_model,
+        optimizer,
+        lrStrategyState=None,
+        step=0,
+        bestValLoss=None,
+        path=str(checkpoint.with_name("latest.pt")),
+    )
+
+    requested_model = TinyGPTLanguageModel(requested_model_config)
+    evaluator = Evaluator(
+        requested_model,
+        data_module,
+        train_config,
+        EarlyStopping(patience=2, delta=0.0),
+    )
+    trainer = LMTrainer(
+        requested_model_config,
+        train_config,
+        requested_model,
+        data_module,
+        evaluator=evaluator,
+    )
+
+    with pytest.raises(ValueError, match="Checkpoint model config is incompatible"):
+        trainer.loadCheckpointIfExists()
 
 
 def test_missing_checkpoint_is_reported_as_new_run(

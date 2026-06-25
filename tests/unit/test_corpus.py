@@ -220,3 +220,16 @@ def test_prepare_combined_corpus_uses_only_requested_work_splits(
         data = source_path.read_bytes()
         assert record["bytes"] == len(data)
         assert record["sha256"] == hashlib.sha256(data).hexdigest()
+
+
+def test_committed_combined_austen_manifest_matches_split_files() -> None:
+    root = Path("corpora") / "jane-austen" / "combined"
+    manifest_path = root / "manifest.json"
+
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for split in ("train", "validation", "test"):
+        record = manifest["splits"][split]
+        data = (root / record["path"]).read_bytes()
+        assert record["bytes"] == len(data)
+        assert record["sha256"] == hashlib.sha256(data).hexdigest()

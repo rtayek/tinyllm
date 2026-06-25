@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "id": "jane-austen/combined",
+  "author": "Jane Austen",
+  "title": "Combined Jane Austen corpus",
+  "language": "en",
+  "genre": "fiction",
+  "encoding": "utf-8",
+  "unit_type": "combined-split",
+  "source": {
+    "provider": "local prepared corpora",
+    "works": [
+      "jane-austen/pride-and-prejudice",
+      "jane-austen/sense-and-sensibility",
+      "jane-austen/emma",
+      "jane-austen/mansfield-park",
+      "jane-austen/persuasion",
+      "jane-austen/northanger-abbey"
+    ]
+  },
+  "splits": {
+    "strategy": "concatenate prepared work splits",
+    "train": {
+      "sources": [
+        {
+          "id": "jane-austen/pride-and-prejudice",
+          "split": "train",
+          "path": "jane-austen/pride-and-prejudice/splits/train.txt",
+          "bytes": 547299,
+          "sha256": "5b98263625bd19c30bf79e55c3f18727ebddf989753da8224bf716778056622d"
+        },
+        {
+          "id": "jane-austen/sense-and-sensibility",
+          "split": "train",
+          "path": "jane-austen/sense-and-sensibility/splits/train.txt",
+          "bytes": 515042,
+          "sha256": "abee04478e5b30d1d9653773b70b4bc4a0b8a6eae7b1e479e3418b241d48133c"
+        },
+        {
+          "id": "jane-austen/emma",
+          "split": "train",
+          "path": "jane-austen/emma/splits/train.txt",
+          "bytes": 706160,
+          "sha256": "5d004f0ad53e9a41859e5175ba3a251c24771bcd93d7ab241f43183bb2e63486"
+        },
+        {
+          "id": "jane-austen/mansfield-park",
+          "split": "train",
+          "path": "jane-austen/mansfield-park/splits/train.txt",
+          "bytes": 726757,
+          "sha256": "679f16adf73557150894c39e34203d002093ac5c8b17cbe804880d41b2ba4ee0"
+        },
+        {
+          "id": "jane-austen/persuasion",
+          "split": "train",
+          "path": "jane-austen/persuasion/splits/train.txt",
+          "bytes": 331569,
+          "sha256": "fffd0ca90d92840bf2e0488699d10c1951939c9afca44a6e0237b5e48262c78d"
+        },
+        {
+          "id": "jane-austen/northanger-abbey",
+          "split": "train",
+          "path": "jane-austen/northanger-abbey/splits/train.txt",
+          "bytes": 337267,
+          "sha256": "9e09bb37457e7685cbc2db4cfddd3e36bc7b66780ec9ae9570043fbb89858417"
+        }
+      ],
+      "path": "splits/train.txt",
+      "bytes": 3164104,
+      "sha256": "9b4c80d9b728e2cbade270b3296a582650f16984b2b3f60a37bf9007c6da9704"
+    },
+    "validation": {
+      "sources": [
+        {
+          "id": "jane-austen/pride-and-prejudice",
+          "split": "validation",
+          "path": "jane-austen/pride-and-prejudice/splits/validation.txt",
+          "bytes": 80042,
+          "sha256": "df4ef1867d94a08fc94877e3409220dff1b8b665f9c617ffac4946efae41fe60"
+        },
+        {
+          "id": "jane-austen/sense-and-sensibility",
+          "split": "validation",
+          "path": "jane-austen/sense-and-sensibility/splits/validation.txt",
+          "bytes": 88030,
+          "sha256": "36a4780b36ee8fa42a736b8af7ef47fb0d3bd0e0294970c8176bb776d9121cd6"
+        },
+        {
+          "id": "jane-austen/emma",
+          "split": "validation",
+          "path": "jane-austen/emma/splits/validation.txt",
+          "bytes": 92778,
+          "sha256": "7c96e8739f41279974407d887245543b96a89385a1013f69582c9dd2d969a19a"
+        },
+        {
+          "id": "jane-austen/mansfield-park",
+          "split": "validation",
+          "path": "jane-austen/mansfield-park/splits/validation.txt",
+          "bytes": 60277,
+          "sha256": "2acad1786e6a71996bc6a1d444d78400ad9bcebddd6b6155eabbe656491399c4"
+        },
+        {
+          "id": "jane-austen/persuasion",
+          "split": "validation",
+          "path": "jane-austen/persuasion/splits/validation.txt",
+          "bytes": 58334,
+          "sha256": "e1bda37d78d66e01c7ebc80ea6b8f6114c41b56715cdba03755e1ced70168292"
+        },
+        {
+          "id": "jane-austen/northanger-abbey",
+          "split": "validation",
+          "path": "jane-austen/northanger-abbey/splits/validation.txt",
+          "bytes": 38499,
+          "sha256": "a1a133a4cce7d1f882f08b2f1e8e6840714f7cf1d668095a7061288961a53f2c"
+        }
+      ],
+      "path": "splits/validation.txt",
+      "bytes": 417970,
+      "sha256": "8e14cee6a6d37a0050dfc46e3cbabd9922423ec50cff0ed41ca732a94da182ff"
+    },
+    "test": {
+      "sources": [
+        {
+          "id": "jane-austen/pride-and-prejudice",
+          "split": "test",
+          "path": "jane-austen/pride-and-prejudice/splits/test.txt",
+          "bytes": 69070,
+          "sha256": "8612a603a9415a0ad51b942855c077b8f72a48805b14c14cc4b9433d94e01f58"
+        },
+        {
+          "id": "jane-austen/sense-and-sensibility",
+          "split": "test",
+          "path": "jane-austen/sense-and-sensibility/splits/test.txt",
+          "bytes": 76475,
+          "sha256": "e58221b15c99d38063172d9332b11020fa01f5c7ea38034d6b5afb5b97f4dfd0"
+        },
+        {
+          "id": "jane-austen/emma",
+          "split": "test",
+          "path": "jane-austen/emma/splits/test.txt",
+          "bytes": 97589,
+          "sha256": "6bbac7865fdb4162f3819982d8a504363ae98cfad46f33d9f97f0bfa37957df3"
+        },
+        {
+          "id": "jane-austen/mansfield-park",
+          "split": "test",
+          "path": "jane-austen/mansfield-park/splits/test.txt",
+          "bytes": 105751,
+          "sha256": "10ff07af62aa309eeefe0662d8800afaa4b2b39c1bb731bb670ca53f438960cb"
+        },
+        {
+          "id": "jane-austen/persuasion",
+          "split": "test",
+          "path": "jane-austen/persuasion/splits/test.txt",
+          "bytes": 79067,
+          "sha256": "9f93c4015f1bbf3247077202cb4b6b77b7e80c9ea9780cfa1655665f989d3124"
+        },
+        {
+          "id": "jane-austen/northanger-abbey",
+          "split": "test",
+          "path": "jane-austen/northanger-abbey/splits/test.txt",
+          "bytes": 63056,
+          "sha256": "3358770dd6abdd44444ae5cf29651ad4ce643d7d84ad2fac48fdc4e22587d5f9"
+        }
+      ],
+      "path": "splits/test.txt",
+      "bytes": 491018,
+      "sha256": "2254ada6807f084346b7fe731245d5a171a262ebdb67653f32361377dfee6c58"
+    }
+  }
+}

@@ -29,9 +29,9 @@ tinyllm-prepare-corpora
 Verification:
 
 ```text
-pytest: 86 collected, 86 passed
+pytest: 88 collected, 88 passed
 pyright: 0 errors
-branch coverage: 85.6%
+branch coverage: 85.7%
 ```
 
 Current checkpoints exist under `runs/`. Checkpoint compatibility still depends

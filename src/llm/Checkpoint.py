@@ -219,6 +219,23 @@ class CheckpointManager:
             return CheckpointLoadResult()
 
         checkpoint = Checkpoint.load(resumePath, self.trainCfg.device)
+        if checkpoint.modelConfig:
+            currentModelDict = self.modelCfg.toDict()
+            incompatible = {
+                k: (currentModelDict[k], v)
+                for k, v in checkpoint.modelConfig.items()
+                if k in currentModelDict and currentModelDict[k] != v
+            }
+            if incompatible:
+                details = ", ".join(
+                    f"{key}: current={current!r}, checkpoint={saved!r}"
+                    for key, (current, saved) in sorted(incompatible.items())
+                )
+                raise ValueError(
+                    "Checkpoint model config is incompatible with the requested "
+                    f"model config at {resumePath}: {details}. Use a new "
+                    "--run-dir/--checkpoint or restart from scratch."
+                )
         model.load_state_dict(checkpoint.modelState)
         optimizer.load_state_dict(checkpoint.optimizerState)
 
