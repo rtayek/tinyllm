@@ -12,6 +12,7 @@ import torch
 
 from .Config import ModelConfig, TrainConfig
 from .Model import TinyGPTLanguageModel
+from .tensor_utils import resolve_device
 
 _TORCH_LOAD_SUPPORTS_WEIGHTS_ONLY = "weights_only" in inspect.signature(cast(Any, torch.load)).parameters  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
 
@@ -111,10 +112,11 @@ class Checkpoint:
 
     @staticmethod
     def load(path: str, device: str | torch.device) -> "Checkpoint":
+        resolved_device = resolve_device(str(device), logging.getLogger(__name__))
         if _TORCH_LOAD_SUPPORTS_WEIGHTS_ONLY:
-            data = cast(Dict[str, Any], torch.load(path, map_location=device, weights_only=False))  # pyright: ignore[reportUnknownMemberType]
+            data = cast(Dict[str, Any], torch.load(path, map_location=resolved_device, weights_only=False))  # pyright: ignore[reportUnknownMemberType]
         else:
-            data = cast(Dict[str, Any], torch.load(path, map_location=device))  # pyright: ignore[reportUnknownMemberType]
+            data = cast(Dict[str, Any], torch.load(path, map_location=resolved_device))  # pyright: ignore[reportUnknownMemberType]
         return Checkpoint.fromDict(data)
 
     @staticmethod

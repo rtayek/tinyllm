@@ -41,8 +41,8 @@ class TrainConfig:
     snapshotInterval: int = 1000
     maxSnapshots: int = 3
     weightDecay: float = 0.02
-    earlyStopPatience: int = 2
-    earlyStopDelta: float = 0.003
+    earlyStopPatience: int = 10
+    earlyStopDelta: float = 0.001
     plotCurve: bool = True
     dataModule: str = "token"
     ckptPath: str = "runs/sherlock-byte-default/checkpoints/best.pt"

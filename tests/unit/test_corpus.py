@@ -14,12 +14,14 @@ from llm.corpus import (
     MANSFIELD_PARK,
     PERSUASION,
     NORTHANGER_ABBEY,
+    clean_austen,
     clean_alice,
     clean_pride_and_prejudice,
     clean_sherlock,
     normalize_text,
     prepare_corpora,
     split_alice_chapters,
+    split_northanger_abbey_chapters,
     split_pride_chapters,
     split_sherlock_stories,
 )
@@ -48,6 +50,12 @@ def chapters(count: int) -> str:
     return "\n\n".join(
         f"CHAPTER {number}.\n\nChapter body {index}"
         for index, number in enumerate(ROMAN[:count], start=1)
+    )
+
+
+def numeric_chapters(count: int) -> str:
+    return "\n\n".join(
+        f"CHAPTER {index}\n\nChapter body {index}" for index in range(1, count + 1)
     )
 
 
@@ -96,6 +104,13 @@ def test_pride_cleaner_removes_illustrations_and_normalizes_headings() -> None:
     assert "[Illustration" not in cleaned
     assert "CHAPTER XLVI." in cleaned
     assert len(split_pride_chapters(cleaned)) == 61
+
+
+def test_austen_cleaner_accepts_numeric_chapter_headings() -> None:
+    cleaned = clean_austen(wrapped("Contents\n" + numeric_chapters(31)))
+
+    assert cleaned.startswith("CHAPTER 1")
+    assert len(split_northanger_abbey_chapters(cleaned)) == 31
 
 
 def test_splitters_require_expected_unit_counts() -> None:

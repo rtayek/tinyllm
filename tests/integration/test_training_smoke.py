@@ -73,6 +73,73 @@ def test_training_smoke(tmp_path: Path) -> None:
     ]
 
 
+def test_short_training_resumes_from_latest_checkpoint(tmp_path: Path) -> None:
+    data_path = tmp_path / "input.txt"
+    data_path.write_bytes(b"hello tiny resume training\n" * 100)
+    checkpoint = tmp_path / "checkpoints" / "best.pt"
+    model_config = ModelConfig(
+        blockSize=8,
+        vocabSize=256,
+        nEmbed=16,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
+    )
+
+    def make_trainer(max_steps: int) -> LMTrainer:
+        train_config = TrainConfig(
+            batchSize=2,
+            learningRate=1e-3,
+            warmupFrac=0.1,
+            maxSteps=max_steps,
+            evalInterval=1,
+            evalIters=1,
+            snapshotInterval=0,
+            weightDecay=0.0,
+            earlyStopPatience=100,
+            plotCurve=False,
+            ckptPath=str(checkpoint),
+            dataPath=str(data_path),
+            device="cpu",
+        )
+        data_module = ByteDataModule(model_config, train_config)
+        model = TinyGPTLanguageModel(model_config).to(train_config.device)
+        evaluator = Evaluator(
+            model=model,
+            data_module=data_module,
+            trainConfig=train_config,
+            early_stopping=EarlyStopping(patience=100, delta=0.0),
+            logger=logging.getLogger("test.resume"),
+        )
+        trainer = LMTrainer(
+            model_config,
+            train_config,
+            model,
+            data_module,
+            evaluator=evaluator,
+            logger=logging.getLogger("test.resume"),
+        )
+        trainer.callbacks = [CheckpointCallback(trainer, logging.getLogger("test.resume"))]
+        return trainer
+
+    torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
+    first = make_trainer(max_steps=2)
+    first.loadCheckpointIfExists()
+    first.train()
+    first_latest = Checkpoint.load(str(checkpoint.with_name("latest.pt")), "cpu")
+    assert first_latest.step == 1
+
+    resumed = make_trainer(max_steps=4)
+    resumed.loadCheckpointIfExists()
+    assert resumed.globalStep == 1
+
+    resumed.train()
+
+    second_latest = Checkpoint.load(str(checkpoint.with_name("latest.pt")), "cpu")
+    assert second_latest.step == 3
+    assert resumed.trainingCurve[0][0] == 2
+
+
 def test_missing_checkpoint_is_reported_as_new_run(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,

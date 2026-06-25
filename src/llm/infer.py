@@ -96,6 +96,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
 
     print("\n=== GENERATED TEXT ===\n")
+    sys.stdout.flush()
     sys.stdout.buffer.write((text + "\n").encode(sys.stdout.encoding or "utf-8", errors="replace"))
 
 

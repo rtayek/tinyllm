@@ -106,6 +106,7 @@ def main(log_level: int = logging.INFO) -> None:
     parser.add_argument("--test-corpus", type=str, default=None, help="Path to test corpus")
     parser.add_argument("--checkpoint", type=str, default=None, help="Path to training checkpoint")
     parser.add_argument("--seed", type=int, default=None, help="Training random seed")
+    parser.add_argument("--max-steps", type=int, default=None, help="Maximum optimizer steps to train")
     parser.add_argument("--early-stop-patience", type=int, default=None, help="Evaluations without significant improvement before stopping")
     parser.add_argument("--reset-early-stopping", action="store_true", help="Reset restored early-stopping progress when resuming")
     parser.add_argument("--snapshot-interval", type=int, default=None, help="Steps between retained checkpoint snapshots")
@@ -131,6 +132,10 @@ def main(log_level: int = logging.INFO) -> None:
         if args.seed < 0:
             parser.error("--seed must be non-negative")
         trainConfig = replace(trainConfig, seed=args.seed)
+    if args.max_steps is not None:
+        if args.max_steps <= 0:
+            parser.error("--max-steps must be greater than zero")
+        trainConfig = replace(trainConfig, maxSteps=args.max_steps)
     if args.early_stop_patience is not None:
         if args.early_stop_patience <= 0:
             parser.error("--early-stop-patience must be greater than zero")

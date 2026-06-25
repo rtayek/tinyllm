@@ -25,7 +25,7 @@ SHERLOCK_HEADING = re.compile(
     re.MULTILINE,
 )
 CHAPTER_HEADING = re.compile(
-    r"^CHAPTER (?P<number>[IVXLCDM]+)\.?\s*$",
+    r"^CHAPTER (?P<number>[IVXLCDM]+|\d+)\.?\s*$",
     re.MULTILINE | re.IGNORECASE,
 )
 ILLUSTRATION_BLOCK = re.compile(r"\[Illustration.*?\]", re.DOTALL)
