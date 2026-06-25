@@ -87,6 +87,20 @@ def fresh_generator(seed: int) -> torch.Generator:
     return g
 
 
+def context_start_indices(
+    token_count: int,
+    window: int,
+    batch_size: int,
+    generator: torch.Generator,
+) -> torch.Tensor:
+    high = token_count - window + 1
+    if high <= 0:
+        raise ValueError(
+            f"Sequence too short ({token_count}) for context window {window}"
+        )
+    return torch.randint(0, high, (batch_size,), generator=generator)
+
+
 def estimate_loss(
     model: TinyGPTLanguageModel,
     tokens: torch.Tensor,
@@ -134,15 +148,15 @@ def estimate_loss_context(
 
     # context_len real bytes of history, predicting the byte that follows.
     window = context_len + 1
-    high = tokens.size(0) - window
-    if high <= 0:
-        raise ValueError(
-            f"Sequence too short ({tokens.size(0)}) for context window {window}"
-        )
 
     with torch.no_grad():
         for _ in range(train_cfg.evalIters):
-            idx = torch.randint(0, high, (train_cfg.batchSize,), generator=g)
+            idx = context_start_indices(
+                tokens.size(0),
+                window,
+                train_cfg.batchSize,
+                g,
+            )
             offsets = torch.arange(window)
             positions = idx.unsqueeze(1) + offsets.unsqueeze(0)
             block = tokens[positions].to(device)        # (B, context_len + 1)
@@ -281,6 +295,7 @@ def main() -> None:
     print("\n" + "=" * 72)
     print("CONTEXT WINDOW PROBE")
     print("=" * 72)
+    print("  Metric: next-byte loss after exactly N bytes of context")
     print(f"  {'Context':<10}  {'Avg Loss':>8}  {'Delta':>7}  {'Delta%':>7}  {'Marginal':>9}")
     print("  " + "-" * 55)
     prev_avg: float | None = None

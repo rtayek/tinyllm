@@ -8,6 +8,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -40,6 +41,17 @@ def load_tokens(path: Path) -> torch.Tensor:
     return torch.tensor(bytearray(path.read_bytes()), dtype=torch.long)
 
 
+def book_seed(seed: int, book_name: str) -> int:
+    digest = hashlib.sha256(f"{seed}:{book_name}".encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], byteorder="big") % (2**63)
+
+
+def book_generator(seed: int, book_name: str) -> torch.Generator:
+    generator = torch.Generator()
+    generator.manual_seed(book_seed(seed, book_name))
+    return generator
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Per-book validation loss")
     parser.add_argument(
@@ -47,6 +59,7 @@ def main() -> None:
         default="runs/austen-byte/checkpoints/best.pt",
     )
     parser.add_argument("--iters", type=int, default=100)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
     args = parser.parse_args()
@@ -66,9 +79,6 @@ def main() -> None:
     model.load_state_dict(checkpoint.modelState)
     model.eval()
 
-    generator = torch.Generator()
-    generator.manual_seed(42)
-
     print(f"  {'Book':<26}  {'Val Loss':>8}  {'Perplexity':>10}")
     print("  " + "-" * 50)
 
@@ -77,7 +87,7 @@ def main() -> None:
         "checkpoint": args.checkpoint,
         "device": device,
         "iters": args.iters,
-        "seed": 42,
+        "seed": args.seed,
         "books": [],
     }
     for name, val_path in BOOKS:
@@ -98,6 +108,7 @@ def main() -> None:
             model, data_module, train_cfg, EarlyStopping(patience=1, delta=0.0)
         )
 
+        generator = book_generator(args.seed, name)
         loss = evaluator.estimate_split("val", generator)
         perplexity = torch.exp(torch.tensor(loss)).item()
         results.append((name, loss))
@@ -107,6 +118,7 @@ def main() -> None:
             {
                 "book": name,
                 "path": str(path),
+                "seed": book_seed(args.seed, name),
                 "loss": loss,
                 "perplexity": perplexity,
             }

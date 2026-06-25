@@ -22,7 +22,6 @@ class RecordingHandler(logging.Handler):
 
 
 def test_data_module_batch_shapes(tmp_path: Path) -> None:
-    print("foobar")
     dataPath: Path = tmp_path / "input.txt"
     dataPath.write_bytes(b"abcdefghijklmnopqrstuvwxyz")
 
@@ -276,6 +275,54 @@ def test_checkpoint_roundtrip(tmp_path: Path) -> None:
     assert result.earlyStoppingState is None
     for pOld, pNew in zip(model.parameters(), newModel.parameters()):
         assert torch.equal(pOld, pNew)
+
+
+def test_checkpoint_allows_non_shape_model_config_drift(tmp_path: Path) -> None:
+    checkpoint_path = tmp_path / "ckpt.pt"
+    saved_config = ModelConfig(
+        blockSize=4,
+        vocabSize=32,
+        nEmbed=16,
+        nHead=4,
+        nLayer=2,
+        dropout=0.0,
+        use_cache=False,
+    )
+    requested_config = ModelConfig(
+        blockSize=4,
+        vocabSize=32,
+        nEmbed=16,
+        nHead=4,
+        nLayer=2,
+        dropout=0.25,
+        use_cache=True,
+    )
+    trainConfig = TrainConfig(batchSize=2, ckptPath=str(checkpoint_path))
+
+    saved_model = TinyGPTLanguageModel(saved_config)
+    saved_optimizer = torch.optim.AdamW(saved_model.parameters())
+    manager = CheckpointManager(saved_config, trainConfig)
+    manager.saveCheckpoint(
+        saved_model,
+        saved_optimizer,
+        lrStrategyState=None,
+        step=3,
+        bestValLoss=1.0,
+    )
+
+    requested_model = TinyGPTLanguageModel(requested_config)
+    requested_optimizer = torch.optim.AdamW(requested_model.parameters())
+    requested_manager = CheckpointManager(requested_config, trainConfig)
+
+    result = requested_manager.loadCheckpoint(requested_model, requested_optimizer)
+
+    assert result.step == 3
+    assert result.configDrift["model"] == {"dropout": 0.0, "use_cache": False}
+    for saved_param, requested_param in zip(
+        saved_model.parameters(),
+        requested_model.parameters(),
+    ):
+        assert torch.equal(saved_param, requested_param)
 
 
 def test_model_generate_restores_training_state() -> None:

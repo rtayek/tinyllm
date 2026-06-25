@@ -13,9 +13,9 @@ on_eval(result, is_best)
     produced a new absolute validation-loss minimum.
 
 on_train_end(curve)
-    Called once after the training loop exits (whether by exhausting steps,
-    early stopping, or a non-finite loss error).  ``curve`` is the list of
-    (step, train_loss, val_loss) tuples accumulated during the run.
+    Called once after the training loop exits by exhausting steps or early
+    stopping.  ``curve`` is the list of (step, train_loss, val_loss) tuples
+    accumulated during the run.
 """
 from __future__ import annotations
 

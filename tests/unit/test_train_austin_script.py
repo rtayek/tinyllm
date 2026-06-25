@@ -90,7 +90,7 @@ def test_train_austin_clean_mode_removes_previous_run_files(
     assert not metrics.exists()
 
 
-def test_train_austin_defaults_to_5000_max_steps(tmp_path: Path) -> None:
+def test_train_austin_defaults_to_10000_max_steps(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     args_log = tmp_path / "python-args.txt"
     env = _script_env(tmp_path, run_dir, args_log)

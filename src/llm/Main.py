@@ -84,9 +84,6 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
         logger=activeLogger,
         evaluator=evaluator,
     )
-    metadataPath = runArtifacts.writeRunMetadata()
-    if metadataPath is not None:
-        activeLogger.info("Run metadata written to %s", metadataPath)
 
     callbacks: list[TrainingCallback] = [
         LoggingCallback(trainConfig, activeLogger),
@@ -97,6 +94,12 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
     trainer.callbacks = callbacks
     trainer.runArtifacts = runArtifacts
     return trainer
+
+
+def writeRunMetadata(trainer: LMTrainer, logger: logging.Logger) -> None:
+    metadataPath = trainer.runArtifacts.writeRunMetadata()
+    if metadataPath is not None:
+        logger.info("Run metadata written to %s", metadataPath)
 
 
 def main(argv: Sequence[str] | int | None = None, log_level: int = logging.INFO) -> None:
@@ -193,7 +196,12 @@ def main(argv: Sequence[str] | int | None = None, log_level: int = logging.INFO)
         resetEarlyStopping=args.reset_early_stopping,
     )
 
-    trainer.train()
+    writeRunMetadata(trainer, activeLogger)
+
+    trainingRan = trainer.train()
+    if trainingRan is False:
+        activeLogger.info("Skipping final test evaluation and sample save.")
+        return
     trainer.evaluateBestCheckpointOnTest()
 
     textGenerator = AutoregressiveGenerator(trainer.model, trainer.trainConfig.device, activeLogger)

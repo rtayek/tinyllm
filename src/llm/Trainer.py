@@ -155,7 +155,7 @@ class LMTrainer:
         if result.configDrift.get("train"):
             self.logger.warning("Train config drift from checkpoint: %s", result.configDrift["train"])
 
-    def train(self) -> None:
+    def train(self) -> bool:
         self.logger.info("Using device: %s", self.trainConfig.device)
         if self.evaluator is not None and self.evaluator.early_stopping.is_exhausted():
             self.logger.info(
@@ -163,7 +163,7 @@ class LMTrainer:
                 "Use --reset-early-stopping to continue.",
                 self.globalStep,
             )
-            return
+            return False
         self.logger.info("Starting training loop...")
 
         for step in range(self.globalStep, self.trainConfig.maxSteps):
@@ -208,6 +208,7 @@ class LMTrainer:
             self.logger.info("No validation loss recorded; training exited before evaluation.")
 
         self._fire_on_train_end()
+        return True
 
     def evaluateBestCheckpointOnTest(self) -> float | None:
         if self.evaluator is None or self.dataModule.testSequence is None:

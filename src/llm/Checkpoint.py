@@ -18,6 +18,9 @@ _TORCH_LOAD_SUPPORTS_WEIGHTS_ONLY = "weights_only" in inspect.signature(cast(Any
 
 
 CHECKPOINT_VERSION = 1
+_MODEL_SHAPE_FIELDS = frozenset(
+    {"vocabSize", "blockSize", "nEmbed", "nHead", "nLayer"}
+)
 
 
 @dataclass
@@ -224,7 +227,11 @@ class CheckpointManager:
             incompatible = {
                 k: (currentModelDict[k], v)
                 for k, v in checkpoint.modelConfig.items()
-                if k in currentModelDict and currentModelDict[k] != v
+                if (
+                    k in _MODEL_SHAPE_FIELDS
+                    and k in currentModelDict
+                    and currentModelDict[k] != v
+                )
             }
             if incompatible:
                 details = ", ".join(

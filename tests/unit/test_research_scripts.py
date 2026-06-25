@@ -4,6 +4,9 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+import torch
+
 
 REPO_ROOT = Path(__file__).parents[2]
 
@@ -32,3 +35,41 @@ def test_context_sizes_include_configured_block_size() -> None:
     module = _load_script("destruction_experiments")
 
     assert module.context_sizes(256) == [1, 2, 4, 8, 16, 32, 64, 128, 256]
+
+
+def test_context_start_indices_allow_single_valid_window() -> None:
+    module = _load_script("destruction_experiments")
+    generator = torch.Generator()
+    generator.manual_seed(0)
+
+    starts = module.context_start_indices(
+        token_count=4,
+        window=4,
+        batch_size=3,
+        generator=generator,
+    )
+
+    assert starts.tolist() == [0, 0, 0]
+
+
+def test_context_start_indices_reject_short_sequence() -> None:
+    module = _load_script("destruction_experiments")
+
+    with pytest.raises(ValueError, match="Sequence too short"):
+        module.context_start_indices(
+            token_count=3,
+            window=4,
+            batch_size=1,
+            generator=torch.Generator(),
+        )
+
+
+def test_per_book_generator_is_stable_per_book() -> None:
+    module = _load_script("eval_per_book")
+
+    first = module.book_generator(42, "Emma")
+    second = module.book_generator(42, "Emma")
+    other = module.book_generator(42, "Persuasion")
+
+    assert torch.equal(first.get_state(), second.get_state())
+    assert not torch.equal(first.get_state(), other.get_state())
