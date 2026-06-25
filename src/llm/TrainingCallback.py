@@ -1,4 +1,4 @@
-"""Training event callbacks.
+﻿"""Training event callbacks.
 
 The ``TrainingCallback`` protocol defines two lifecycle hooks that fire during
 training.  Concrete callbacks implement one or both hooks and are registered on
@@ -54,7 +54,7 @@ class LoggingCallback:
             )
         if is_best:
             self.logger.info(
-                "[step %s] New best val loss: %.4f — checkpoint saved.",
+                "[step %s] New best val loss: %.4f",
                 result.step, result.val_loss,
             )
         elif not result.improved:
@@ -99,7 +99,7 @@ class CheckpointCallback:
 
     def __init__(
         self,
-        trainer: Any,  # LMTrainer — typed as Any to avoid circular import
+        trainer: Any,  # LMTrainer â€” typed as Any to avoid circular import
         logger: logging.Logger,
     ) -> None:
         # Hold a reference to the trainer so we can reach its checkpoint
@@ -121,6 +121,11 @@ class CheckpointCallback:
                     "noImproveEvals": 0,
                     "referenceLoss": trainer.bestValLoss,
                 },
+            )
+            self.logger.info(
+                "[step %s] Best checkpoint saved to %s.",
+                step,
+                trainer.checkpoints.ckptPath,
             )
         trainer._saveCheckpoint(step, trainer.checkpoints.latestPath)
 
@@ -158,3 +163,4 @@ class TrainingCurveCallback:
             self.logger.info("[plot] Saved config to %s", config_dump_path)
         except Exception as e:
             self.logger.info("Could not plot training curve: %s", e)
+

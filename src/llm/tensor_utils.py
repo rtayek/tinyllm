@@ -7,10 +7,22 @@ def get_device() -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 def resolve_device(requested_device: str, logger: logging.Logger | None = None) -> str:
-    if requested_device.startswith("cuda") and not torch.cuda.is_available():
-        if logger is not None:
-            logger.warning("CUDA requested, but not available; falling back to cpu")
-        return "cpu"
+    if requested_device.startswith("cuda"):
+        if not torch.cuda.is_available():
+            if logger is not None:
+                logger.warning("CUDA requested, but not available; falling back to cpu")
+            return "cpu"
+        if ":" in requested_device:
+            try:
+                index = int(requested_device.split(":", 1)[1])
+            except ValueError:
+                if logger is not None:
+                    logger.warning("Invalid CUDA device '%s'; falling back to cpu", requested_device)
+                return "cpu"
+            if index < 0 or index >= torch.cuda.device_count():
+                if logger is not None:
+                    logger.warning("CUDA device '%s' is not available; falling back to cpu", requested_device)
+                return "cpu"
     return requested_device
 
 def tensor_to_int_list(tensor: torch.Tensor) -> list[int]:

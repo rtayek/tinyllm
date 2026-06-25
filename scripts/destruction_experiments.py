@@ -28,6 +28,7 @@ Usage
 from __future__ import annotations
 
 import argparse
+import json
 import random
 import re
 import sys
@@ -272,7 +273,14 @@ def print_experiment_results(
 # Main
 # ---------------------------------------------------------------------------
 
-CONTEXT_SIZES = [1, 2, 4, 8, 16, 32, 64, 128]
+def context_sizes(block_size: int) -> list[int]:
+    sizes: list[int] = []
+    value = 1
+    while value < block_size:
+        sizes.append(value)
+        value *= 2
+    sizes.append(block_size)
+    return sizes
 
 
 def main() -> None:
@@ -281,6 +289,7 @@ def main() -> None:
     parser.add_argument("--iters", type=int, default=200)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="cuda")
+    parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
     parser.add_argument(
         "--no-per-book", action="store_true",
         help="Skip per-book breakdown; report only aggregate results",
@@ -327,10 +336,25 @@ def main() -> None:
     print(f"  {'Book':<26}  {'Val Loss':>8}  {'Perplexity':>10}")
     print("  " + "-" * 50)
     baselines: dict[str, float] = {}
+    output: dict[str, object] = {
+        "checkpoint": args.checkpoint,
+        "device": device,
+        "iters": args.iters,
+        "seed": args.seed,
+        "block_size": model_cfg.blockSize,
+        "baseline": [],
+        "context_probe": [],
+        "experiments": [],
+    }
     for book_name, _, tokens in book_data:
         loss = estimate_loss(model, tokens, model_cfg, train_cfg, args.seed)
         perp = torch.exp(torch.tensor(loss)).item()
         baselines[book_name] = loss
+        baseline_rows = output["baseline"]
+        assert isinstance(baseline_rows, list)
+        baseline_rows.append(
+            {"book": book_name, "loss": loss, "perplexity": perp}
+        )
         print(f"  {book_name:<26}  {loss:>8.4f}  {perp:>10.2f}")
     avg_base = sum(baselines.values()) / len(baselines)
     print("  " + "-" * 50)
@@ -343,7 +367,7 @@ def main() -> None:
     print(f"  {'Context':<10}  {'Avg Loss':>8}  {'Delta':>7}  {'Delta%':>7}  {'Marginal':>9}")
     print("  " + "-" * 55)
     prev_avg: float | None = None
-    for ctx in CONTEXT_SIZES:
+    for ctx in context_sizes(model_cfg.blockSize):
         ctx_losses = []
         for book_name, _, tokens in book_data:
             loss = estimate_loss_context(model, tokens, model_cfg, train_cfg, args.seed, ctx)
@@ -352,6 +376,17 @@ def main() -> None:
         delta = avg - avg_base
         pct = 100.0 * delta / avg_base
         marginal = f"{avg - prev_avg:+.4f}" if prev_avg is not None else "       -"
+        context_rows = output["context_probe"]
+        assert isinstance(context_rows, list)
+        context_rows.append(
+            {
+                "context": ctx,
+                "average_loss": avg,
+                "delta": delta,
+                "delta_pct": pct,
+                "marginal": avg - prev_avg if prev_avg is not None else None,
+            }
+        )
         print(f"  context_{ctx:<4}  {avg:>8.4f}  {delta:>+7.4f}  {pct:>+6.1f}%  {marginal:>9}")
         prev_avg = avg
 
@@ -378,6 +413,23 @@ def main() -> None:
                 model, corrupted_tokens, model_cfg, train_cfg, args.seed
             )
             book_results.append((book_name, baselines[book_name], corrupted_loss))
+        experiment_rows = output["experiments"]
+        assert isinstance(experiment_rows, list)
+        experiment_rows.append(
+            {
+                "name": exp_name,
+                "per_book": [
+                    {
+                        "book": book,
+                        "baseline": baseline,
+                        "corrupted": corrupted,
+                        "delta": corrupted - baseline,
+                        "delta_pct": 100.0 * (corrupted - baseline) / baseline,
+                    }
+                    for book, baseline, corrupted in book_results
+                ],
+            }
+        )
 
         if args.no_per_book:
             avg_b = sum(b for _, b, _ in book_results) / len(book_results)
@@ -388,6 +440,9 @@ def main() -> None:
             print(f"{marker} {exp_name:<26}  {avg_b:>8.4f}  {avg_c:>9.4f}  {delta:>+7.4f}  {pct:>+6.1f}%")
         else:
             print_experiment_results(exp_name, book_results)
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ import torch
 from .Config import RunConfig
 from .Model import TinyGPTLanguageModel
 from .Checkpoint import Checkpoint
+from .tensor_utils import resolve_device
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,16 +32,17 @@ def main() -> None:
     run_cfg = RunConfig()
     model_cfg = run_cfg.modelConfig
     train_cfg = run_cfg.trainConfig
+    device = resolve_device(train_cfg.device)
 
     if args.command == "export-model":
         checkpoint_path = args.ckpt or train_cfg.ckptPath
-        checkpoint = Checkpoint.load(checkpoint_path, train_cfg.device)
+        checkpoint = Checkpoint.load(checkpoint_path, device)
         checkpoint.exportModel(args.out)
         print(f"Exported model weights to {args.out}")
     elif args.command == "load-model":
         state = torch.load(  # pyright: ignore[reportUnknownMemberType]
             args.model,
-            map_location=train_cfg.device,
+            map_location=device,
             weights_only=True,
         )
         model_state: Dict[str, Any]

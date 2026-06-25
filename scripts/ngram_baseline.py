@@ -13,6 +13,7 @@ Usage
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import sys
 from collections import Counter, defaultdict
@@ -51,7 +52,7 @@ class NgramModel:
 
     def train(self, data: bytes) -> None:
         n = self.n
-        for i in range(len(data) - n):
+        for i in range(len(data) - n + 1):
             context = tuple(data[i:i + n - 1]) if n > 1 else ()
             next_byte = data[i + n - 1]
             self.counts[context][next_byte] += 1
@@ -81,6 +82,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="N-gram baselines")
     parser.add_argument("--train", default=DEFAULT_TRAIN)
     parser.add_argument("--max-n", type=int, default=5)
+    parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
     args = parser.parse_args()
 
     train_path = Path(args.train)
@@ -123,16 +125,40 @@ def main() -> None:
     print()
 
     # N-gram rows
+    output: dict[str, object] = {
+        "train": str(train_path),
+        "train_bytes": len(train_data),
+        "transformer_reference": {
+            "losses": t_losses,
+            "average": t_avg,
+            "description": "step 9500, combined Austen corpus, seed 42, 200 eval iters",
+        },
+        "models": [],
+    }
+
     for n in range(1, args.max_n + 1):
         model = NgramModel(n)
         model.train(train_data)
 
         losses: list[float] = []
-        for _, val_data in val_books:
-            losses.append(model.cross_entropy(val_data))
+        per_book: list[dict[str, object]] = []
+        for name, val_data in val_books:
+            loss = model.cross_entropy(val_data)
+            losses.append(loss)
+            per_book.append({"book": name, "loss": loss})
 
         avg = sum(losses) / len(losses)
         marker = "<- transformer wins" if avg > t_avg else "<- n-gram wins"
+        cast_models = output["models"]
+        assert isinstance(cast_models, list)
+        cast_models.append(
+            {
+                "n": n,
+                "average_loss": avg,
+                "per_book": per_book,
+                "comparison": marker.removeprefix("<- "),
+            }
+        )
 
         print(f"  {n}-gram{'':<{col - 6}}", end="")
         for loss in losses:
@@ -142,6 +168,9 @@ def main() -> None:
     print()
     print("All losses in nats. Lower is better.")
     print("Transformer: step 9500, combined Austen corpus, seed 42, 200 eval iters.")
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

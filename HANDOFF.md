@@ -1,6 +1,6 @@
-# tinyllm Handoff
+﻿# tinyllm Handoff
 
-Last verified: June 23, 2026
+Last verified: June 25, 2026
 
 ## Project
 
@@ -29,14 +29,13 @@ tinyllm-prepare-corpora
 Verification:
 
 ```text
-pytest: 73 collected, 73 passed
+pytest: 86 collected, 86 passed
 pyright: 0 errors
-branch coverage: 83.4%
+branch coverage: 85.6%
 ```
 
-The default Sherlock checkpoint has been invalidated by the MLP state-dict key
-rename (see Architecture section). A clean retrain is required before inference
-works on the default checkpoint path.
+Current checkpoints exist under `runs/`. Checkpoint compatibility still depends
+on the saved model architecture matching the requested run configuration.
 
 ## Architecture
 
@@ -100,10 +99,10 @@ on_train_end(curve: list[tuple[int, float, float]]) -> None
 `buildTrainer` in `Main.py` registers four callbacks in order:
 
 ```text
-LoggingCallback        — eval log lines and end-of-run summary
-MetricsCallback        — metrics.jsonl writes via RunArtifacts
-CheckpointCallback     — best.pt / latest.pt / snapshot saves
-TrainingCurveCallback  — training curve plot at end of run
+LoggingCallback        â€” eval log lines and end-of-run summary
+MetricsCallback        â€” metrics.jsonl writes via RunArtifacts
+CheckpointCallback     â€” best.pt / latest.pt / snapshot saves
+TrainingCurveCallback  â€” training curve plot at end of run
 ```
 
 Tests that construct `LMTrainer` directly and need checkpoints to be saved
@@ -122,10 +121,10 @@ representation research. The recommended scaling path is:
 
 1. Add more training data (more Gutenberg corpora).
 2. Scale up model capacity (more layers, wider embeddings, longer blockSize).
-3. Add BPE tokenization as a controlled comparison — not a replacement.
+3. Add BPE tokenization as a controlled comparison â€” not a replacement.
 
-If BPE is added, a reasonable starting point is 2,000–8,000 tokens and a
-context length of 256–512. Changing tokenization is a model-format break:
+If BPE is added, a reasonable starting point is 2,000â€“8,000 tokens and a
+context length of 256â€“512. Changing tokenization is a model-format break:
 existing checkpoints are incompatible, training must restart, and checkpoints
 should store tokenizer metadata that inference validates on load.
 
@@ -254,7 +253,12 @@ Training flags:
 --validation-corpus PATH
 --test-corpus PATH
 --checkpoint PATH
+--run-dir PATH
 --seed INTEGER
+--block-size INTEGER
+--n-embed INTEGER
+--n-head INTEGER
+--n-layer INTEGER
 --early-stop-patience COUNT
 --reset-early-stopping
 --snapshot-interval STEPS
@@ -379,21 +383,30 @@ reusable model artifacts belong under `models/`.
 
 ### Training on all Austen novels combined
 
-Cat the splits together before training:
+Build the combined splits and manifest before training:
 
 ```sh
-cat corpora/jane-austen/*/splits/train.txt      > corpora/jane-austen/combined/splits/train.txt
-cat corpora/jane-austen/*/splits/validation.txt > corpora/jane-austen/combined/splits/validation.txt
-cat corpora/jane-austen/*/splits/test.txt       > corpora/jane-austen/combined/splits/test.txt
+tinyllm-prepare-corpora --combined-austen
 ```
 
+Do not use `cat corpora/jane-austen/*/splits/... > combined/...`: once
+`combined/` exists, the wildcard can include the output file as an input.
+
 Then pass the combined paths to `tinyllm-train`.
+
+The convenience script is:
+
+```sh
+sh train-austen.sh
+```
+
+`train-austin.sh` is retained as a compatibility wrapper.
 
 ### getBatch requires an explicit generator
 
 `SequenceDataModule.getBatch` requires a `torch.Generator` argument and raises
 `ValueError` if `None` is passed. There is no internal default fallback.
-All callers — `Trainer`, `Evaluator`, and tests — must supply a generator.
+All callers â€” `Trainer`, `Evaluator`, and tests â€” must supply a generator.
 
 ## Training Reliability
 
@@ -434,6 +447,16 @@ Generate a browsable report:
 
 ```sh
 pytest --cov --cov-report=html
+```
+
+Coverage has `fail_under = 80`.
+
+Research scripts accept `--out` for JSON result files:
+
+```sh
+python scripts/eval_per_book.py --out runs/austen-byte/eval-per-book.json
+python scripts/ngram_baseline.py --out runs/austen-byte/ngram-baseline.json
+python scripts/destruction_experiments.py --out runs/austen-byte/destruction.json
 ```
 
 Useful focused commands:
@@ -483,10 +506,6 @@ These are confirmed issues from code review. None are blocking.
   `trainConfig.dataModule`. Adding a new data module requires editing this
   function (open/closed violation). A registry dict would be extensible.
 
-**Coverage:**
-
-- No `fail_under` threshold is enforced in `pyproject.toml`.
-
 ## Naming Convention
 
 Production code uses `camelCase` for methods and attributes. PyTorch-protocol
@@ -498,16 +517,16 @@ broad renaming unless handled as a deliberate refactor.
 
 Planned work in priority order:
 
-1. **Retrain on expanded corpus** — the MLP key rename invalidated the existing
-   checkpoint; retrain on the combined Austen corpus (~3× more data than before)
-   to establish a new baseline.
-2. **Reproduce baselines** — run n-gram models (unigram through 5-gram) and the
+1. **Train blockSize=256 candidate** - use the canonical combined Austen corpus
+   and compare against the current run artifacts to establish a controlled baseline.
+2. **Reproduce baselines** â€” run n-gram models (unigram through 5-gram) and the
    context/structure-destruction probes on the new canonical split.
-3. **Scale the model** — increase `nLayer`, `nEmbed`, and `blockSize` once
+3. **Scale the model** â€” increase `nLayer`, `nEmbed`, and `blockSize` once
    there is data worth training on and a baseline to compare against.
-4. **Fix known issues** — `CheckpointContext`, `get_device()` removal,
+4. **Fix known issues** â€” `CheckpointContext`, `get_device()` removal,
    `AutoregressiveGenerator` device param, naming consistency.
-5. **BPE tokenization** — add as a controlled comparison path after scaling,
+5. **BPE tokenization** â€” add as a controlled comparison path after scaling,
    not as a replacement for byte tokens.
-6. **RL / self-improvement** — reward-signal experiments once the base model
+6. **RL / self-improvement** â€” reward-signal experiments once the base model
    generates coherent text.
+

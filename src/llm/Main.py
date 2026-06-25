@@ -2,7 +2,7 @@ import argparse
 import logging
 from dataclasses import replace
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Sequence
 
 import torch
 
@@ -99,13 +99,21 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
     return trainer
 
 
-def main(log_level: int = logging.INFO) -> None:
+def main(argv: Sequence[str] | int | None = None, log_level: int = logging.INFO) -> None:
+    if isinstance(argv, int):
+        log_level = argv
+        argv = None
     parser = argparse.ArgumentParser(description="Train the tiny LLM")
     parser.add_argument("--corpus", type=str, default=None, help="Path to training corpus (overrides TrainConfig.dataPath)")
     parser.add_argument("--validation-corpus", type=str, default=None, help="Path to validation corpus")
     parser.add_argument("--test-corpus", type=str, default=None, help="Path to test corpus")
     parser.add_argument("--checkpoint", type=str, default=None, help="Path to training checkpoint")
+    parser.add_argument("--run-dir", type=str, default=None, help="Run directory; sets checkpoint to RUN_DIR/checkpoints/best.pt")
     parser.add_argument("--seed", type=int, default=None, help="Training random seed")
+    parser.add_argument("--block-size", type=int, default=None, help="Transformer context window size")
+    parser.add_argument("--n-embed", type=int, default=None, help="Transformer embedding width")
+    parser.add_argument("--n-head", type=int, default=None, help="Transformer attention heads")
+    parser.add_argument("--n-layer", type=int, default=None, help="Transformer decoder layers")
     parser.add_argument("--max-steps", type=int, default=None, help="Maximum optimizer steps to train")
     parser.add_argument("--early-stop-patience", type=int, default=None, help="Evaluations without significant improvement before stopping")
     parser.add_argument("--reset-early-stopping", action="store_true", help="Reset restored early-stopping progress when resuming")
@@ -113,12 +121,13 @@ def main(log_level: int = logging.INFO) -> None:
     parser.add_argument("--max-snapshots", type=int, default=None, help="Maximum retained step snapshots")
     parser.add_argument("--plot", action="store_true", help="Enable plotting the training curve")
     parser.add_argument("--log-level", type=str, default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR)")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     level = getattr(logging, args.log_level.upper(), log_level)
     activeLogger = setupLogging(level=level)
 
     runConfig = RunConfig()
+    modelConfig = runConfig.modelConfig
     trainConfig = runConfig.trainConfig
     if args.corpus:
         trainConfig = replace(trainConfig, dataPath=args.corpus)
@@ -128,6 +137,27 @@ def main(log_level: int = logging.INFO) -> None:
         trainConfig = replace(trainConfig, testDataPath=args.test_corpus)
     if args.checkpoint:
         trainConfig = replace(trainConfig, ckptPath=args.checkpoint)
+    if args.run_dir:
+        trainConfig = replace(
+            trainConfig,
+            ckptPath=str(Path(args.run_dir) / "checkpoints" / "best.pt"),
+        )
+    if args.block_size is not None:
+        if args.block_size <= 0:
+            parser.error("--block-size must be greater than zero")
+        modelConfig = replace(modelConfig, blockSize=args.block_size)
+    if args.n_embed is not None:
+        if args.n_embed <= 0:
+            parser.error("--n-embed must be greater than zero")
+        modelConfig = replace(modelConfig, nEmbed=args.n_embed)
+    if args.n_head is not None:
+        if args.n_head <= 0:
+            parser.error("--n-head must be greater than zero")
+        modelConfig = replace(modelConfig, nHead=args.n_head)
+    if args.n_layer is not None:
+        if args.n_layer <= 0:
+            parser.error("--n-layer must be greater than zero")
+        modelConfig = replace(modelConfig, nLayer=args.n_layer)
     if args.seed is not None:
         if args.seed < 0:
             parser.error("--seed must be non-negative")
@@ -153,7 +183,7 @@ def main(log_level: int = logging.INFO) -> None:
         trainConfig = replace(trainConfig, maxSnapshots=args.max_snapshots)
     if args.plot:
         trainConfig = replace(trainConfig, plotCurve=True)
-    runConfig = RunConfig(modelConfig=runConfig.modelConfig, trainConfig=trainConfig)
+    runConfig = RunConfig(modelConfig=modelConfig, trainConfig=trainConfig)
 
     activeLogger.info("Building trainer...")
     trainer = buildTrainer(runConfig, log=activeLogger)

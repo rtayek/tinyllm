@@ -8,6 +8,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -46,6 +47,7 @@ def main() -> None:
     )
     parser.add_argument("--iters", type=int, default=100)
     parser.add_argument("--device", default="cuda")
+    parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
     args = parser.parse_args()
 
     device = args.device if torch.cuda.is_available() else "cpu"
@@ -70,6 +72,13 @@ def main() -> None:
     print("  " + "-" * 50)
 
     results: list[tuple[str, float]] = []
+    output: dict[str, object] = {
+        "checkpoint": args.checkpoint,
+        "device": device,
+        "iters": args.iters,
+        "seed": 42,
+        "books": [],
+    }
     for name, val_path in BOOKS:
         path = Path(val_path)
         if not path.exists():
@@ -91,12 +100,26 @@ def main() -> None:
         loss = evaluator.estimate_split("val", generator)
         perplexity = torch.exp(torch.tensor(loss)).item()
         results.append((name, loss))
+        books = output["books"]
+        assert isinstance(books, list)
+        books.append(
+            {
+                "book": name,
+                "path": str(path),
+                "loss": loss,
+                "perplexity": perplexity,
+            }
+        )
         print(f"  {name:<26}  {loss:>8.4f}  {perplexity:>10.2f}")
 
     if results:
         avg = sum(l for _, l in results) / len(results)
+        output["average_loss"] = avg
         print("  " + "-" * 50)
         print(f"  {'Average':<26}  {avg:>8.4f}")
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

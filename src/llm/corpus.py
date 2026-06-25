@@ -255,7 +255,15 @@ NORTHANGER_ABBEY = WorkSpec(
     clean_austen,
     split_northanger_abbey_chapters,
 )
-WORKS = (SHERLOCK, ALICE, PRIDE, SENSE_AND_SENSIBILITY, EMMA, MANSFIELD_PARK, PERSUASION, NORTHANGER_ABBEY)
+AUSTEN_WORKS = (
+    PRIDE,
+    SENSE_AND_SENSIBILITY,
+    EMMA,
+    MANSFIELD_PARK,
+    PERSUASION,
+    NORTHANGER_ABBEY,
+)
+WORKS = (SHERLOCK, ALICE, *AUSTEN_WORKS)
 
 
 def slugify(value: str) -> str:
@@ -359,6 +367,59 @@ def prepare_corpora(root: Path) -> dict[str, Path]:
     return {spec.identifier: prepare_work(root, spec) for spec in WORKS}
 
 
+def prepare_combined_corpus(
+    root: Path,
+    specs: Sequence[WorkSpec] = AUSTEN_WORKS,
+    identifier: str = "jane-austen/combined",
+) -> Path:
+    combined_dir = root / identifier
+    split_records: dict[str, object] = {"strategy": "concatenate prepared work splits"}
+    for split_name in ("train", "validation", "test"):
+        parts: list[str] = []
+        sources: list[dict[str, object]] = []
+        for spec in specs:
+            split_path = root / spec.identifier / "splits" / f"{split_name}.txt"
+            if not split_path.exists():
+                raise FileNotFoundError(f"Missing prepared split: {split_path}")
+            parts.append(split_path.read_text(encoding="utf-8"))
+            sources.append(
+                {
+                    "id": spec.identifier,
+                    "split": split_name,
+                }
+                | _file_metadata(split_path, root)
+            )
+        output_path = combined_dir / "splits" / f"{split_name}.txt"
+        write_text(output_path, _join_units([("", text) for text in parts]))
+        split_records[split_name] = (
+            {"sources": sources}
+            | _file_metadata(output_path, combined_dir)
+        )
+
+    manifest = {
+        "schema_version": 1,
+        "id": identifier,
+        "author": "Jane Austen",
+        "title": "Combined Jane Austen corpus",
+        "language": "en",
+        "genre": "fiction",
+        "encoding": "utf-8",
+        "unit_type": "combined-split",
+        "source": {
+            "provider": "local prepared corpora",
+            "works": [spec.identifier for spec in specs],
+        },
+        "splits": split_records,
+    }
+    manifest_path = combined_dir / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return manifest_path
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Prepare canonical fiction corpora")
     parser.add_argument("--root", type=Path, default=Path("corpora"))
@@ -371,6 +432,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--download-austen",
         action="store_true",
         help="Download all five remaining Austen novels if their stored raw sources are missing",
+    )
+    parser.add_argument(
+        "--combined-austen",
+        action="store_true",
+        help="Build corpora/jane-austen/combined from prepared Austen splits",
     )
     return parser.parse_args(argv)
 
@@ -391,6 +457,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             _download_if_missing(args.root, spec)
     for identifier, path in prepare_corpora(args.root).items():
         print(f"{identifier}: {path}")
+    if args.combined_austen:
+        print(f"jane-austen/combined: {prepare_combined_corpus(args.root)}")
 
 
 if __name__ == "__main__":

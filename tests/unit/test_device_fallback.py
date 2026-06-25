@@ -17,6 +17,15 @@ def test_resolve_device_falls_back_to_cpu_when_cuda_unavailable(
     assert resolve_device("cuda", logging.getLogger("test")) == "cpu"
 
 
+def test_resolve_device_falls_back_for_missing_cuda_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
+    assert resolve_device("cuda:1", logging.getLogger("test")) == "cpu"
+
+
 def test_buildTrainer_falls_back_to_cpu_when_cuda_unavailable(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

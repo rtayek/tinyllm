@@ -19,6 +19,7 @@ from llm.corpus import (
     clean_pride_and_prejudice,
     clean_sherlock,
     normalize_text,
+    prepare_combined_corpus,
     prepare_corpora,
     split_alice_chapters,
     split_northanger_abbey_chapters,
@@ -185,3 +186,37 @@ def test_new_austen_workspecs_are_well_formed() -> None:
         assert spec.unit_type == "chapter"
         assert spec.source_url.startswith("https://www.gutenberg.org/")
         assert spec.ebook_id.isdigit()
+
+
+def test_prepare_combined_corpus_uses_only_requested_work_splits(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "corpora"
+    specs = [PRIDE, EMMA]
+    for spec in specs:
+        for split in ("train", "validation", "test"):
+            path = root / spec.identifier / "splits" / f"{split}.txt"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(f"{spec.identifier} {split}\n", encoding="utf-8")
+
+    stale_combined = root / "jane-austen" / "combined" / "splits" / "train.txt"
+    stale_combined.parent.mkdir(parents=True, exist_ok=True)
+    stale_combined.write_text("stale combined data\n", encoding="utf-8")
+
+    manifest_path = prepare_combined_corpus(root, specs=specs)
+
+    train_text = stale_combined.read_text(encoding="utf-8")
+    assert "stale combined data" not in train_text
+    assert "pride-and-prejudice train" in train_text
+    assert "emma train" in train_text
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    sources = manifest["splits"]["train"]["sources"]
+    assert [record["id"] for record in sources] == [spec.identifier for spec in specs]
+    assert [record["path"] for record in sources] == [
+        f"{spec.identifier}/splits/train.txt" for spec in specs
+    ]
+    for record in sources:
+        source_path = root / record["path"]
+        data = source_path.read_bytes()
+        assert record["bytes"] == len(data)
+        assert record["sha256"] == hashlib.sha256(data).hexdigest()
