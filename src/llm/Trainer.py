@@ -164,8 +164,15 @@ class LMTrainer:
                 self.globalStep,
             )
             return False
+        if self.globalStep >= self.trainConfig.maxSteps:
+            self.logger.info(
+                "Training already reached maxSteps=%s; no training work to do.",
+                self.trainConfig.maxSteps,
+            )
+            return False
         self.logger.info("Starting training loop...")
 
+        stoppedEarly = False
         for step in range(self.globalStep, self.trainConfig.maxSteps):
             self.globalStep = step
 
@@ -192,11 +199,16 @@ class LMTrainer:
                         "[step %s] Early stopping triggered: no val improvement for %s evals.",
                         step, evalResult.no_improve_evals,
                     )
+                    stoppedEarly = True
                     break
 
             lossValue = self._trainStep()
             if not math.isfinite(lossValue):
                 raise RuntimeError("Non-finite training loss encountered")
+            self.globalStep = step + 1
+
+        if not stoppedEarly and self.globalStep >= self.trainConfig.maxSteps:
+            self._saveCheckpoint(self.globalStep, self.checkpoints.latestPath)
 
         self.logger.info("Training loop finished.")
         if self.bestValLoss is not None:

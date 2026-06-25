@@ -127,17 +127,88 @@ def test_short_training_resumes_from_latest_checkpoint(tmp_path: Path) -> None:
     first.loadCheckpointIfExists()
     first.train()
     first_latest = Checkpoint.load(str(checkpoint.with_name("latest.pt")), "cpu")
-    assert first_latest.step == 1
+    assert first_latest.step == 2
 
     resumed = make_trainer(max_steps=4)
     resumed.loadCheckpointIfExists()
-    assert resumed.globalStep == 1
+    assert resumed.globalStep == 2
 
     resumed.train()
 
     second_latest = Checkpoint.load(str(checkpoint.with_name("latest.pt")), "cpu")
-    assert second_latest.step == 3
-    assert resumed.trainingCurve[0][0] == 2
+    assert second_latest.step == 4
+    assert resumed.trainingCurve[0][0] == 3
+
+
+def test_completed_max_steps_run_does_not_train_again(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    data_path = tmp_path / "input.txt"
+    data_path.write_bytes(b"hello tiny completed training\n" * 100)
+    checkpoint = tmp_path / "checkpoints" / "best.pt"
+    model_config = ModelConfig(
+        blockSize=8,
+        vocabSize=256,
+        nEmbed=16,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
+    )
+    train_config = TrainConfig(
+        batchSize=2,
+        learningRate=1e-3,
+        warmupFrac=0.1,
+        maxSteps=3,
+        evalInterval=1,
+        evalIters=1,
+        snapshotInterval=0,
+        weightDecay=0.0,
+        earlyStopPatience=100,
+        plotCurve=False,
+        ckptPath=str(checkpoint),
+        dataPath=str(data_path),
+        device="cpu",
+    )
+
+    def make_trainer() -> LMTrainer:
+        data_module = ByteDataModule(model_config, train_config)
+        model = TinyGPTLanguageModel(model_config).to(train_config.device)
+        evaluator = Evaluator(
+            model=model,
+            data_module=data_module,
+            trainConfig=train_config,
+            early_stopping=EarlyStopping(patience=100, delta=0.0),
+            logger=logging.getLogger("test.max-steps"),
+        )
+        trainer = LMTrainer(
+            model_config,
+            train_config,
+            model,
+            data_module,
+            evaluator=evaluator,
+            logger=logging.getLogger("test.max-steps"),
+        )
+        trainer.callbacks = [
+            CheckpointCallback(trainer, logging.getLogger("test.max-steps"))
+        ]
+        return trainer
+
+    first = make_trainer()
+    assert first.train() is True
+    latest = Checkpoint.load(str(checkpoint.with_name("latest.pt")), "cpu")
+    assert latest.step == train_config.maxSteps
+
+    resumed = make_trainer()
+    resumed.loadCheckpointIfExists()
+    assert resumed.globalStep == train_config.maxSteps
+
+    def fail_train() -> float:
+        raise AssertionError("max-step-complete run should not train")
+
+    monkeypatch.setattr(resumed, "_trainStep", fail_train)
+    assert resumed.train() is False
+    assert resumed.trainingCurve == []
 
 
 def test_resume_rejects_incompatible_model_config(tmp_path: Path) -> None:
