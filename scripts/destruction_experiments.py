@@ -28,6 +28,7 @@ Usage
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import random
 import sys
@@ -85,6 +86,28 @@ def fresh_generator(seed: int) -> torch.Generator:
     g = torch.Generator()
     g.manual_seed(seed)
     return g
+
+
+def stable_seed(seed: int, experiment: str, book_name: str) -> int:
+    digest = hashlib.sha256(
+        f"{seed}:{experiment}:{book_name}".encode("utf-8")
+    ).digest()
+    return int.from_bytes(digest[:8], byteorder="big")
+
+
+def corrupt_with_seed(
+    raw: bytes,
+    book_name: str,
+    experiment: str,
+    seed: int,
+    corrupt_fn: Callable[[bytes, str], bytes],
+) -> bytes:
+    state = random.getstate()
+    try:
+        random.seed(stable_seed(seed, experiment, book_name))
+        return corrupt_fn(raw, book_name)
+    finally:
+        random.setstate(state)
 
 
 def context_start_indices(
@@ -227,7 +250,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    random.seed(args.seed)
     device = resolve_device(args.device)
 
     print(f"Device:     {device}")
@@ -339,7 +361,13 @@ def main() -> None:
     for exp_name, corrupt_fn in experiments:
         book_results: list[tuple[str, float, float]] = []
         for book_name, raw, _ in book_data:
-            corrupted_bytes = corrupt_fn(raw, book_name)
+            corrupted_bytes = corrupt_with_seed(
+                raw,
+                book_name,
+                exp_name,
+                args.seed,
+                corrupt_fn,
+            )
             corrupted_tokens = torch.tensor(bytearray(corrupted_bytes), dtype=torch.long)
             corrupted_loss = estimate_loss(
                 model, corrupted_tokens, model_cfg, train_cfg, args.seed

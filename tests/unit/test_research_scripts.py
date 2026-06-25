@@ -73,3 +73,39 @@ def test_per_book_generator_is_stable_per_book() -> None:
 
     assert torch.equal(first.get_state(), second.get_state())
     assert not torch.equal(first.get_state(), other.get_state())
+
+
+def test_ngram_reference_losses_allow_missing_book() -> None:
+    module = _load_script("ngram_baseline")
+
+    losses = module.reference_losses_for_books(
+        {"Emma": 1.0},
+        [("Emma", b"abc"), ("Persuasion", b"def")],
+    )
+
+    assert losses is None
+
+
+def test_ngram_reference_losses_load_from_eval_json(tmp_path: Path) -> None:
+    module = _load_script("ngram_baseline")
+    reference_path = tmp_path / "eval.json"
+    reference_path.write_text(
+        '{"books": [{"book": "Emma", "loss": 1.23}]}',
+        encoding="utf-8",
+    )
+
+    assert module.load_transformer_references(reference_path) == {"Emma": 1.23}
+
+
+def test_corrupt_with_seed_is_independent_of_call_order() -> None:
+    module = _load_script("destruction_experiments")
+
+    def corrupt(raw: bytes, _book: str) -> bytes:
+        values = [module.random.randrange(0, 256) for _ in raw]
+        return bytes(values)
+
+    first = module.corrupt_with_seed(b"abcdef", "Emma", "random", 42, corrupt)
+    _ = module.corrupt_with_seed(b"abcdef", "Persuasion", "random", 42, corrupt)
+    second = module.corrupt_with_seed(b"abcdef", "Emma", "random", 42, corrupt)
+
+    assert first == second

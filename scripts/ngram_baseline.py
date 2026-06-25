@@ -87,10 +87,52 @@ class NgramModel:
         return -total_log_prob / num_predictions
 
 
+def load_transformer_references(path: Path | None) -> dict[str, float]:
+    if path is None:
+        return dict(TRANSFORMER_LOSSES_BY_BOOK)
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected reference JSON to contain an object, got {type(data).__name__}")
+    books = data.get("books")
+    if not isinstance(books, list):
+        raise ValueError("Reference JSON must contain a 'books' list")
+
+    losses: dict[str, float] = {}
+    for item in books:
+        if not isinstance(item, dict):
+            raise ValueError("Reference JSON 'books' entries must be objects")
+        book = item.get("book")
+        loss = item.get("loss")
+        if not isinstance(book, str) or not isinstance(loss, (int, float)):
+            raise ValueError("Reference JSON book entries need string 'book' and numeric 'loss'")
+        losses[book] = float(loss)
+    return losses
+
+
+def reference_losses_for_books(
+    references: dict[str, float],
+    val_books: list[tuple[str, bytes]],
+) -> list[float] | None:
+    losses: list[float] = []
+    for name, _ in val_books:
+        loss = references.get(name)
+        if loss is None:
+            return None
+        losses.append(loss)
+    return losses
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="N-gram baselines")
     parser.add_argument("--train", default=DEFAULT_TRAIN)
     parser.add_argument("--max-n", type=int, default=5)
+    parser.add_argument(
+        "--reference-json",
+        type=Path,
+        default=None,
+        help="Optional eval_per_book JSON to use as transformer reference",
+    )
     parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
     args = parser.parse_args()
 
@@ -115,6 +157,8 @@ def main() -> None:
         print("No validation files found.")
         sys.exit(1)
 
+    transformer_losses = load_transformer_references(args.reference_json)
+
     # Header
     col = 14
     print(f"  {'Model':<{col}}", end="")
@@ -124,24 +168,33 @@ def main() -> None:
     print(f"  {'Average':>8}")
     print("  " + "-" * (col + 10 * len(val_books) + 10))
 
-    # Transformer reference row
-    t_losses = [TRANSFORMER_LOSSES_BY_BOOK[name] for name, _ in val_books]
-    t_avg = sum(t_losses) / len(t_losses)
-    print(f"  {'Transformer':<{col}}", end="")
-    for loss in t_losses:
-        print(f"  {loss:>8.4f}", end="")
-    print(f"  {t_avg:>8.4f}  <- step 9500")
-    print()
+    # Transformer reference row, if available for every loaded book.
+    t_avg: float | None = None
+    t_losses = reference_losses_for_books(transformer_losses, val_books)
+    if t_losses is not None:
+        t_avg = sum(t_losses) / len(t_losses)
+        print(f"  {'Transformer':<{col}}", end="")
+        for loss in t_losses:
+            print(f"  {loss:>8.4f}", end="")
+        print(f"  {t_avg:>8.4f}  <- reference")
+        print()
+    else:
+        print("  Transformer reference skipped; missing losses for one or more books.")
+        print()
 
     # N-gram rows
     output: dict[str, object] = {
         "train": str(train_path),
         "train_bytes": len(train_data),
-        "transformer_reference": {
-            "losses": t_losses,
-            "average": t_avg,
-            "description": "step 9500, combined Austen corpus, seed 42, 200 eval iters",
-        },
+        "transformer_reference": (
+            {
+                "losses": t_losses,
+                "average": t_avg,
+                "source": str(args.reference_json) if args.reference_json else "built-in",
+            }
+            if t_losses is not None and t_avg is not None
+            else None
+        ),
         "models": [],
     }
 
@@ -157,7 +210,11 @@ def main() -> None:
             per_book.append({"book": name, "loss": loss})
 
         avg = sum(losses) / len(losses)
-        marker = "<- transformer wins" if avg > t_avg else "<- n-gram wins"
+        marker = (
+            "<- transformer wins" if t_avg is not None and avg > t_avg
+            else "<- n-gram wins" if t_avg is not None
+            else ""
+        )
         cast_models = output["models"]
         assert isinstance(cast_models, list)
         cast_models.append(
@@ -165,7 +222,7 @@ def main() -> None:
                 "n": n,
                 "average_loss": avg,
                 "per_book": per_book,
-                "comparison": marker.removeprefix("<- "),
+                "comparison": marker.removeprefix("<- ") if marker else None,
             }
         )
 
@@ -176,7 +233,8 @@ def main() -> None:
 
     print()
     print("All losses in nats. Lower is better.")
-    print("Transformer: step 9500, combined Austen corpus, seed 42, 200 eval iters.")
+    if t_avg is not None:
+        print("Transformer reference: lower is better; source recorded in JSON output.")
     if args.out is not None:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")

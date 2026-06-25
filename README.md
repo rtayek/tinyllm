@@ -141,10 +141,17 @@ Training maintains:
 
 In `run.json` schema version 2, corpus paths are authoritative under `corpora`
 and are not duplicated in `training`.
+`RunConfig.fromRunJson("runs/<experiment>/run.json")` reconstructs a replayable
+configuration by combining the serialized training fields with those corpus
+paths.
 
 `best.pt` tracks every new absolute validation-loss minimum.
 `earlyStopDelta` only determines whether an improvement is large enough to
 reset early-stopping patience.
+
+Checkpoints contain optimizer and RNG state and are loaded with PyTorch's full
+checkpoint loader. Treat checkpoint files as trusted local artifacts; do not
+load checkpoints from untrusted sources.
 
 The three newest periodic snapshots are retained by default. Configure this
 with `--snapshot-interval` and `--max-snapshots`; use zero to disable snapshots
