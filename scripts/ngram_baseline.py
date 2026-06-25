@@ -34,7 +34,16 @@ DEFAULT_TRAIN = "corpora/jane-austen/combined/splits/train.txt"
 VOCAB_SIZE = 256
 
 # Transformer val losses from step 9500 run (seed 42, 200 iters)
-TRANSFORMER_LOSSES = [1.4305, 1.4724, 1.4220, 1.4774, 1.4312, 1.4811, 1.6764, 1.7941]
+TRANSFORMER_LOSSES_BY_BOOK = {
+    "Pride and Prejudice": 1.4305,
+    "Sense and Sensibility": 1.4724,
+    "Emma": 1.4220,
+    "Mansfield Park": 1.4774,
+    "Persuasion": 1.4312,
+    "Northanger Abbey": 1.4811,
+    "Sherlock Holmes": 1.6764,
+    "Alice in Wonderland": 1.7941,
+}
 
 
 class NgramModel:
@@ -116,7 +125,7 @@ def main() -> None:
     print("  " + "-" * (col + 10 * len(val_books) + 10))
 
     # Transformer reference row
-    t_losses = TRANSFORMER_LOSSES[:len(val_books)]
+    t_losses = [TRANSFORMER_LOSSES_BY_BOOK[name] for name, _ in val_books]
     t_avg = sum(t_losses) / len(t_losses)
     print(f"  {'Transformer':<{col}}", end="")
     for loss in t_losses:

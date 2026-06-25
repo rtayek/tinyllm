@@ -7,7 +7,7 @@ kinds of structure the model has actually learned.
 Experiments
 -----------
 baseline            Raw validation text, no modification.
-context_N           Restrict effective context to N bytes (N in 1,2,4,8,16,32,64,128).
+context_N           Restrict effective context to powers of two through blockSize.
 shuffle_letters     Shuffle all characters within each word.
 shuffle_middle      Shuffle only the middle characters; preserve first and last letter.
 shuffle_words       Shuffle word order within each sentence.
@@ -46,6 +46,7 @@ from llm.DataModule import SequenceDataModule
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 from llm.Model import TinyGPTLanguageModel
+from llm.tensor_utils import resolve_device
 
 # ---------------------------------------------------------------------------
 # Books
@@ -297,7 +298,7 @@ def main() -> None:
     args = parser.parse_args()
 
     random.seed(args.seed)
-    device = args.device if torch.cuda.is_available() else "cpu"
+    device = resolve_device(args.device)
 
     print(f"Device:     {device}")
     print(f"Checkpoint: {args.checkpoint}")

@@ -22,6 +22,7 @@ from llm.DataModule import SequenceDataModule
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 from llm.Model import TinyGPTLanguageModel
+from llm.tensor_utils import resolve_device
 
 BOOKS = [
     ("Pride and Prejudice",   "corpora/jane-austen/pride-and-prejudice/splits/validation.txt"),
@@ -50,7 +51,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
     args = parser.parse_args()
 
-    device = args.device if torch.cuda.is_available() else "cpu"
+    device = resolve_device(args.device)
     print(f"Device: {device}")
     print(f"Checkpoint: {args.checkpoint}\n")
 
