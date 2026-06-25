@@ -30,7 +30,6 @@ from __future__ import annotations
 import argparse
 import json
 import random
-import re
 import sys
 from pathlib import Path
 from typing import Callable
@@ -47,6 +46,16 @@ from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 from llm.Model import TinyGPTLanguageModel
 from llm.tensor_utils import resolve_device
+from llm.corruptions import (
+    PLACEHOLDERS,
+    context_sizes,
+    corrupt_random_letters,
+    corrupt_reverse,
+    corrupt_shuffle_letters,
+    corrupt_shuffle_middle,
+    corrupt_shuffle_words,
+    make_corrupt_replace_names,
+)
 
 # ---------------------------------------------------------------------------
 # Books
@@ -62,105 +71,6 @@ BOOKS: list[tuple[str, str]] = [
     ("Sherlock Holmes",       "corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/validation.txt"),
     ("Alice in Wonderland",   "corpora/lewis-carroll/alices-adventures-in-wonderland/splits/validation.txt"),
 ]
-
-# Character names to replace, grouped by book.
-# Replacements cycle through a fixed list of neutral placeholders.
-AUSTEN_NAMES: dict[str, list[str]] = {
-    "Pride and Prejudice": [
-        "Elizabeth", "Darcy", "Bennet", "Bingley", "Jane", "Lydia",
-        "Wickham", "Collins", "Charlotte", "Kitty", "Mary", "Longbourn",
-    ],
-    "Sense and Sensibility": [
-        "Elinor", "Marianne", "Dashwood", "Willoughby", "Brandon", "Edward",
-        "Ferrars", "Jennings", "Palmer", "Middleton",
-    ],
-    "Emma": [
-        "Emma", "Knightley", "Woodhouse", "Weston", "Churchill", "Fairfax",
-        "Elton", "Harriet", "Smith", "Bates",
-    ],
-    "Mansfield Park": [
-        "Fanny", "Edmund", "Crawford", "Bertram", "Norris", "Price",
-        "Rushworth", "Yates", "Grant",
-    ],
-    "Persuasion": [
-        "Anne", "Wentworth", "Elliot", "Musgrove", "Benwick", "Harville",
-        "Smith", "Russell", "Walter",
-    ],
-    "Northanger Abbey": [
-        "Catherine", "Tilney", "Morland", "Thorpe", "Isabella", "Henry",
-        "Allen", "Woodston",
-    ],
-}
-PLACEHOLDERS = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta"]
-
-
-# ---------------------------------------------------------------------------
-# Corruption functions  (bytes in → bytes out)
-# ---------------------------------------------------------------------------
-
-def corrupt_shuffle_letters(text: bytes) -> bytes:
-    """Shuffle all characters within each word."""
-    decoded = text.decode("utf-8", errors="replace")
-    def _shuffle(m: re.Match[str]) -> str:
-        chars = list(m.group(0))
-        random.shuffle(chars)
-        return "".join(chars)
-    return re.sub(r"[A-Za-z]+", _shuffle, decoded).encode("utf-8", errors="replace")
-
-
-def corrupt_shuffle_middle(text: bytes) -> bytes:
-    """Shuffle only the middle characters of each word; keep first and last."""
-    decoded = text.decode("utf-8", errors="replace")
-    def _shuffle_middle(m: re.Match[str]) -> str:
-        word = m.group(0)
-        if len(word) <= 3:
-            return word
-        middle = list(word[1:-1])
-        random.shuffle(middle)
-        return word[0] + "".join(middle) + word[-1]
-    return re.sub(r"[A-Za-z]+", _shuffle_middle, decoded).encode("utf-8", errors="replace")
-
-
-def corrupt_shuffle_words(text: bytes) -> bytes:
-    """Shuffle word order within each sentence."""
-    decoded = text.decode("utf-8", errors="replace")
-    sentences = re.split(r"(?<=[.!?])\s+", decoded)
-    result = []
-    for sentence in sentences:
-        words = sentence.split(" ")
-        random.shuffle(words)
-        result.append(" ".join(words))
-    return " ".join(result).encode("utf-8", errors="replace")
-
-
-def corrupt_reverse(text: bytes) -> bytes:
-    """Reverse the entire byte sequence."""
-    return text[::-1]
-
-
-def corrupt_random_letters(text: bytes) -> bytes:
-    """Replace every ASCII letter with a random letter a-z."""
-    result = bytearray(text)
-    for i, b in enumerate(result):
-        if 65 <= b <= 90 or 97 <= b <= 122:
-            result[i] = random.randint(97, 122)
-    return bytes(result)
-
-
-def make_corrupt_replace_names(book_name: str) -> Callable[[bytes], bytes]:
-    """Return a corruption function that replaces character names for a given book."""
-    names = AUSTEN_NAMES.get(book_name, [])
-
-    def _corrupt(text: bytes) -> bytes:
-        if not names:
-            return text
-        decoded = text.decode("utf-8", errors="replace")
-        for i, name in enumerate(names):
-            placeholder = PLACEHOLDERS[i % len(PLACEHOLDERS)]
-            decoded = re.sub(r"\b" + re.escape(name) + r"\b", placeholder, decoded)
-        return decoded.encode("utf-8", errors="replace")
-
-    return _corrupt
 
 
 # ---------------------------------------------------------------------------
@@ -203,30 +113,45 @@ def estimate_loss_context(
     seed: int,
     context_len: int,
 ) -> float:
-    """Estimate loss using only the last context_len bytes of each block."""
+    """Estimate next-byte loss given exactly ``context_len`` bytes of history.
+
+    A genuinely shorter sequence of length ``context_len`` is fed to the model
+    (relying on the positional-embedding slice for variable-length input), and
+    loss is measured only on the single final prediction.  This is a true
+    fixed-context measurement: the model predicts the next byte using exactly
+    ``context_len`` real preceding bytes.
+
+    This deliberately avoids the earlier zero-padding approach, which left the
+    leading positions filled with null bytes (token 0 is a real, embedded
+    token).  Padding contaminated small-context measurements by making the
+    model condition on a run of null bytes rather than on a genuinely short
+    context.
+    """
     model.eval()
-    block_size = model_cfg.blockSize
     device = train_cfg.device
     losses: list[float] = []
     g = fresh_generator(seed)
 
+    # context_len real bytes of history, predicting the byte that follows.
+    window = context_len + 1
+    high = tokens.size(0) - window
+    if high <= 0:
+        raise ValueError(
+            f"Sequence too short ({tokens.size(0)}) for context window {window}"
+        )
+
     with torch.no_grad():
         for _ in range(train_cfg.evalIters):
-            high = tokens.size(0) - block_size
             idx = torch.randint(0, high, (train_cfg.batchSize,), generator=g)
-            offsets = torch.arange(block_size)
+            offsets = torch.arange(window)
             positions = idx.unsqueeze(1) + offsets.unsqueeze(0)
-            block_x = tokens[positions].to(device)
-            block_y = tokens[positions + 1].to(device)
-            if context_len < block_size:
-                block_x[:, :block_size - context_len] = 0
-            logits, _, _ = model(block_x)
-            logits_slice = logits[:, -context_len:, :]
-            targets_slice = block_y[:, -context_len:]
-            loss = F.cross_entropy(
-                logits_slice.reshape(-1, logits_slice.size(-1)),
-                targets_slice.reshape(-1),
-            )
+            block = tokens[positions].to(device)        # (B, context_len + 1)
+            block_x = block[:, :context_len]            # (B, context_len)
+            target = block[:, context_len]              # (B,) the next byte
+
+            logits, _, _ = model(block_x)               # (B, context_len, vocab)
+            final_logits = logits[:, -1, :]             # (B, vocab): predict next
+            loss = F.cross_entropy(final_logits, target)
             losses.append(float(loss.item()))
 
     return sum(losses) / len(losses)
@@ -273,15 +198,6 @@ def print_experiment_results(
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-
-def context_sizes(block_size: int) -> list[int]:
-    sizes: list[int] = []
-    value = 1
-    while value < block_size:
-        sizes.append(value)
-        value *= 2
-    sizes.append(block_size)
-    return sizes
 
 
 def main() -> None:

@@ -66,9 +66,14 @@ The checkpoint has clearly learned:
   with no book below +0.27. Slightly stronger on Austen prose (+0.29–0.34)
   than on Sherlock (+0.28) and Alice (+0.27), consistent with Austen's more
   syntactically structured sentences.
-- **Long-range context** — the model makes meaningful use of 64–128 byte
-  context. The last marginal (64→128) is −0.15 nats — the context window
-  ceiling has not been reached.
+
+Most importantly, the model is **almost entirely local**:
+
+- **It uses only about 8 bytes of context.** A corrected context probe (see
+  below) shows next-byte loss reaches the full-context baseline by 8 bytes of
+  history and is flat thereafter. Context beyond ~8 bytes provides no
+  measurable benefit. The model is effectively a high-order local model, not
+  a long-range one.
 
 It has not demonstrated strong evidence of:
 
@@ -117,32 +122,43 @@ This is the first priority for future work.
 
 ### Context Window Probe
 
-Context restricted by zeroing the leading bytes of each 128-byte block.
-Loss measured only on the final N positions. Averaged across all eight books.
+Each measurement feeds the model a genuinely shorter sequence of exactly N
+bytes of history and records the loss on the single next-byte prediction.
+Averaged across all eight books.
+
+(An earlier version of this probe zero-padded the leading bytes of a full
+128-byte block instead of shortening the sequence. Because byte 0 is a real,
+embedded token, that padding contaminated the small-context measurements and
+produced a spurious "long-range context helps" signal. The numbers below use
+the corrected method.)
 
 | Context | Avg Loss | Delta | Delta% | Marginal |
 |---:|---:|---:|---:|---:|
-| 1 | 3.2662 | +1.743 | +114% | — |
-| 2 | 2.9245 | +1.401 | +92% | −0.342 |
-| 4 | 2.3916 | +0.869 | +57% | −0.533 |
-| 8 | 2.0018 | +0.479 | +31% | −0.390 |
-| 16 | 1.8578 | +0.335 | +22% | −0.144 |
-| 32 | 1.7994 | +0.276 | +18% | −0.058 |
-| 64 | 1.6734 | +0.150 | +10% | −0.126 |
-| 128 | 1.5231 | +0.000 | +0% | −0.150 |
+| 1 | 2.4861 | +0.963 | +63% | — |
+| 2 | 2.0446 | +0.522 | +34% | −0.442 |
+| 4 | 1.6249 | +0.102 | +7% | −0.420 |
+| 8 | 1.5307 | +0.008 | +0.5% | −0.094 |
+| 16 | 1.5164 | −0.007 | −0.4% | −0.014 |
+| 32 | 1.5146 | −0.009 | −0.6% | −0.002 |
+| 64 | 1.4929 | −0.030 | −2.0% | −0.022 |
+| 128 | 1.5257 | +0.003 | +0.2% | +0.033 |
 
 Key observations:
 
-- **Most gain in the first 8 bytes.** 8-byte context recovers about 72%
-  of full-context performance. Local character statistics dominate.
-- **Non-monotonic marginal profile.** There is a marked dip at 16→32
-  (−0.058) followed by recovery at 32→64 (−0.126) and 64→128 (−0.150).
-  This pattern appeared in earlier Pride-only runs and is reproducible.
-  Austen's sentences are often longer than 32 bytes — the model may be
-  picking up useful sentence-boundary structure at 64–128 that it cannot
-  use at 16–32.
-- **Context ceiling not reached.** The 64→128 marginal is −0.150, not
-  near zero. Increasing `blockSize` to 256 or 512 is likely to help.
+- **The model is effectively local: ~8 bytes is enough.** By 8 bytes of
+  history the loss (1.531) has already reached the full-context baseline
+  (1.523). The first 4 bytes alone recover most of the performance.
+- **Context beyond 8 bytes provides no measurable benefit.** From 8 to 128
+  bytes the loss is flat within sampling noise (1.49–1.53). The tiny negative
+  deltas at 16/32/64 and the tiny positive delta at 128 are all noise around
+  the baseline, not signal.
+- **There is no long-range structure being used.** The earlier "dip at 16–32
+  then recovery at 64–128" pattern was entirely an artifact of the zero-pad
+  methodology and does not survive the corrected probe.
+- **Implication for scaling:** the model is not using the 128-byte window it
+  already has, so increasing `blockSize` will almost certainly not help at
+  this model size. The bottleneck is capacity or the nature of byte-level
+  local modeling, not context length.
 
 ### Structure-Destruction Experiments
 
@@ -353,16 +369,20 @@ Reproduce the layer-contribution measurements on the Austen checkpoint:
 
 ### 2. Scale Model Capacity
 
-The context probe shows the 128-byte ceiling has not been reached
-(64→128 marginal is −0.15, not near zero). Recommended next scaling steps,
-one at a time:
+The corrected context probe shows the model uses only ~8 bytes of context and
+gains nothing from the 128-byte window it already has. **Increasing
+`blockSize` is therefore not expected to help at this model size** — the
+bottleneck is capacity or the nature of byte-level local modeling, not context
+length. Prioritize capacity over context:
 
-- Increase `blockSize` from 128 to 256 (most likely to help given the
-  context probe results).
 - Increase `nEmbed` from 256 to 512.
 - Increase `nLayer` from 4 to 6 or 8.
+- Only revisit `blockSize` after a larger model, and only if a fresh context
+  probe on that model shows it actually using the full window.
 
-Run the full probe suite after each change to measure what capacity buys.
+Run the full probe suite after each change to measure what capacity buys, and
+in particular re-run the context probe — a larger model may begin to use
+longer context even though this one does not.
 
 ### 3. Preserve Training Trajectories
 

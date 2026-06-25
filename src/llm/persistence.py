@@ -6,7 +6,7 @@ from typing import Any, Dict, cast
 
 import torch
 
-from .Config import RunConfig
+from .Config import RunConfig, ModelConfig
 from .Model import TinyGPTLanguageModel
 from .Checkpoint import Checkpoint
 from .tensor_utils import resolve_device
@@ -47,11 +47,22 @@ def main() -> None:
         )
         model_state: Dict[str, Any]
         if isinstance(state, dict) and "modelConfig" in state:
-            # Full training checkpoint: extract just the model weights.
+            # Full training checkpoint: use its stored config so the model
+            # architecture matches the saved weights, not the defaults.
             model_state = cast(Dict[str, Any], state["modelState"])
+            saved_model_cfg = cast(Dict[str, Any], state["modelConfig"])
+            if saved_model_cfg:
+                model_cfg = ModelConfig.fromDict(saved_model_cfg)
         else:
-            # Model-only export: the dict is the state_dict directly.
+            # Model-only export: the dict is the state_dict directly. There is
+            # no stored config, so fall back to defaults and warn the caller.
             model_state = cast(Dict[str, Any], state)
+            print(
+                "Warning: model-only file has no stored config; "
+                "using default ModelConfig. If the weights were trained with "
+                "non-default architecture, loading will fail.",
+                file=sys.stderr,
+            )
 
         model = TinyGPTLanguageModel(model_cfg)
         model.load_state_dict(model_state)

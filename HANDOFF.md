@@ -120,8 +120,11 @@ Keep byte tokens while the project is focused on transformer mechanics and
 representation research. The recommended scaling path is:
 
 1. Add more training data (more Gutenberg corpora).
-2. Scale up model capacity (more layers, wider embeddings, longer blockSize).
-3. Add BPE tokenization as a controlled comparison â€” not a replacement.
+2. Scale up model capacity (more layers, wider embeddings). Note: the corrected
+   context probe shows the current model uses only ~8 bytes of context, so a
+   longer blockSize is not expected to help until the model is large enough to
+   use the window it already has.
+3. Add BPE tokenization as a controlled comparison - not a replacement.
 
 If BPE is added, a reasonable starting point is 2,000â€“8,000 tokens and a
 context length of 256â€“512. Changing tokenization is a model-format break:
@@ -517,16 +520,21 @@ broad renaming unless handled as a deliberate refactor.
 
 Planned work in priority order:
 
-1. **Train blockSize=256 candidate** - use the canonical combined Austen corpus
-   and compare against the current run artifacts to establish a controlled baseline.
-2. **Reproduce baselines** â€” run n-gram models (unigram through 5-gram) and the
-   context/structure-destruction probes on the new canonical split.
-3. **Scale the model** â€” increase `nLayer`, `nEmbed`, and `blockSize` once
-   there is data worth training on and a baseline to compare against.
-4. **Fix known issues** â€” `CheckpointContext`, `get_device()` removal,
+1. **Reproduce n-gram baselines on the canonical Austen split** - done; the
+   transformer (1.52 avg) beats the best n-gram (4-gram, 1.83 avg) decisively.
+   See `LEARNED_STRUCTURE.md`.
+2. **Scale capacity, not context** - the corrected context probe shows the
+   model uses only ~8 bytes of context and gains nothing from the 128-byte
+   window it already has. Increasing `blockSize` is not expected to help at
+   this model size. Prioritize `nEmbed` (256 to 512) and `nLayer` (4 to 6-8),
+   and re-run the context probe on the larger model to see whether it begins
+   to use longer context.
+3. **Layer ablations** - reproduce the legacy layer-contribution measurements
+   on the current checkpoint to see whether layer 0 MLP still dominates.
+4. **Fix known issues** - `CheckpointContext`, `get_device()` removal,
    `AutoregressiveGenerator` device param, naming consistency.
-5. **BPE tokenization** â€” add as a controlled comparison path after scaling,
+5. **BPE tokenization** - add as a controlled comparison path after scaling,
    not as a replacement for byte tokens.
-6. **RL / self-improvement** â€” reward-signal experiments once the base model
+6. **RL / self-improvement** - reward-signal experiments once the base model
    generates coherent text.
 
