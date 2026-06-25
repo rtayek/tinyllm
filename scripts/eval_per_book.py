@@ -12,6 +12,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
+from typing import Sequence
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -42,7 +43,7 @@ def book_generator(seed: int, book_name: str) -> torch.Generator:
     return generator
 
 
-def main() -> None:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Per-book validation loss")
     parser.add_argument(
         "--checkpoint",
@@ -52,14 +53,21 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.iters < 1:
+        parser.error("--iters must be greater than zero")
+    return args
+
+
+def main() -> None:
+    args = parse_args()
 
     device = resolve_device(args.device)
     print(f"Device: {device}")
     print(f"Checkpoint: {args.checkpoint}\n")
 
     checkpoint = Checkpoint.load(args.checkpoint, device)
-    if checkpoint.modelConfig is None:
+    if not checkpoint.modelConfig:
         print("ERROR: checkpoint has no modelConfig")
         return
 

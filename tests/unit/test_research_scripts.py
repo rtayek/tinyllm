@@ -85,6 +85,17 @@ def test_per_book_generator_is_stable_per_book() -> None:
     assert not torch.equal(first.get_state(), other.get_state())
 
 
+@pytest.mark.parametrize("script_name", ["eval_per_book", "destruction_experiments"])
+def test_research_scripts_reject_non_positive_iters(script_name: str) -> None:
+    module = _load_script(script_name)
+
+    with pytest.raises(SystemExit):
+        module.parse_args(["--iters", "0"])
+
+    with pytest.raises(SystemExit):
+        module.parse_args(["--iters", "-1"])
+
+
 def test_ngram_reference_losses_allow_missing_book() -> None:
     module = _load_script("ngram_baseline")
 

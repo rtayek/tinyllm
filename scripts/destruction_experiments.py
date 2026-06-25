@@ -33,7 +33,7 @@ import json
 import random
 import sys
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Sequence
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -222,7 +222,7 @@ def print_experiment_results(
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Structure-destruction experiments")
     parser.add_argument("--checkpoint", default="runs/austen-byte/checkpoints/best.pt")
     parser.add_argument("--iters", type=int, default=200)
@@ -233,7 +233,14 @@ def main() -> None:
         "--no-per-book", action="store_true",
         help="Skip per-book breakdown; report only aggregate results",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.iters < 1:
+        parser.error("--iters must be greater than zero")
+    return args
+
+
+def main() -> None:
+    args = parse_args()
 
     device = resolve_device(args.device)
 
@@ -243,7 +250,7 @@ def main() -> None:
 
     # Load model
     checkpoint = Checkpoint.load(args.checkpoint, device)
-    if checkpoint.modelConfig is None:
+    if not checkpoint.modelConfig:
         print("ERROR: checkpoint has no modelConfig")
         return
     model_cfg = ModelConfig.fromDict(checkpoint.modelConfig)
