@@ -6,6 +6,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from .Config import ModelConfig, TrainConfig
+from .json_utils import write_json
 
 
 class RunArtifacts:
@@ -60,6 +61,10 @@ class RunArtifacts:
             "corpora": self._corporaPayload(),
         }
 
+    def _write_jsonl(self, path: Path, payload: dict[str, object]) -> None:
+        with path.open("a", encoding="utf-8", newline="\n") as output:
+            output.write(json.dumps(payload, sort_keys=True) + "\n")
+
     def writeRunMetadata(self) -> Path | None:
         if self.runDirectory is None:
             return None
@@ -85,10 +90,7 @@ class RunArtifacts:
             ),
             **self._configPayload(),
         }
-        path.write_text(
-            json.dumps(payload, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        write_json(path, payload)
         return path
 
     def runMetadataExists(self) -> bool:
@@ -103,8 +105,7 @@ class RunArtifacts:
             "recorded_at": datetime.now(timezone.utc).isoformat(),
             **record,
         }
-        with path.open("a", encoding="utf-8", newline="\n") as output:
-            output.write(json.dumps(payload, sort_keys=True) + "\n")
+        self._write_jsonl(path, payload)
         return path
 
     def appendContinuation(self) -> Path | None:
@@ -119,6 +120,5 @@ class RunArtifacts:
             "recorded_at": datetime.now(timezone.utc).isoformat(),
             **self._configPayload(),
         }
-        with path.open("a", encoding="utf-8", newline="\n") as output:
-            output.write(json.dumps(payload, sort_keys=True) + "\n")
+        self._write_jsonl(path, payload)
         return path

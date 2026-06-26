@@ -12,3 +12,7 @@ def write_json(path: Path, payload: Any, *, ensure_ascii: bool = True) -> None:
         encoding="utf-8",
         newline="\n",
     )
+
+
+def read_json(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))

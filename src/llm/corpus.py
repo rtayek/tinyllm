@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-# This module intentionally re-exports corpus source helpers for compatibility.
-# pyright: reportUnusedImport=false
-
 import argparse
 import hashlib
 import re
@@ -12,36 +9,16 @@ from pathlib import Path
 from typing import Sequence
 
 from llm.corpus_sources import (
-    ALICE,
     AUSTEN_WORKS,
-    CHAPTER_HEADING,
     EMMA,
-    END_MARKER,
-    ILLUSTRATION_BLOCK,
     MANSFIELD_PARK,
     NORTHANGER_ABBEY,
     PERSUASION,
     PRIDE,
     SENSE_AND_SENSIBILITY,
-    SHERLOCK,
-    SHERLOCK_HEADING,
-    START_MARKER,
     WORKS,
     WorkSpec,
-    clean_alice,
-    clean_austen,
-    clean_pride_and_prejudice,
-    clean_sherlock,
     normalize_text,
-    split_alice_chapters,
-    split_emma_chapters,
-    split_mansfield_park_chapters,
-    split_northanger_abbey_chapters,
-    split_persuasion_chapters,
-    split_pride_chapters,
-    split_sense_and_sensibility_chapters,
-    split_sherlock_stories,
-    strip_gutenberg_wrapper,
 )
 from llm.json_utils import write_json
 

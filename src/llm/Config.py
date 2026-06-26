@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar, cast
 
 from llm.serialization_types import ConfigPayload
+from llm.json_utils import read_json
 
 
 @dataclass(frozen=True)
@@ -149,7 +149,7 @@ class RunConfig:
 
     @classmethod
     def fromRunJson(cls, path: str | Path) -> "RunConfig":
-        rawData: Any = json.loads(Path(path).read_text(encoding="utf-8"))
+        rawData: Any = read_json(Path(path))
         if not isinstance(rawData, dict):
             raise ValueError(f"Expected run metadata to be a dict, got {type(rawData).__name__}")
         data = cast(ConfigPayload, rawData)
@@ -164,16 +164,26 @@ class RunConfig:
         if not isinstance(corporaData, dict):
             raise ValueError(f"Expected 'corpora' to be a dict, got {type(corporaData).__name__}")
 
-        replayTrainData = dict(cast(ConfigPayload, trainData))
+        modelPayload = cast(ConfigPayload, modelData)
+        trainPayload = cast(ConfigPayload, trainData)
+        corporaPayload = cast(ConfigPayload, corporaData)
+
+        modelConfig = ModelConfig.fromDict(modelPayload) if modelPayload else ModelConfig()
+        trainConfig = cls._trainConfigFromRunJson(trainPayload, corporaPayload)
+        return cls(modelConfig=modelConfig, trainConfig=trainConfig)
+
+    @staticmethod
+    def _trainConfigFromRunJson(
+        trainData: ConfigPayload,
+        corporaData: ConfigPayload,
+    ) -> TrainConfig:
+        replayTrainData = dict(trainData)
         for splitName, fieldName in (
             ("train", "dataPath"),
             ("validation", "validationDataPath"),
             ("test", "testDataPath"),
         ):
-            splitData = cast(ConfigPayload, corporaData).get(splitName)
+            splitData = corporaData.get(splitName)
             if isinstance(splitData, dict) and "path" in splitData:
                 replayTrainData[fieldName] = splitData["path"]
-
-        modelConfig = ModelConfig.fromDict(cast(ConfigPayload, modelData)) if modelData else ModelConfig()
-        trainConfig = TrainConfig.fromDict(replayTrainData) if replayTrainData else TrainConfig()
-        return cls(modelConfig=modelConfig, trainConfig=trainConfig)
+        return TrainConfig.fromDict(replayTrainData) if replayTrainData else TrainConfig()

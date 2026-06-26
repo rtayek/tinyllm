@@ -6,6 +6,10 @@ import pytest
 
 import llm.corpus as corpus_module
 from llm.corpus import (
+    prepare_combined_corpus,
+    prepare_corpora,
+)
+from llm.corpus_sources import (
     ALICE,
     PRIDE,
     SHERLOCK,
@@ -19,8 +23,6 @@ from llm.corpus import (
     clean_pride_and_prejudice,
     clean_sherlock,
     normalize_text,
-    prepare_combined_corpus,
-    prepare_corpora,
     split_alice_chapters,
     split_northanger_abbey_chapters,
     split_pride_chapters,
