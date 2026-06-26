@@ -1,22 +1,8 @@
 """Structure-destruction experiments for tinyllm.
 
 Each experiment corrupts the validation text in a specific way and measures
-how much the loss increases relative to the baseline.  The gap reveals which
+how much the loss increases relative to the baseline. The gap reveals which
 kinds of structure the model has actually learned.
-
-Experiments
------------
-baseline            Raw validation text, no modification.
-context_N           Restrict effective context to powers of two through blockSize.
-shuffle_letters     Shuffle all characters within each word.
-shuffle_middle      Shuffle only the middle characters; preserve first and last letter.
-shuffle_words       Shuffle word order within each sentence.
-reverse             Reverse the entire byte sequence.
-random_letters      Replace every ASCII letter with a random letter a-z.
-replace_names       Replace Austen character names with placeholders.
-
-All experiments use the same checkpoint, block size, batch size, and loss
-calculation.  Only the text changes.
 
 Usage
 -----
@@ -43,13 +29,10 @@ import torch.nn.functional as F
 from llm.Checkpoint import Checkpoint
 from llm.Config import ModelConfig, TrainConfig
 from llm.DataModule import SequenceDataModule
-from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
+from llm.Evaluator import Evaluator
 from llm.Model import TinyGPTLanguageModel
-from llm.research_books import RESEARCH_BOOKS
-from llm.tensor_utils import resolve_device
 from llm.corruptions import (
-    PLACEHOLDERS,
     context_sizes,
     corrupt_random_letters,
     corrupt_reverse,
@@ -58,19 +41,21 @@ from llm.corruptions import (
     corrupt_shuffle_words,
     make_corrupt_replace_names,
 )
+from llm.research_books import RESEARCH_BOOKS
+from llm.tensor_utils import resolve_device
 
-# ---------------------------------------------------------------------------
-# Evaluation helpers
-# ---------------------------------------------------------------------------
+BookData = tuple[str, bytes, torch.Tensor]
+ExperimentSpec = tuple[str, Callable[[bytes, str], bytes]]
+
 
 def load_tokens(path: Path) -> torch.Tensor:
     return torch.tensor(bytearray(path.read_bytes()), dtype=torch.long)
 
 
 def fresh_generator(seed: int) -> torch.Generator:
-    g = torch.Generator()
-    g.manual_seed(seed)
-    return g
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+    return generator
 
 
 def stable_seed(seed: int, experiment: str, book_name: str) -> int:
@@ -117,7 +102,8 @@ def estimate_loss(
     seed: int,
 ) -> float:
     data_module = SequenceDataModule(
-        model_cfg, train_cfg,
+        model_cfg,
+        train_cfg,
         sequence=tokens,
         validationSequence=tokens,
     )
@@ -135,26 +121,11 @@ def estimate_loss_context(
     seed: int,
     context_len: int,
 ) -> float:
-    """Estimate next-byte loss given exactly ``context_len`` bytes of history.
-
-    A genuinely shorter sequence of length ``context_len`` is fed to the model
-    (relying on the positional-embedding slice for variable-length input), and
-    loss is measured only on the single final prediction.  This is a true
-    fixed-context measurement: the model predicts the next byte using exactly
-    ``context_len`` real preceding bytes.
-
-    This deliberately avoids the earlier zero-padding approach, which left the
-    leading positions filled with null bytes (token 0 is a real, embedded
-    token).  Padding contaminated small-context measurements by making the
-    model condition on a run of null bytes rather than on a genuinely short
-    context.
-    """
+    """Estimate next-byte loss given exactly ``context_len`` bytes of history."""
     model.eval()
     device = train_cfg.device
     losses: list[float] = []
-    g = fresh_generator(seed)
-
-    # context_len real bytes of history, predicting the byte that follows.
+    generator = fresh_generator(seed)
     window = context_len + 1
 
     with torch.no_grad():
@@ -163,51 +134,43 @@ def estimate_loss_context(
                 tokens.size(0),
                 window,
                 train_cfg.batchSize,
-                g,
+                generator,
             )
             offsets = torch.arange(window)
             positions = idx.unsqueeze(1) + offsets.unsqueeze(0)
-            block = tokens[positions].to(device)        # (B, context_len + 1)
-            block_x = block[:, :context_len]            # (B, context_len)
-            target = block[:, context_len]              # (B,) the next byte
+            block = tokens[positions].to(device)
+            block_x = block[:, :context_len]
+            target = block[:, context_len]
 
-            logits, _, _ = model(block_x)               # (B, context_len, vocab)
-            final_logits = logits[:, -1, :]             # (B, vocab): predict next
+            logits, _, _ = model(block_x)
+            final_logits = logits[:, -1, :]
             loss = F.cross_entropy(final_logits, target)
             losses.append(float(loss.item()))
 
     return sum(losses) / len(losses)
 
 
-# ---------------------------------------------------------------------------
-# Reporting
-# ---------------------------------------------------------------------------
-
 def fmt_delta(delta: float) -> str:
-    marker = "  "
     if abs(delta) > 1.0:
-        marker = "!!"
-    elif abs(delta) > 0.2:
-        marker = " !"
-    return marker
+        return "!!"
+    if abs(delta) > 0.2:
+        return " !"
+    return "  "
 
 
 def print_experiment_results(
     name: str,
-    book_results: list[tuple[str, float, float]],  # (book, baseline, corrupted)
+    book_results: list[tuple[str, float, float]],
 ) -> None:
-    """Print per-book and aggregate results for one experiment."""
     print(f"\n  Experiment: {name}")
     print(f"  {'Book':<26}  {'Baseline':>8}  {'Corrupted':>9}  {'Delta':>7}  {'Delta%':>7}")
     print("  " + "-" * 68)
 
-    deltas: list[float] = []
     for book, baseline, corrupted in book_results:
         delta = corrupted - baseline
         pct = 100.0 * delta / baseline if baseline > 0 else 0.0
         marker = fmt_delta(delta)
         print(f"{marker} {book:<26}  {baseline:>8.4f}  {corrupted:>9.4f}  {delta:>+7.4f}  {pct:>+6.1f}%")
-        deltas.append(delta)
 
     avg_baseline = sum(b for _, b, _ in book_results) / len(book_results)
     avg_corrupted = sum(c for _, _, c in book_results) / len(book_results)
@@ -217,115 +180,90 @@ def print_experiment_results(
     print(f"   {'Average':<26}  {avg_baseline:>8.4f}  {avg_corrupted:>9.4f}  {avg_delta:>+7.4f}  {avg_pct:>+6.1f}%")
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-
-def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Structure-destruction experiments")
-    parser.add_argument("--checkpoint", default="runs/austen-byte/checkpoints/best.pt")
-    parser.add_argument("--iters", type=int, default=200)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--device", default="cuda")
-    parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
-    parser.add_argument(
-        "--no-per-book", action="store_true",
-        help="Skip per-book breakdown; report only aggregate results",
-    )
-    args = parser.parse_args(argv)
-    if args.iters < 1:
-        parser.error("--iters must be greater than zero")
-    return args
-
-
-def main() -> None:
-    args = parse_args()
-
-    device = resolve_device(args.device)
-
-    print(f"Device:     {device}")
-    print(f"Checkpoint: {args.checkpoint}")
-    print(f"Iters:      {args.iters}  Seed: {args.seed}\n")
-
-    # Load model
-    checkpoint = Checkpoint.load(args.checkpoint, device)
+def load_model(
+    checkpoint_path: str,
+    device: str,
+    iters: int,
+) -> tuple[ModelConfig, TrainConfig, TinyGPTLanguageModel]:
+    checkpoint = Checkpoint.load(checkpoint_path, device)
     if not checkpoint.modelConfig:
-        print("ERROR: checkpoint has no modelConfig")
-        return
+        raise ValueError("checkpoint has no modelConfig")
+
     model_cfg = ModelConfig.fromDict(checkpoint.modelConfig)
-    train_cfg = TrainConfig(device=device, evalIters=args.iters)
+    train_cfg = TrainConfig(device=device, evalIters=iters)
     model = TinyGPTLanguageModel(model_cfg).to(device)
     model.load_state_dict(checkpoint.modelState)
     model.eval()
+    return model_cfg, train_cfg, model
 
-    # Load all book data
-    book_data: list[tuple[str, bytes, torch.Tensor]] = []
+
+def load_book_data() -> list[BookData]:
+    book_data: list[BookData] = []
     for book in RESEARCH_BOOKS:
         book_name = book.name
         path = book.validation_path
         if not path.exists():
-            print(f"  Skipping {book_name} — {path} not found")
+            print(f"  Skipping {book_name} -- {path} not found")
             continue
-        raw = path.read_bytes()
-        tokens = load_tokens(path)
-        book_data.append((book_name, raw, tokens))
+        book_data.append((book_name, path.read_bytes(), load_tokens(path)))
+    return book_data
 
-    if not book_data:
-        print("No corpus files found.")
-        return
 
-    # --- Baselines ---
+def run_baselines(
+    model: TinyGPTLanguageModel,
+    book_data: list[BookData],
+    model_cfg: ModelConfig,
+    train_cfg: TrainConfig,
+    seed: int,
+) -> tuple[dict[str, float], list[dict[str, object]], float]:
     print("=" * 72)
     print("BASELINE")
     print("=" * 72)
     print(f"  {'Book':<26}  {'Val Loss':>8}  {'Perplexity':>10}")
     print("  " + "-" * 50)
+
     baselines: dict[str, float] = {}
-    output: dict[str, object] = {
-        "checkpoint": args.checkpoint,
-        "device": device,
-        "iters": args.iters,
-        "seed": args.seed,
-        "block_size": model_cfg.blockSize,
-        "baseline": [],
-        "context_probe": [],
-        "experiments": [],
-    }
+    rows: list[dict[str, object]] = []
     for book_name, _, tokens in book_data:
-        loss = estimate_loss(model, tokens, model_cfg, train_cfg, args.seed)
-        perp = torch.exp(torch.tensor(loss)).item()
+        loss = estimate_loss(model, tokens, model_cfg, train_cfg, seed)
+        perplexity = torch.exp(torch.tensor(loss)).item()
         baselines[book_name] = loss
-        baseline_rows = output["baseline"]
-        assert isinstance(baseline_rows, list)
-        baseline_rows.append(
-            {"book": book_name, "loss": loss, "perplexity": perp}
-        )
-        print(f"  {book_name:<26}  {loss:>8.4f}  {perp:>10.2f}")
+        rows.append({"book": book_name, "loss": loss, "perplexity": perplexity})
+        print(f"  {book_name:<26}  {loss:>8.4f}  {perplexity:>10.2f}")
+
     avg_base = sum(baselines.values()) / len(baselines)
     print("  " + "-" * 50)
     print(f"  {'Average':<26}  {avg_base:>8.4f}")
+    return baselines, rows, avg_base
 
-    # --- Context window probe ---
+
+def run_context_probe(
+    model: TinyGPTLanguageModel,
+    book_data: list[BookData],
+    model_cfg: ModelConfig,
+    train_cfg: TrainConfig,
+    seed: int,
+    avg_base: float,
+) -> list[dict[str, object]]:
     print("\n" + "=" * 72)
     print("CONTEXT WINDOW PROBE")
     print("=" * 72)
     print("  Metric: next-byte loss after exactly N bytes of context")
     print(f"  {'Context':<10}  {'Avg Loss':>8}  {'Delta':>7}  {'Delta%':>7}  {'Marginal':>9}")
     print("  " + "-" * 55)
+
+    rows: list[dict[str, object]] = []
     prev_avg: float | None = None
     for ctx in context_sizes(model_cfg.blockSize):
-        ctx_losses = []
-        for book_name, _, tokens in book_data:
-            loss = estimate_loss_context(model, tokens, model_cfg, train_cfg, args.seed, ctx)
-            ctx_losses.append(loss)
+        ctx_losses = [
+            estimate_loss_context(model, tokens, model_cfg, train_cfg, seed, ctx)
+            for _, _, tokens in book_data
+        ]
         avg = sum(ctx_losses) / len(ctx_losses)
         delta = avg - avg_base
         pct = 100.0 * delta / avg_base
         marginal = f"{avg - prev_avg:+.4f}" if prev_avg is not None else "       -"
-        context_rows = output["context_probe"]
-        assert isinstance(context_rows, list)
-        context_rows.append(
+        rows.append(
             {
                 "context": ctx,
                 "average_loss": avg,
@@ -336,39 +274,51 @@ def main() -> None:
         )
         print(f"  context_{ctx:<4}  {avg:>8.4f}  {delta:>+7.4f}  {pct:>+6.1f}%  {marginal:>9}")
         prev_avg = avg
+    return rows
 
-    # --- Corruption experiments ---
+
+def experiment_specs() -> list[ExperimentSpec]:
+    return [
+        ("shuffle_letters", lambda raw, _: corrupt_shuffle_letters(raw)),
+        ("shuffle_middle", lambda raw, _: corrupt_shuffle_middle(raw)),
+        ("shuffle_words", lambda raw, _: corrupt_shuffle_words(raw)),
+        ("reverse", lambda raw, _: corrupt_reverse(raw)),
+        ("random_letters", lambda raw, _: corrupt_random_letters(raw)),
+        ("replace_names", lambda raw, book: make_corrupt_replace_names(book)(raw)),
+    ]
+
+
+def run_corruption_experiments(
+    model: TinyGPTLanguageModel,
+    book_data: list[BookData],
+    model_cfg: ModelConfig,
+    train_cfg: TrainConfig,
+    seed: int,
+    baselines: dict[str, float],
+    no_per_book: bool,
+) -> list[dict[str, object]]:
     print("\n" + "=" * 72)
     print("DESTRUCTION EXPERIMENTS")
     print("=" * 72)
 
-    experiments: list[tuple[str, Callable[[bytes, str], bytes]]] = [
-        ("shuffle_letters",  lambda raw, _:   corrupt_shuffle_letters(raw)),
-        ("shuffle_middle",   lambda raw, _:   corrupt_shuffle_middle(raw)),
-        ("shuffle_words",    lambda raw, _:   corrupt_shuffle_words(raw)),
-        ("reverse",          lambda raw, _:   corrupt_reverse(raw)),
-        ("random_letters",   lambda raw, _:   corrupt_random_letters(raw)),
-        ("replace_names",    lambda raw, bk:  make_corrupt_replace_names(bk)(raw)),
-    ]
-
-    for exp_name, corrupt_fn in experiments:
+    rows: list[dict[str, object]] = []
+    for exp_name, corrupt_fn in experiment_specs():
         book_results: list[tuple[str, float, float]] = []
         for book_name, raw, _ in book_data:
             corrupted_bytes = corrupt_with_seed(
                 raw,
                 book_name,
                 exp_name,
-                args.seed,
+                seed,
                 corrupt_fn,
             )
             corrupted_tokens = torch.tensor(bytearray(corrupted_bytes), dtype=torch.long)
             corrupted_loss = estimate_loss(
-                model, corrupted_tokens, model_cfg, train_cfg, args.seed
+                model, corrupted_tokens, model_cfg, train_cfg, seed
             )
             book_results.append((book_name, baselines[book_name], corrupted_loss))
-        experiment_rows = output["experiments"]
-        assert isinstance(experiment_rows, list)
-        experiment_rows.append(
+
+        rows.append(
             {
                 "name": exp_name,
                 "per_book": [
@@ -383,16 +333,87 @@ def main() -> None:
                 ],
             }
         )
-
-        if args.no_per_book:
-            avg_b = sum(b for _, b, _ in book_results) / len(book_results)
-            avg_c = sum(c for _, _, c in book_results) / len(book_results)
-            delta = avg_c - avg_b
-            pct = 100.0 * delta / avg_b
-            marker = fmt_delta(delta)
-            print(f"{marker} {exp_name:<26}  {avg_b:>8.4f}  {avg_c:>9.4f}  {delta:>+7.4f}  {pct:>+6.1f}%")
+        if no_per_book:
+            print_aggregate_experiment_result(exp_name, book_results)
         else:
             print_experiment_results(exp_name, book_results)
+    return rows
+
+
+def print_aggregate_experiment_result(
+    exp_name: str,
+    book_results: list[tuple[str, float, float]],
+) -> None:
+    avg_b = sum(b for _, b, _ in book_results) / len(book_results)
+    avg_c = sum(c for _, _, c in book_results) / len(book_results)
+    delta = avg_c - avg_b
+    pct = 100.0 * delta / avg_b
+    marker = fmt_delta(delta)
+    print(f"{marker} {exp_name:<26}  {avg_b:>8.4f}  {avg_c:>9.4f}  {delta:>+7.4f}  {pct:>+6.1f}%")
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Structure-destruction experiments")
+    parser.add_argument("--checkpoint", default="runs/austen-byte/checkpoints/best.pt")
+    parser.add_argument("--iters", type=int, default=200)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
+    parser.add_argument(
+        "--no-per-book",
+        action="store_true",
+        help="Skip per-book breakdown; report only aggregate results",
+    )
+    args = parser.parse_args(argv)
+    if args.iters < 1:
+        parser.error("--iters must be greater than zero")
+    return args
+
+
+def main() -> None:
+    args = parse_args()
+    device = resolve_device(args.device)
+
+    print(f"Device:     {device}")
+    print(f"Checkpoint: {args.checkpoint}")
+    print(f"Iters:      {args.iters}  Seed: {args.seed}\n")
+
+    try:
+        model_cfg, train_cfg, model = load_model(args.checkpoint, device, args.iters)
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return
+
+    book_data = load_book_data()
+    if not book_data:
+        print("No corpus files found.")
+        return
+
+    baselines, baseline_rows, avg_base = run_baselines(
+        model, book_data, model_cfg, train_cfg, args.seed
+    )
+    context_rows = run_context_probe(
+        model, book_data, model_cfg, train_cfg, args.seed, avg_base
+    )
+    experiment_rows = run_corruption_experiments(
+        model,
+        book_data,
+        model_cfg,
+        train_cfg,
+        args.seed,
+        baselines,
+        args.no_per_book,
+    )
+    output: dict[str, object] = {
+        "checkpoint": args.checkpoint,
+        "device": device,
+        "iters": args.iters,
+        "seed": args.seed,
+        "block_size": model_cfg.blockSize,
+        "baseline": baseline_rows,
+        "context_probe": context_rows,
+        "experiments": experiment_rows,
+    }
     if args.out is not None:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")

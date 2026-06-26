@@ -20,7 +20,8 @@ on_train_end(curve)
 from __future__ import annotations
 
 import logging
-from typing import Any, Protocol
+from pathlib import Path
+from typing import Protocol
 
 from .Config import ModelConfig, TrainConfig
 from .Evaluator import EvalResult
@@ -29,6 +30,39 @@ from .Evaluator import EvalResult
 class TrainingCallback(Protocol):
     def on_eval(self, result: EvalResult, is_best: bool) -> None: ...
     def on_train_end(self, curve: list[tuple[int, float, float]]) -> None: ...
+
+
+class MetricSink(Protocol):
+    def appendMetric(self, record: dict[str, object]) -> Path | None: ...
+
+
+class CheckpointPaths(Protocol):
+    @property
+    def ckptPath(self) -> str: ...
+
+    @property
+    def latestPath(self) -> str: ...
+
+    def snapshotPath(self, step: int) -> str: ...
+    def pruneSnapshots(self) -> None: ...
+
+
+class CheckpointTarget(Protocol):
+    @property
+    def trainConfig(self) -> TrainConfig: ...
+
+    @property
+    def bestValLoss(self) -> float | None: ...
+
+    @property
+    def checkpoints(self) -> CheckpointPaths: ...
+
+    def saveCheckpoint(
+        self,
+        step: int,
+        path: str,
+        earlyStoppingState: dict[str, object] | None = None,
+    ) -> None: ...
 
 
 # ---------------------------------------------------------------------------
@@ -72,8 +106,7 @@ class LoggingCallback:
 class MetricsCallback:
     """Appends evaluation results to metrics.jsonl via RunArtifacts."""
 
-    def __init__(self, runArtifacts: Any) -> None:
-        # Typed as Any to avoid a circular import with RunArtifacts.
+    def __init__(self, runArtifacts: MetricSink) -> None:
         self._runArtifacts = runArtifacts
 
     def on_eval(self, result: EvalResult, is_best: bool) -> None:
@@ -99,11 +132,9 @@ class CheckpointCallback:
 
     def __init__(
         self,
-        trainer: Any,  # LMTrainer â€” typed as Any to avoid circular import
+        trainer: CheckpointTarget,
         logger: logging.Logger,
     ) -> None:
-        # Hold a reference to the trainer so we can reach its checkpoint
-        # manager, optimizer, generator states, and early-stopping state.
         self._trainer = trainer
         self.logger = logger
 
@@ -114,7 +145,7 @@ class CheckpointCallback:
         if is_best:
             # best.pt gets a clean patience counter so resume always starts
             # fresh from the best model rather than inheriting stale patience.
-            trainer._saveCheckpoint(
+            trainer.saveCheckpoint(
                 step,
                 trainer.checkpoints.ckptPath,
                 earlyStoppingState={
@@ -127,11 +158,11 @@ class CheckpointCallback:
                 step,
                 trainer.checkpoints.ckptPath,
             )
-        trainer._saveCheckpoint(step, trainer.checkpoints.latestPath)
+        trainer.saveCheckpoint(step, trainer.checkpoints.latestPath)
 
         interval = trainer.trainConfig.snapshotInterval
         if interval > 0 and step > 0 and step % interval == 0:
-            trainer._saveCheckpoint(step, trainer.checkpoints.snapshotPath(step))
+            trainer.saveCheckpoint(step, trainer.checkpoints.snapshotPath(step))
             trainer.checkpoints.pruneSnapshots()
 
     def on_train_end(self, curve: list[tuple[int, float, float]]) -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import os
-from typing import Any, Optional, cast
+from typing import Optional
 import logging
 
 import torch
@@ -12,7 +12,7 @@ from llm.Model import TinyGPTLanguageModel
 from llm.DataModule import SequenceDataModule
 from llm.Checkpoint import Checkpoint, CheckpointManager, CheckpointLoadResult, CHECKPOINT_VERSION
 from llm.LRScheduleStrategy import WarmupCosineStrategy
-from llm.Evaluator import Evaluator
+from llm.Evaluator import Evaluator, EvalResult
 from llm.RunArtifacts import RunArtifacts
 from llm.TrainingCallback import TrainingCallback
 
@@ -75,7 +75,12 @@ class LMTrainer:
 
         return float(loss.item())
 
-    def _saveCheckpoint(self, step: int, path: str, earlyStoppingState: Optional[dict[str, Any]] = None) -> None:
+    def saveCheckpoint(
+        self,
+        step: int,
+        path: str,
+        earlyStoppingState: dict[str, object] | None = None,
+    ) -> None:
         if earlyStoppingState is None and self.evaluator is not None:
             earlyStoppingState = self.evaluator.early_stopping.state_dict()
         self.checkpoints.saveCheckpoint(
@@ -95,7 +100,7 @@ class LMTrainer:
         )
         self.logger.info("[step %s] Checkpoint saved to %s.", step, path)
 
-    def _fire_on_eval(self, result: Any, is_best: bool) -> None:
+    def _fire_on_eval(self, result: EvalResult, is_best: bool) -> None:
         for cb in self.callbacks:
             cb.on_eval(result, is_best)
 
@@ -181,9 +186,9 @@ class LMTrainer:
 
                 if self.evaluator is None:
                     raise RuntimeError("Evaluator is not set.")
-                evalResult: Any = self.evaluator.evaluate(step, self.bestValLoss)
-                train_loss = float(cast(float, evalResult.train_loss))
-                val_loss = float(cast(float, evalResult.val_loss))
+                evalResult = self.evaluator.evaluate(step, self.bestValLoss)
+                train_loss = float(evalResult.train_loss)
+                val_loss = float(evalResult.val_loss)
                 if not math.isfinite(train_loss) or not math.isfinite(val_loss):
                     raise RuntimeError("Non-finite evaluation loss encountered")
                 self.trainingCurve.append((step, train_loss, val_loss))
@@ -208,7 +213,7 @@ class LMTrainer:
             self.globalStep = step + 1
 
         if not stoppedEarly and self.globalStep >= self.trainConfig.maxSteps:
-            self._saveCheckpoint(self.globalStep, self.checkpoints.latestPath)
+            self.saveCheckpoint(self.globalStep, self.checkpoints.latestPath)
 
         self.logger.info("Training loop finished.")
         if self.bestValLoss is not None:

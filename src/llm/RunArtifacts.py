@@ -5,8 +5,6 @@ import json
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
-
 from .Config import ModelConfig, TrainConfig
 
 
@@ -38,6 +36,30 @@ class RunArtifacts:
             return None
         return result.stdout.strip() or None
 
+    def _corporaPayload(self) -> dict[str, dict[str, str | None]]:
+        return {
+            "train": {
+                "path": self.trainConfig.dataPath,
+                "sha256": self._sha256(self.trainConfig.dataPath),
+            },
+            "validation": {
+                "path": self.trainConfig.validationDataPath,
+                "sha256": self._sha256(self.trainConfig.validationDataPath),
+            },
+            "test": {
+                "path": self.trainConfig.testDataPath,
+                "sha256": self._sha256(self.trainConfig.testDataPath),
+            },
+        }
+
+    def _configPayload(self) -> dict[str, object]:
+        return {
+            "git_commit": self._git_commit(),
+            "model": self.modelConfig.toDict(),
+            "training": self.trainConfig.toSerializableDict(),
+            "corpora": self._corporaPayload(),
+        }
+
     def writeRunMetadata(self) -> Path | None:
         if self.runDirectory is None:
             return None
@@ -53,9 +75,6 @@ class RunArtifacts:
         payload = {
             "schema_version": 2,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "git_commit": self._git_commit(),
-            "model": self.modelConfig.toDict(),
-            "training": self.trainConfig.toSerializableDict(),
             "parent_checkpoint": (
                 {
                     "path": str(parentCheckpoint),
@@ -64,20 +83,7 @@ class RunArtifacts:
                 if parentCheckpoint.exists()
                 else None
             ),
-            "corpora": {
-                "train": {
-                    "path": self.trainConfig.dataPath,
-                    "sha256": self._sha256(self.trainConfig.dataPath),
-                },
-                "validation": {
-                    "path": self.trainConfig.validationDataPath,
-                    "sha256": self._sha256(self.trainConfig.validationDataPath),
-                },
-                "test": {
-                    "path": self.trainConfig.testDataPath,
-                    "sha256": self._sha256(self.trainConfig.testDataPath),
-                },
-            },
+            **self._configPayload(),
         }
         path.write_text(
             json.dumps(payload, indent=2, sort_keys=True) + "\n",
@@ -88,7 +94,7 @@ class RunArtifacts:
     def runMetadataExists(self) -> bool:
         return self.runDirectory is not None and (self.runDirectory / "run.json").exists()
 
-    def appendMetric(self, record: dict[str, Any]) -> Path | None:
+    def appendMetric(self, record: dict[str, object]) -> Path | None:
         if self.runDirectory is None:
             return None
         self.runDirectory.mkdir(parents=True, exist_ok=True)
@@ -111,23 +117,7 @@ class RunArtifacts:
         path = self.runDirectory / "continuations.jsonl"
         payload = {
             "recorded_at": datetime.now(timezone.utc).isoformat(),
-            "git_commit": self._git_commit(),
-            "model": self.modelConfig.toDict(),
-            "training": self.trainConfig.toSerializableDict(),
-            "corpora": {
-                "train": {
-                    "path": self.trainConfig.dataPath,
-                    "sha256": self._sha256(self.trainConfig.dataPath),
-                },
-                "validation": {
-                    "path": self.trainConfig.validationDataPath,
-                    "sha256": self._sha256(self.trainConfig.validationDataPath),
-                },
-                "test": {
-                    "path": self.trainConfig.testDataPath,
-                    "sha256": self._sha256(self.trainConfig.testDataPath),
-                },
-            },
+            **self._configPayload(),
         }
         with path.open("a", encoding="utf-8", newline="\n") as output:
             output.write(json.dumps(payload, sort_keys=True) + "\n")
