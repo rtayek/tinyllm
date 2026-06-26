@@ -107,6 +107,33 @@ def writeRunMetadata(trainer: LMTrainer, logger: logging.Logger) -> None:
             logger.info("Run continuation metadata written to %s", continuationPath)
 
 
+def sample_path_for(trainer: LMTrainer) -> Path:
+    runDirectory = trainer.trainConfig.runDirectory()
+    if runDirectory is not None:
+        return runDirectory / "samples" / "sample.txt"
+    return Path("tmp") / "sample.txt"
+
+
+def finish_training(trainer: LMTrainer, logger: logging.Logger) -> bool:
+    trainingRan = trainer.train()
+    if trainingRan is False:
+        logger.info("Skipping final test evaluation and sample save.")
+        return False
+
+    trainer.evaluateBestCheckpointOnTest()
+    textGenerator = AutoregressiveGenerator(
+        trainer.model,
+        trainer.trainConfig.device,
+        logger,
+    )
+    textGenerator.saveSample(
+        maxNewTokens=200,
+        prompt="",
+        path=sample_path_for(trainer),
+    )
+    return True
+
+
 def main(argv: Sequence[str] | int | None = None, log_level: int = logging.INFO) -> None:
     if isinstance(argv, int):
         log_level = argv
@@ -123,21 +150,7 @@ def main(argv: Sequence[str] | int | None = None, log_level: int = logging.INFO)
     )
 
     writeRunMetadata(trainer, activeLogger)
-
-    trainingRan = trainer.train()
-    if trainingRan is False:
-        activeLogger.info("Skipping final test evaluation and sample save.")
-        return
-    trainer.evaluateBestCheckpointOnTest()
-
-    textGenerator = AutoregressiveGenerator(trainer.model, trainer.trainConfig.device, activeLogger)
-    runDirectory = trainer.trainConfig.runDirectory()
-    samplePath = (
-        runDirectory / "samples" / "sample.txt"
-        if runDirectory is not None
-        else Path("tmp") / "sample.txt"
-    )
-    textGenerator.saveSample(maxNewTokens=200, prompt="", path=samplePath)
+    finish_training(trainer, activeLogger)
 
 
 if __name__ == "__main__":
