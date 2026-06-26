@@ -27,6 +27,9 @@ dev = [
 tinyllm-train = "llm.Main:main"
 tinyllm-infer = "llm.infer:main"
 tinyllm-prepare-corpora = "llm.corpus:main"
+tinyllm-eval-per-book = "llm.eval_per_book:main"
+tinyllm-destruction-experiments = "llm.destruction_experiments:main"
+tinyllm-ngram-baseline = "llm.ngram_baseline:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -38,9 +41,9 @@ where = ["src"]
 branch = true
 source = ["llm"]
 omit = [
-  "src/llm/DataBottleneckProfiler.py",
-  "src/llm/checkGPU.py",
-  "src/llm/make_tender_buttons_dataset.py",
+  "src/llm/destruction_experiments.py",
+  "src/llm/eval_per_book.py",
+  "src/llm/ngram_baseline.py",
 ]
 
 [tool.coverage.report]

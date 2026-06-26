@@ -10,6 +10,7 @@ from llm.Config import ModelConfig, RunConfig, TrainConfig
 from llm.Model import TinyGPTLanguageModel
 from llm.Checkpoint import Checkpoint
 from llm.TextGenerator import AutoregressiveGenerator
+from llm.cli_utils import require_non_negative, require_positive
 from llm.tensor_utils import resolve_device
 
 
@@ -46,14 +47,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Random seed for reproducible generation",
     )
     args = parser.parse_args(argv)
-    if args.tokens < 0:
-        parser.error("--tokens must be non-negative")
+    require_non_negative(parser, "--tokens", args.tokens)
     if args.temperature <= 0:
         parser.error("--temperature must be greater than zero")
-    if args.top_k is not None and args.top_k <= 0:
-        parser.error("--top-k must be greater than zero")
-    if args.seed is not None and args.seed < 0:
-        parser.error("--seed must be non-negative")
+    if args.top_k is not None:
+        require_positive(parser, "--top-k", args.top_k)
+    if args.seed is not None:
+        require_non_negative(parser, "--seed", args.seed)
     return args
 
 
