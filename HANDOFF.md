@@ -30,7 +30,7 @@ Verification:
 
 ```text
 pyright: 0 errors
-pytest: 149 passed
+pytest: 151 passed
 coverage: 87.95%
 ```
 
@@ -293,8 +293,6 @@ pytest tests/unit/test_training_callbacks.py
 
 - `CheckpointManager.loadCheckpoint` remains as a compatibility wrapper; new
   code should call `restoreCheckpoint`.
-- `tensor_utils.get_device()` is still unused.
-- `build_data_module` in `train_app.py` still switches on `trainConfig.dataModule`.
 
 ## Roadmap
 

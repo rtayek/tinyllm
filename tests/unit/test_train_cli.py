@@ -6,7 +6,8 @@ from pathlib import Path
 import pytest
 
 import llm.train_app as main_module
-from llm.Config import RunConfig, TrainConfig
+from llm.Config import ModelConfig, RunConfig, TrainConfig
+from llm.DataModule import ByteDataModule, TokenDataModule
 from llm.train_cli import parseTrainCli
 
 
@@ -216,3 +217,49 @@ def test_main_skips_final_artifacts_when_training_did_not_run(
     assert fake_trainer.runArtifacts.written is True
     assert not hasattr(fake_trainer, "evaluated")
     assert FakeGenerator.save_calls == 0
+
+
+def test_build_data_module_uses_registered_factories(tmp_path: Path) -> None:
+    corpus = tmp_path / "input.txt"
+    corpus.write_text("hello tiny llm", encoding="utf-8")
+    logger = logging.getLogger("test.data-module-factory")
+    model_config = ModelConfig(blockSize=4)
+    base_config = TrainConfig(
+        dataPath=str(corpus),
+        validationDataPath=None,
+        testDataPath=None,
+        device="cpu",
+    )
+
+    token_module = main_module.build_data_module(
+        model_config,
+        base_config,
+        logger,
+    )
+    byte_module = main_module.build_data_module(
+        model_config,
+        TrainConfig(
+            dataModule="byte",
+            dataPath=str(corpus),
+            validationDataPath=None,
+            testDataPath=None,
+            device="cpu",
+        ),
+        logger,
+    )
+
+    assert isinstance(token_module, TokenDataModule)
+    assert isinstance(byte_module, ByteDataModule)
+
+    with pytest.raises(ValueError, match="Unknown dataModule"):
+        main_module.build_data_module(
+            model_config,
+            TrainConfig(
+                dataModule="missing",
+                dataPath=str(corpus),
+                validationDataPath=None,
+                testDataPath=None,
+                device="cpu",
+            ),
+            logger,
+        )

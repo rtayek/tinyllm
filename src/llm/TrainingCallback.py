@@ -176,5 +176,5 @@ class TrainingCurveCallback:
             self.logger.info("[plot] Saved plot to %s", filepath)
             self.logger.info("[plot] Saved config to %s", config_dump_path)
         except Exception as e:
-            self.logger.info("Could not plot training curve: %s", e)
+            self.logger.warning("Could not plot training curve: %s", e)
 

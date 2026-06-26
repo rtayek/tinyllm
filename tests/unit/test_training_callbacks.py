@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 from unittest.mock import MagicMock
 
+import pytest
+
 from llm.Config import ModelConfig, TrainConfig
 from llm.Evaluator import EvalResult
 from llm.TrainingCallback import (
@@ -189,3 +191,26 @@ class TestTrainingCurveCallback:
         )
         cb.on_train_end([])
         logger.info.assert_called_with("No training curve data to plot.")
+
+    def test_on_train_end_logs_plot_failures_as_warning(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        logger = MagicMock(spec=logging.Logger)
+        cb = TrainingCurveCallback(
+            ModelConfig(), TrainConfig(plotCurve=True, device="cpu"), logger
+        )
+
+        def fail_plot(*_args: object, **_kwargs: object) -> tuple[str, str]:
+            raise RuntimeError("plot failed")
+
+        import llm.plot_utils as plot_utils
+
+        monkeypatch.setattr(plot_utils, "plot_training_curve", fail_plot)
+
+        cb.on_train_end([(0, 1.0, 1.1)])
+
+        logger.warning.assert_called_once()
+        args = logger.warning.call_args.args
+        assert args[0] == "Could not plot training curve: %s"
+        assert str(args[1]) == "plot failed"

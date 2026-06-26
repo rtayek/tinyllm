@@ -15,6 +15,37 @@ from llm.TrainingCallback import CheckpointCallback
 from llm.train_app import buildCheckpointContext
 
 
+def make_byte_trainer(
+    model_config: ModelConfig,
+    train_config: TrainConfig,
+    logger_name: str,
+    patience: int = 100,
+    delta: float = 0.0,
+) -> LMTrainer:
+    data_module = ByteDataModule(model_config, train_config)
+    model = TinyGPTLanguageModel(model_config).to(train_config.device)
+    logger = logging.getLogger(logger_name)
+    evaluator = Evaluator(
+        model=model,
+        data_module=data_module,
+        trainConfig=train_config,
+        early_stopping=EarlyStopping(patience=patience, delta=delta),
+        logger=logger,
+    )
+    trainer = LMTrainer(
+        model_config,
+        train_config,
+        model,
+        data_module,
+        evaluator=evaluator,
+        logger=logger,
+    )
+    trainer.callbacks = [
+        CheckpointCallback(buildCheckpointContext(trainer), logger)
+    ]
+    return trainer
+
+
 def test_training_smoke(tmp_path: Path) -> None:
     dataPath = tmp_path / "input.txt"
     dataPath.write_bytes(b"hello tiny llm\n" * 200)
@@ -46,22 +77,7 @@ def test_training_smoke(tmp_path: Path) -> None:
     )
 
     torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
-    dataModule = ByteDataModule(modelConfig, trainConfig)
-    model = TinyGPTLanguageModel(modelConfig).to(trainConfig.device)
-
-    mock_logger = logging.getLogger("test_logger")
-    mock_early_stopping = EarlyStopping(patience=100, delta=0.0)
-    evaluator = Evaluator(
-        model=model,
-        data_module=dataModule,
-        trainConfig=trainConfig,
-        early_stopping=mock_early_stopping,
-        logger=mock_logger,
-    )
-    trainer = LMTrainer(modelConfig, trainConfig, model, dataModule, evaluator=evaluator, logger=mock_logger)
-    trainer.callbacks = [
-        CheckpointCallback(buildCheckpointContext(trainer), mock_logger)
-    ]
+    trainer = make_byte_trainer(modelConfig, trainConfig, "test_logger")
 
     trainer.loadCheckpointIfExists()
     trainer.train()
@@ -105,30 +121,7 @@ def test_short_training_resumes_from_latest_checkpoint(tmp_path: Path) -> None:
             dataPath=str(data_path),
             device="cpu",
         )
-        data_module = ByteDataModule(model_config, train_config)
-        model = TinyGPTLanguageModel(model_config).to(train_config.device)
-        evaluator = Evaluator(
-            model=model,
-            data_module=data_module,
-            trainConfig=train_config,
-            early_stopping=EarlyStopping(patience=100, delta=0.0),
-            logger=logging.getLogger("test.resume"),
-        )
-        trainer = LMTrainer(
-            model_config,
-            train_config,
-            model,
-            data_module,
-            evaluator=evaluator,
-            logger=logging.getLogger("test.resume"),
-        )
-        trainer.callbacks = [
-            CheckpointCallback(
-                buildCheckpointContext(trainer),
-                logging.getLogger("test.resume"),
-            )
-        ]
-        return trainer
+        return make_byte_trainer(model_config, train_config, "test.resume")
 
     torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
     first = make_trainer(max_steps=2)
@@ -180,30 +173,7 @@ def test_completed_max_steps_run_does_not_train_again(
     )
 
     def make_trainer() -> LMTrainer:
-        data_module = ByteDataModule(model_config, train_config)
-        model = TinyGPTLanguageModel(model_config).to(train_config.device)
-        evaluator = Evaluator(
-            model=model,
-            data_module=data_module,
-            trainConfig=train_config,
-            early_stopping=EarlyStopping(patience=100, delta=0.0),
-            logger=logging.getLogger("test.max-steps"),
-        )
-        trainer = LMTrainer(
-            model_config,
-            train_config,
-            model,
-            data_module,
-            evaluator=evaluator,
-            logger=logging.getLogger("test.max-steps"),
-        )
-        trainer.callbacks = [
-            CheckpointCallback(
-                buildCheckpointContext(trainer),
-                logging.getLogger("test.max-steps"),
-            )
-        ]
-        return trainer
+        return make_byte_trainer(model_config, train_config, "test.max-steps")
 
     first = make_trainer()
     assert first.train() is True

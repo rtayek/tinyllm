@@ -25,6 +25,10 @@ from llm.tensor_utils import resolve_device
 from llm.train_cli import parseTrainCli
 
 logger = logging.getLogger(__name__)
+DataModuleFactory = Callable[
+    [ModelConfig, TrainConfig, logging.Logger],
+    SequenceDataModule,
+]
 
 
 def setupLogging(level: int = logging.INFO) -> logging.Logger:
@@ -37,20 +41,41 @@ def manual_seed(seed: int) -> torch.Generator:
     return seed_fn(seed)
 
 
-def build_data_module(modelConfig: ModelConfig, trainConfig: TrainConfig, activeLogger: logging.Logger) -> SequenceDataModule:
-    mode = trainConfig.dataModule.lower()
-    if mode in ("byte", "bytes"):
-        activeLogger.info("Loading data module: raw bytes")
-        return ByteDataModule(modelConfig, trainConfig, logger=activeLogger)
+def build_byte_data_module(
+    modelConfig: ModelConfig,
+    trainConfig: TrainConfig,
+    activeLogger: logging.Logger,
+) -> ByteDataModule:
+    activeLogger.info("Loading data module: raw bytes")
+    return ByteDataModule(modelConfig, trainConfig, logger=activeLogger)
 
-    if mode != "token":
-        raise ValueError(f"Unknown dataModule '{mode}'; expected 'token' or 'byte'")
 
+def build_token_data_module(
+    modelConfig: ModelConfig,
+    trainConfig: TrainConfig,
+    activeLogger: logging.Logger,
+) -> TokenDataModule:
     activeLogger.info("Loading data module: tokenized UTF-8 bytes")
     tokenizer = Utf8ByteTokenizer()
     if modelConfig.vocabSize != tokenizer.vocabSize:
         activeLogger.warning("modelConfig.vocabSize (%s) differs from tokenizer vocabSize (%s)", modelConfig.vocabSize, tokenizer.vocabSize)
     return TokenDataModule(modelConfig, trainConfig, tokenizer=tokenizer, logger=activeLogger)
+
+
+DATA_MODULE_FACTORIES: dict[str, DataModuleFactory] = {
+    "byte": build_byte_data_module,
+    "bytes": build_byte_data_module,
+    "token": build_token_data_module,
+}
+
+
+def build_data_module(modelConfig: ModelConfig, trainConfig: TrainConfig, activeLogger: logging.Logger) -> SequenceDataModule:
+    mode = trainConfig.dataModule.lower()
+    factory = DATA_MODULE_FACTORIES.get(mode)
+    if factory is None:
+        expected = "', '".join(sorted(DATA_MODULE_FACTORIES))
+        raise ValueError(f"Unknown dataModule '{mode}'; expected one of '{expected}'")
+    return factory(modelConfig, trainConfig, activeLogger)
 
 
 def buildCheckpointContext(trainer: LMTrainer) -> CheckpointContext:

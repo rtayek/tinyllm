@@ -3,9 +3,6 @@ import logging
 import torch
 
 
-def get_device() -> str:
-    return "cuda" if torch.cuda.is_available() else "cpu"
-
 def resolve_device(requested_device: str, logger: logging.Logger | None = None) -> str:
     if requested_device.startswith("cuda"):
         if not torch.cuda.is_available():
