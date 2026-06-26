@@ -15,9 +15,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import random
-from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Sequence
 
@@ -36,61 +34,23 @@ from llm.corruptions import (
     corrupt_shuffle_words,
     make_corrupt_replace_names,
 )
+from llm.json_utils import write_json
 from llm.research_eval import (
     ResearchBookData,
     estimate_validation_loss,
     load_checkpoint_model,
     load_research_book_data,
 )
+from llm.research_reports import (
+    BaselineRow,
+    ContextProbeRow,
+    CorruptionBookRow,
+    DestructionReport,
+    ExperimentRow,
+)
 from llm.tensor_utils import resolve_device
 
 ExperimentSpec = tuple[str, Callable[[bytes, str], bytes]]
-
-
-@dataclass(frozen=True)
-class BaselineRow:
-    book: str
-    loss: float
-    perplexity: float
-
-
-@dataclass(frozen=True)
-class ContextProbeRow:
-    context: int
-    average_loss: float
-    delta: float
-    delta_pct: float
-    marginal: float | None
-
-
-@dataclass(frozen=True)
-class CorruptionBookRow:
-    book: str
-    baseline: float
-    corrupted: float
-    delta: float
-    delta_pct: float
-
-
-@dataclass(frozen=True)
-class ExperimentRow:
-    name: str
-    per_book: list[CorruptionBookRow]
-
-
-@dataclass(frozen=True)
-class DestructionReport:
-    checkpoint: str
-    device: str
-    iters: int
-    seed: int
-    block_size: int
-    baseline: list[BaselineRow]
-    context_probe: list[ContextProbeRow]
-    experiments: list[ExperimentRow]
-
-    def to_json_dict(self) -> dict[str, object]:
-        return asdict(self)
 
 
 def load_tokens(path: Path) -> torch.Tensor:
@@ -433,11 +393,7 @@ def main() -> None:
         experiments=experiment_rows,
     )
     if args.out is not None:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(
-            json.dumps(output.to_json_dict(), indent=2) + "\n",
-            encoding="utf-8",
-        )
+        write_json(args.out, output.to_json_dict())
 
 
 if __name__ == "__main__":

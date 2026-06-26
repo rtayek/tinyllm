@@ -8,15 +8,15 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
-from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Sequence
 
 import torch
 
 from llm.cli_utils import require_positive
+from llm.json_utils import write_json
 from llm import research_eval as _research_eval
+from llm.research_reports import BookLossRow, PerBookReport
 from llm.research_eval import (
     book_seed,
     estimate_validation_loss,
@@ -26,32 +26,6 @@ from llm.research_eval import (
 from llm.tensor_utils import resolve_device
 
 book_generator = _research_eval.book_generator
-
-
-@dataclass(frozen=True)
-class BookLossRow:
-    book: str
-    path: str
-    seed: int
-    loss: float
-    perplexity: float
-
-
-@dataclass(frozen=True)
-class PerBookReport:
-    checkpoint: str
-    device: str
-    iters: int
-    full_split: bool
-    seed: int
-    books: list[BookLossRow]
-    average_loss: float | None
-
-    def to_json_dict(self) -> dict[str, object]:
-        data = asdict(self)
-        if self.average_loss is None:
-            data.pop("average_loss")
-        return data
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -136,11 +110,7 @@ def main() -> None:
 
     report = build_report(args, device)
     if report is not None and args.out is not None:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(
-            json.dumps(report.to_json_dict(), indent=2) + "\n",
-            encoding="utf-8",
-        )
+        write_json(args.out, report.to_json_dict())
 
 
 if __name__ == "__main__":

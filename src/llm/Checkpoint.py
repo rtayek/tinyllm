@@ -4,7 +4,7 @@ import inspect
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional, Dict, Any, cast
+from typing import Any, Optional, cast
 import logging
 from dataclasses import dataclass, field
 
@@ -12,6 +12,12 @@ import torch
 
 from .Config import ModelConfig, TrainConfig
 from .Model import TinyGPTLanguageModel
+from .serialization_types import (
+    CheckpointPayload,
+    CheckpointState,
+    ConfigDrift,
+    ConfigPayload,
+)
 from .tensor_utils import resolve_device
 
 _TORCH_LOAD_SUPPORTS_WEIGHTS_ONLY = "weights_only" in inspect.signature(cast(Any, torch.load)).parameters  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
@@ -30,10 +36,10 @@ class CheckpointLoadResult:
     lrStateRestored: bool = False
     version: int = CHECKPOINT_VERSION
     versionMatches: bool = True
-    configDrift: Dict[str, Dict[str, Any]] = field(default_factory=lambda: cast(Dict[str, Dict[str, Any]], {}))
+    configDrift: ConfigDrift = field(default_factory=lambda: cast(ConfigDrift, {}))
     generatorState: Optional[torch.Tensor] = None
     evaluatorGeneratorState: Optional[torch.Tensor] = None
-    earlyStoppingState: Optional[Dict[str, Any]] = None
+    earlyStoppingState: Optional[CheckpointPayload] = None
 
 
 def _cpu_rng_state(value: Any) -> Optional[torch.Tensor]:
@@ -47,18 +53,18 @@ def _cpu_rng_state(value: Any) -> Optional[torch.Tensor]:
 @dataclass
 class Checkpoint:
     version: int
-    modelState: Dict[str, Any]
-    optimizerState: Dict[str, Any]
+    modelState: CheckpointState
+    optimizerState: CheckpointState
     step: int
     bestValLoss: Optional[float]
-    modelConfig: Dict[str, Any]
-    trainConfig: Dict[str, Any]
-    lrStrategyState: Optional[Dict[str, Any]] = None
+    modelConfig: ConfigPayload
+    trainConfig: ConfigPayload
+    lrStrategyState: Optional[CheckpointPayload] = None
     generatorState: Optional[torch.Tensor] = None
     evaluatorGeneratorState: Optional[torch.Tensor] = None
-    earlyStoppingState: Optional[Dict[str, Any]] = None
+    earlyStoppingState: Optional[CheckpointPayload] = None
 
-    def toDict(self) -> Dict[str, Any]:
+    def toDict(self) -> CheckpointPayload:
         return {
             "version": self.version,
             "modelState": self.modelState,
@@ -74,22 +80,22 @@ class Checkpoint:
         }
 
     @staticmethod
-    def fromDict(data: Dict[str, Any]) -> "Checkpoint":
+    def fromDict(data: CheckpointPayload) -> "Checkpoint":
         return Checkpoint(
             version=int(data.get("version", CHECKPOINT_VERSION)),
-            modelState=cast(Dict[str, Any], data["modelState"]),
-            optimizerState=cast(Dict[str, Any], data["optimizerState"]),
+            modelState=cast(CheckpointState, data["modelState"]),
+            optimizerState=cast(CheckpointState, data["optimizerState"]),
             step=int(data.get("step", 0)),
             bestValLoss=data.get("bestValLoss", None),
-            modelConfig=cast(Dict[str, Any], data.get("modelConfig", {})),
-            trainConfig=cast(Dict[str, Any], data.get("trainConfig", {})),
-            lrStrategyState=cast(Optional[Dict[str, Any]], data.get("lrStrategyState", None)),
+            modelConfig=cast(ConfigPayload, data.get("modelConfig", {})),
+            trainConfig=cast(ConfigPayload, data.get("trainConfig", {})),
+            lrStrategyState=cast(Optional[CheckpointPayload], data.get("lrStrategyState", None)),
             generatorState=_cpu_rng_state(data.get("generatorState", None)),
             evaluatorGeneratorState=_cpu_rng_state(
                 data.get("evaluatorGeneratorState", None)
             ),
             earlyStoppingState=cast(
-                Optional[Dict[str, Any]],
+                Optional[CheckpointPayload],
                 data.get("earlyStoppingState", None),
             ),
         )
@@ -117,9 +123,9 @@ class Checkpoint:
     def load(path: str, device: str | torch.device) -> "Checkpoint":
         resolved_device = resolve_device(str(device), logging.getLogger(__name__))
         if _TORCH_LOAD_SUPPORTS_WEIGHTS_ONLY:
-            data = cast(Dict[str, Any], torch.load(path, map_location=resolved_device, weights_only=False))  # pyright: ignore[reportUnknownMemberType]
+            data = cast(CheckpointPayload, torch.load(path, map_location=resolved_device, weights_only=False))  # pyright: ignore[reportUnknownMemberType]
         else:
-            data = cast(Dict[str, Any], torch.load(path, map_location=resolved_device))  # pyright: ignore[reportUnknownMemberType]
+            data = cast(CheckpointPayload, torch.load(path, map_location=resolved_device))  # pyright: ignore[reportUnknownMemberType]
         return Checkpoint.fromDict(data)
 
     @staticmethod
@@ -130,10 +136,10 @@ class Checkpoint:
         trainConfig: Optional[TrainConfig],
         step: int,
         bestValLoss: Optional[float],
-        lrStrategyState: Optional[Dict[str, Any]] = None,
+        lrStrategyState: Optional[CheckpointPayload] = None,
         generatorState: Optional[torch.Tensor] = None,
         evaluatorGeneratorState: Optional[torch.Tensor] = None,
-        earlyStoppingState: Optional[Dict[str, Any]] = None,
+        earlyStoppingState: Optional[CheckpointPayload] = None,
         version: int = CHECKPOINT_VERSION,
     ) -> "Checkpoint":
         return Checkpoint(
@@ -174,12 +180,12 @@ class CheckpointManager:
         self,
         model: TinyGPTLanguageModel,
         optimizer: torch.optim.Optimizer,
-        lrStrategyState: Optional[Dict[str, Any]],
+        lrStrategyState: Optional[CheckpointPayload],
         step: int,
         bestValLoss: Optional[float],
         generatorState: Optional[torch.Tensor] = None,
         evaluatorGeneratorState: Optional[torch.Tensor] = None,
-        earlyStoppingState: Optional[Dict[str, Any]] = None,
+        earlyStoppingState: Optional[CheckpointPayload] = None,
         path: Optional[str] = None,
     ) -> None:
         checkpoint: Checkpoint = Checkpoint.fromTrainingState(
@@ -256,7 +262,7 @@ class CheckpointManager:
                 lrStrategy.load_state_dict(schedState)
                 lrStateRestored = True
 
-        configDrift: Dict[str, Dict[str, Any]] = {}
+        configDrift: ConfigDrift = {}
         savedModelConfig = checkpoint.modelConfig
         savedTrainConfig = checkpoint.trainConfig
         if savedModelConfig:

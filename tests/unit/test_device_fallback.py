@@ -4,9 +4,9 @@ import pytest
 from pathlib import Path
 from llm.Checkpoint import Checkpoint, CheckpointManager
 from llm.Config import RunConfig, TrainConfig, ModelConfig
-from llm.Main import buildTrainer
 from llm.Model import TinyGPTLanguageModel
 from llm.tensor_utils import resolve_device
+from llm.train_app import buildTrainer
 
 
 def test_resolve_device_falls_back_to_cpu_when_cuda_unavailable(

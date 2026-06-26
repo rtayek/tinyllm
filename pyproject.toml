@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.scripts]
-tinyllm-train = "llm.Main:main"
+tinyllm-train = "llm.train_app:main"
 tinyllm-infer = "llm.infer:main"
 tinyllm-prepare-corpora = "llm.corpus:main"
 tinyllm-eval-per-book = "llm.eval_per_book:main"

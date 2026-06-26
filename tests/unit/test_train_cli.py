@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 
-import llm.Main as main_module
+import llm.train_app as main_module
 from llm.Config import RunConfig, TrainConfig
+from llm.train_cli import parseTrainCli
 
 
 class FakeRunArtifacts:
@@ -54,7 +55,7 @@ class FakeGenerator:
 
 
 def test_parse_train_cli_builds_run_config(tmp_path: Path) -> None:
-    cli_config = main_module.parseTrainCli(
+    cli_config = parseTrainCli(
         [
             "--corpus",
             "train.txt",
@@ -110,12 +111,12 @@ def test_parse_train_cli_builds_run_config(tmp_path: Path) -> None:
 
 def test_parse_train_cli_rejects_invalid_shape_flag() -> None:
     with pytest.raises(SystemExit):
-        main_module.parseTrainCli(["--n-head", "0"])
+        parseTrainCli(["--n-head", "0"])
 
 
 def test_parse_train_cli_rejects_invalid_log_level() -> None:
     with pytest.raises(SystemExit):
-        main_module.parseTrainCli(["--log-level", "DEBIG"])
+        parseTrainCli(["--log-level", "DEBIG"])
 
 
 def test_main_accepts_model_shape_and_run_dir_flags(

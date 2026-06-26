@@ -17,12 +17,13 @@ import json
 import math
 import sys
 from collections import Counter, defaultdict
-from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Sequence, cast
 
-from llm.research_books import RESEARCH_BOOKS
 from llm.cli_utils import require_positive
+from llm.json_utils import write_json
+from llm.research_books import RESEARCH_BOOKS
+from llm.research_reports import NgramBookLoss, NgramReport, NgramResult
 
 DEFAULT_TRAIN = "corpora/jane-austen/combined/splits/train.txt"
 VOCAB_SIZE = 256
@@ -38,31 +39,6 @@ TRANSFORMER_LOSSES_BY_BOOK = {
     "Sherlock Holmes": 1.6764,
     "Alice in Wonderland": 1.7941,
 }
-
-
-@dataclass(frozen=True)
-class NgramBookLoss:
-    book: str
-    loss: float
-
-
-@dataclass(frozen=True)
-class NgramResult:
-    n: int
-    average_loss: float
-    per_book: list[NgramBookLoss]
-    comparison: str | None
-
-
-@dataclass(frozen=True)
-class NgramReport:
-    train: str
-    train_bytes: int
-    transformer_reference: dict[str, object] | None
-    models: list[NgramResult]
-
-    def to_json_dict(self) -> dict[str, object]:
-        return asdict(self)
 
 
 class NgramModel:
@@ -265,11 +241,7 @@ def main() -> None:
             transformer_reference=transformer_reference,
             models=model_rows,
         )
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(
-            json.dumps(output.to_json_dict(), indent=2) + "\n",
-            encoding="utf-8",
-        )
+        write_json(args.out, output.to_json_dict())
 
 
 if __name__ == "__main__":
