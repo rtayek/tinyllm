@@ -6,7 +6,12 @@ from typing import Callable, Sequence
 import torch
 
 from llm.Config import RunConfig, ModelConfig, TrainConfig
-from llm.DataModule import TokenDataModule, Utf8ByteTokenizer, ByteDataModule, SequenceDataModule
+from llm.DataModule import (
+    ByteDataModule,
+    SequenceDataModule,
+    TokenDataModule,
+    Utf8ByteTokenizer,
+)
 from llm.Model import TinyGPTLanguageModel
 from llm.Trainer import LMTrainer
 from llm.TextGenerator import AutoregressiveGenerator
@@ -32,7 +37,11 @@ DataModuleFactory = Callable[
 
 
 def setupLogging(level: int = logging.INFO) -> logging.Logger:
-    logging.basicConfig(level=level, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", datefmt="%H:%M:%S")
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
     return logging.getLogger(__name__)
 
 
@@ -58,7 +67,11 @@ def build_token_data_module(
     activeLogger.info("Loading data module: tokenized UTF-8 bytes")
     tokenizer = Utf8ByteTokenizer()
     if modelConfig.vocabSize != tokenizer.vocabSize:
-        activeLogger.warning("modelConfig.vocabSize (%s) differs from tokenizer vocabSize (%s)", modelConfig.vocabSize, tokenizer.vocabSize)
+        activeLogger.warning(
+            "modelConfig.vocabSize (%s) differs from tokenizer vocabSize (%s)",
+            modelConfig.vocabSize,
+            tokenizer.vocabSize,
+        )
     return TokenDataModule(modelConfig, trainConfig, tokenizer=tokenizer, logger=activeLogger)
 
 
@@ -69,7 +82,11 @@ DATA_MODULE_FACTORIES: dict[str, DataModuleFactory] = {
 }
 
 
-def build_data_module(modelConfig: ModelConfig, trainConfig: TrainConfig, activeLogger: logging.Logger) -> SequenceDataModule:
+def build_data_module(
+    modelConfig: ModelConfig,
+    trainConfig: TrainConfig,
+    activeLogger: logging.Logger,
+) -> SequenceDataModule:
     mode = trainConfig.dataModule.lower()
     factory = DATA_MODULE_FACTORIES.get(mode)
     if factory is None:
@@ -133,7 +150,10 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
         MetricsCallback(runArtifacts),
         TrainingCurveCallback(modelConfig, trainConfig, activeLogger),
     ]
-    callbacks.insert(2, CheckpointCallback(buildCheckpointContext(trainer), activeLogger))
+    callbacks.insert(
+        2,
+        CheckpointCallback(buildCheckpointContext(trainer), activeLogger),
+    )
     trainer.callbacks = callbacks
     trainer.runArtifacts = runArtifacts
     return trainer

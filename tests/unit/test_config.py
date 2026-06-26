@@ -49,7 +49,7 @@ def test_train_config_rejects_invalid_values(
         TrainConfig(**cast(dict[str, Any], kwargs))
 
 
-def test_train_config_serializable_dict_round_trips() -> None:
+def test_train_config_dict_round_trips() -> None:
     config = TrainConfig(
         seed=42,
         batchSize=4,
@@ -62,7 +62,7 @@ def test_train_config_serializable_dict_round_trips() -> None:
         device="cpu",
     )
 
-    assert TrainConfig.fromDict(config.toSerializableDict()) == config
+    assert TrainConfig.fromDict(config.toDict()) == config
 
 
 def test_train_config_from_dict_restores_omitted_defaults() -> None:

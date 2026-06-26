@@ -28,13 +28,17 @@ from .Config import ModelConfig, TrainConfig
 from .Evaluator import EvalResult
 
 
-class TrainingCallback(Protocol):
-    def on_eval(self, result: EvalResult, is_best: bool) -> None: ...
-    def on_train_end(self, curve: list[tuple[int, float, float]]) -> None: ...
+class TrainingCallback:
+    def on_eval(self, result: EvalResult, is_best: bool) -> None:
+        pass
+
+    def on_train_end(self, curve: list[tuple[int, float, float]]) -> None:
+        pass
 
 
 class MetricSink(Protocol):
-    def appendMetric(self, record: dict[str, object]) -> Path | None: ...
+    def appendMetric(self, record: dict[str, object]) -> Path | None:
+        ...
 
 
 @dataclass(frozen=True)
@@ -52,7 +56,7 @@ class CheckpointContext:
 # Concrete callbacks
 # ---------------------------------------------------------------------------
 
-class LoggingCallback:
+class LoggingCallback(TrainingCallback):
     """Logs evaluation results and training-end summary."""
 
     def __init__(self, trainConfig: TrainConfig, logger: logging.Logger) -> None:
@@ -86,7 +90,7 @@ class LoggingCallback:
             self.logger.info("  %6d: %.4f, %.4f", step, tr, va)
 
 
-class MetricsCallback:
+class MetricsCallback(TrainingCallback):
     """Appends evaluation results to metrics.jsonl via RunArtifacts."""
 
     def __init__(self, runArtifacts: MetricSink) -> None:
@@ -106,11 +110,8 @@ class MetricsCallback:
             }
         )
 
-    def on_train_end(self, curve: list[tuple[int, float, float]]) -> None:
-        pass
 
-
-class CheckpointCallback:
+class CheckpointCallback(TrainingCallback):
     """Saves best.pt, latest.pt, and periodic snapshots after each evaluation."""
 
     def __init__(
@@ -148,20 +149,14 @@ class CheckpointCallback:
             context.saveCheckpoint(step, context.snapshotPath(step), None)
             context.pruneSnapshots()
 
-    def on_train_end(self, curve: list[tuple[int, float, float]]) -> None:
-        pass
 
-
-class TrainingCurveCallback:
+class TrainingCurveCallback(TrainingCallback):
     """Plots the training curve at the end of the run."""
 
     def __init__(self, modelConfig: ModelConfig, trainConfig: TrainConfig, logger: logging.Logger) -> None:
         self.modelConfig = modelConfig
         self.trainConfig = trainConfig
         self.logger = logger
-
-    def on_eval(self, result: EvalResult, is_best: bool) -> None:
-        pass
 
     def on_train_end(self, curve: list[tuple[int, float, float]]) -> None:
         if not self.trainConfig.plotCurve:

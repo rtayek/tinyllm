@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +11,7 @@ from llm.Config import ModelConfig, TrainConfig
 from llm.Evaluator import EvalResult
 from llm.TrainingCallback import (
     CheckpointCallback,
+    CheckpointContext,
     LoggingCallback,
     MetricsCallback,
     TrainingCurveCallback,
@@ -109,25 +111,26 @@ class TestMetricsCallback:
 # ---------------------------------------------------------------------------
 
 class TestCheckpointCallback:
-    def _make_context(self, snapshot_interval: int = 0) -> MagicMock:
-        context = MagicMock()
-        context.saveCheckpoint = MagicMock()
-        context.ckptPath = "runs/exp/checkpoints/best.pt"
-        context.latestPath = "runs/exp/checkpoints/latest.pt"
-        context.snapshotPath = MagicMock()
-        context.snapshotPath.return_value = "runs/exp/checkpoints/step-000010.pt"
-        context.pruneSnapshots = MagicMock()
-        context.snapshotInterval = snapshot_interval
-        context.bestValLoss = MagicMock()
-        context.bestValLoss.return_value = 1.5
-        return context
+    def _make_context(self, snapshot_interval: int = 0) -> CheckpointContext:
+        return CheckpointContext(
+            saveCheckpoint=MagicMock(),
+            ckptPath="runs/exp/checkpoints/best.pt",
+            latestPath="runs/exp/checkpoints/latest.pt",
+            snapshotPath=MagicMock(
+                return_value="runs/exp/checkpoints/step-000010.pt"
+            ),
+            pruneSnapshots=MagicMock(),
+            snapshotInterval=snapshot_interval,
+            bestValLoss=MagicMock(return_value=1.5),
+        )
 
     def test_saves_best_and_latest_when_improved(self) -> None:
         context = self._make_context()
         cb = CheckpointCallback(context, MagicMock())
         cb.on_eval(_result(step=10), is_best=True)
-        assert context.saveCheckpoint.call_count == 2
-        paths = [c[0][1] for c in context.saveCheckpoint.call_args_list]
+        save_checkpoint = cast(MagicMock, context.saveCheckpoint)
+        assert save_checkpoint.call_count == 2
+        paths = [c[0][1] for c in save_checkpoint.call_args_list]
         assert "best.pt" in paths[0]
         assert "latest.pt" in paths[1]
 
@@ -135,34 +138,37 @@ class TestCheckpointCallback:
         context = self._make_context()
         cb = CheckpointCallback(context, MagicMock())
         cb.on_eval(_result(step=10), is_best=False)
-        assert context.saveCheckpoint.call_count == 1
-        assert "latest.pt" in context.saveCheckpoint.call_args[0][1]
+        save_checkpoint = cast(MagicMock, context.saveCheckpoint)
+        assert save_checkpoint.call_count == 1
+        assert "latest.pt" in save_checkpoint.call_args[0][1]
 
     def test_saves_snapshot_at_interval(self) -> None:
         context = self._make_context(snapshot_interval=10)
         cb = CheckpointCallback(context, MagicMock())
         cb.on_eval(_result(step=10), is_best=False)
-        assert context.saveCheckpoint.call_count == 2
-        context.pruneSnapshots.assert_called_once()
+        cast(MagicMock, context.saveCheckpoint).assert_called()
+        assert cast(MagicMock, context.saveCheckpoint).call_count == 2
+        cast(MagicMock, context.pruneSnapshots).assert_called_once()
 
     def test_no_snapshot_at_step_zero(self) -> None:
         context = self._make_context(snapshot_interval=1)
         cb = CheckpointCallback(context, MagicMock())
         cb.on_eval(_result(step=0), is_best=False)
-        assert context.saveCheckpoint.call_count == 1
+        assert cast(MagicMock, context.saveCheckpoint).call_count == 1
 
     def test_best_checkpoint_gets_clean_patience_counter(self) -> None:
         context = self._make_context()
         cb = CheckpointCallback(context, MagicMock())
         cb.on_eval(_result(step=5), is_best=True)
-        early_stopping_state = context.saveCheckpoint.call_args_list[0][0][2]
+        save_checkpoint = cast(MagicMock, context.saveCheckpoint)
+        early_stopping_state = save_checkpoint.call_args_list[0][0][2]
         assert early_stopping_state == {"noImproveEvals": 0, "referenceLoss": 1.5}
 
     def test_on_train_end_does_nothing(self) -> None:
         context = self._make_context()
         cb = CheckpointCallback(context, MagicMock())
         cb.on_train_end([])
-        context.saveCheckpoint.assert_not_called()
+        cast(MagicMock, context.saveCheckpoint).assert_not_called()
 
 
 # ---------------------------------------------------------------------------

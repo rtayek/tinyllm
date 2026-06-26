@@ -93,16 +93,18 @@ CheckpointCallback     best.pt / latest.pt / snapshot saves
 TrainingCurveCallback  training curve plot at end of run
 ```
 
-`CheckpointCallback` now consumes a narrow checkpoint context instead of a
-full trainer back-reference.
+`CheckpointCallback` now consumes a narrower checkpoint context instead of a
+full trainer back-reference, but it still closes over trainer-owned methods and
+state through that context.
 
 ## Config
 
 `ModelConfig` and `TrainConfig` validate their fields in `__post_init__`.
 
-`TrainConfig.toSerializableDict()` now round-trips with `TrainConfig.fromDict()`.
-`RunArtifacts` still writes a filtered training payload to `run.json`, so the
-stored run metadata keeps corpus paths in the dedicated `corpora` section.
+`TrainConfig.toDict()` now round-trips with `TrainConfig.fromDict()`.
+`RunArtifacts` writes a filtered training payload to `run.json` via
+`TrainConfig.toRunJsonDict()`, so the stored run metadata keeps corpus paths in
+the dedicated `corpora` section.
 
 `RunConfig.fromDict` raises `ValueError` if the `model` or `train` keys are not
 dicts.

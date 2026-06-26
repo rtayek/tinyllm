@@ -46,7 +46,11 @@ class AutoregressiveGenerator:
     ) -> bytes:
         if prompt:
             promptBytes = prompt.encode("utf-8")
-            promptTensor = torch.tensor(list(promptBytes), dtype=torch.long, device=self.device).unsqueeze(0)
+            promptTensor = torch.tensor(
+                list(promptBytes),
+                dtype=torch.long,
+                device=self.device,
+            ).unsqueeze(0)
         else:
             promptTensor = torch.zeros((1, 1), dtype=torch.long, device=self.device)
 

@@ -53,7 +53,7 @@ class RunArtifacts:
             },
         }
 
-    def _configPayload(self) -> dict[str, object]:
+    def _runMetadataPayload(self) -> dict[str, object]:
         return {
             "git_commit": self._git_commit(),
             "model": self.modelConfig.toDict(),
@@ -88,7 +88,7 @@ class RunArtifacts:
                 if parentCheckpoint.exists()
                 else None
             ),
-            **self._configPayload(),
+            **self._runMetadataPayload(),
         }
         write_json(path, payload)
         return path
@@ -118,7 +118,7 @@ class RunArtifacts:
         path = self.runDirectory / "continuations.jsonl"
         payload = {
             "recorded_at": datetime.now(timezone.utc).isoformat(),
-            **self._configPayload(),
+            **self._runMetadataPayload(),
         }
         self._write_jsonl(path, payload)
         return path
