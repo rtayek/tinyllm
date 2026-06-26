@@ -16,7 +16,7 @@ END_MARKER = re.compile(
 )
 SHERLOCK_HEADING = re.compile(
     r"^(?P<number>I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII)\. "
-    r"(?P<title>[A-Z][A-Z '\-]+)$",
+    r"(?P<title>[A-Z][A-Z \u2019'\-]+)$",
     re.MULTILINE,
 )
 CHAPTER_HEADING = re.compile(

@@ -72,7 +72,7 @@ def sherlock_stories() -> str:
         "VI. THE MAN WITH THE TWISTED LIP",
         "VII. THE ADVENTURE OF THE BLUE CARBUNCLE",
         "VIII. THE ADVENTURE OF THE SPECKLED BAND",
-        "IX. THE ADVENTURE OF THE ENGINEER'S THUMB",
+        "IX. THE ADVENTURE OF THE ENGINEER’S THUMB",
         "X. THE ADVENTURE OF THE NOBLE BACHELOR",
         "XI. THE ADVENTURE OF THE BERYL CORONET",
         "XII. THE ADVENTURE OF THE COPPER BEECHES",
@@ -235,3 +235,11 @@ def test_committed_combined_austen_manifest_matches_split_files() -> None:
         data = (root / record["path"]).read_bytes()
         assert record["bytes"] == len(data)
         assert record["sha256"] == hashlib.sha256(data).hexdigest()
+
+
+def test_committed_sherlock_raw_source_splits_into_stories() -> None:
+    source_path = Path("corpora") / SHERLOCK.identifier / "raw" / "gutenberg.txt"
+
+    cleaned = clean_sherlock(source_path.read_text(encoding="utf-8"))
+
+    assert len(split_sherlock_stories(cleaned)) == SHERLOCK.expected_units
