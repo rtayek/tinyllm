@@ -85,6 +85,14 @@ def test_per_book_generator_is_stable_per_book() -> None:
     assert not torch.equal(first.get_state(), other.get_state())
 
 
+def test_eval_per_book_accepts_full_split_flag() -> None:
+    module = _load_script("eval_per_book")
+
+    args = module.parse_args(["--full-split"])
+
+    assert args.full_split is True
+
+
 @pytest.mark.parametrize("script_name", ["eval_per_book", "destruction_experiments"])
 def test_research_scripts_reject_non_positive_iters(script_name: str) -> None:
     module = _load_script(script_name)
@@ -105,6 +113,16 @@ def test_ngram_reference_losses_allow_missing_book() -> None:
     )
 
     assert losses is None
+
+
+def test_ngram_baseline_rejects_non_positive_max_n() -> None:
+    module = _load_script("ngram_baseline")
+
+    with pytest.raises(SystemExit):
+        module.parse_args(["--max-n", "0"])
+
+    with pytest.raises(SystemExit):
+        module.parse_args(["--max-n", "-1"])
 
 
 def test_ngram_reference_losses_load_from_eval_json(tmp_path: Path) -> None:

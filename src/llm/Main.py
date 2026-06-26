@@ -19,6 +19,14 @@ from llm.tensor_utils import resolve_device
 
 logger = logging.getLogger(__name__)
 
+LOG_LEVELS: dict[str, int] = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL,
+}
+
 
 class TrainCliConfig(NamedTuple):
     runConfig: RunConfig
@@ -103,9 +111,14 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
 
 
 def writeRunMetadata(trainer: LMTrainer, logger: logging.Logger) -> None:
+    wasContinuation = trainer.runArtifacts.runMetadataExists()
     metadataPath = trainer.runArtifacts.writeRunMetadata()
     if metadataPath is not None:
         logger.info("Run metadata written to %s", metadataPath)
+    if wasContinuation:
+        continuationPath = trainer.runArtifacts.appendContinuation()
+        if continuationPath is not None:
+            logger.info("Run continuation metadata written to %s", continuationPath)
 
 
 def buildParser() -> argparse.ArgumentParser:
@@ -135,7 +148,11 @@ def runConfigFromArgs(
     parser: argparse.ArgumentParser,
     defaultLogLevel: int = logging.INFO,
 ) -> TrainCliConfig:
-    level = getattr(logging, args.log_level.upper(), defaultLogLevel)
+    level_name = args.log_level.upper()
+    if level_name not in LOG_LEVELS:
+        valid = ", ".join(LOG_LEVELS)
+        parser.error(f"--log-level must be one of: {valid}")
+    level = LOG_LEVELS.get(level_name, defaultLogLevel)
     runConfig = RunConfig()
     modelConfig = runConfig.modelConfig
     trainConfig = runConfig.trainConfig

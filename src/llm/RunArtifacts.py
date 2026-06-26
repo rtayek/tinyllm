@@ -85,6 +85,9 @@ class RunArtifacts:
         )
         return path
 
+    def runMetadataExists(self) -> bool:
+        return self.runDirectory is not None and (self.runDirectory / "run.json").exists()
+
     def appendMetric(self, record: dict[str, Any]) -> Path | None:
         if self.runDirectory is None:
             return None
@@ -93,6 +96,38 @@ class RunArtifacts:
         payload = {
             "recorded_at": datetime.now(timezone.utc).isoformat(),
             **record,
+        }
+        with path.open("a", encoding="utf-8", newline="\n") as output:
+            output.write(json.dumps(payload, sort_keys=True) + "\n")
+        return path
+
+    def appendContinuation(self) -> Path | None:
+        if self.runDirectory is None:
+            return None
+        runMetadataPath = self.runDirectory / "run.json"
+        if not runMetadataPath.exists():
+            return None
+        self.runDirectory.mkdir(parents=True, exist_ok=True)
+        path = self.runDirectory / "continuations.jsonl"
+        payload = {
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            "git_commit": self._git_commit(),
+            "model": self.modelConfig.toDict(),
+            "training": self.trainConfig.toSerializableDict(),
+            "corpora": {
+                "train": {
+                    "path": self.trainConfig.dataPath,
+                    "sha256": self._sha256(self.trainConfig.dataPath),
+                },
+                "validation": {
+                    "path": self.trainConfig.validationDataPath,
+                    "sha256": self._sha256(self.trainConfig.validationDataPath),
+                },
+                "test": {
+                    "path": self.trainConfig.testDataPath,
+                    "sha256": self._sha256(self.trainConfig.testDataPath),
+                },
+            },
         }
         with path.open("a", encoding="utf-8", newline="\n") as output:
             output.write(json.dumps(payload, sort_keys=True) + "\n")

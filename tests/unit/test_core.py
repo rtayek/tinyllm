@@ -379,3 +379,50 @@ def test_evaluator_estimate_loss_restores_training_state() -> None:
 
     # Assert that the model is back in training mode
     assert model.training is True
+
+
+def test_evaluator_full_split_matches_all_window_loss() -> None:
+    modelConfig = ModelConfig(
+        blockSize=2,
+        vocabSize=8,
+        nEmbed=8,
+        nHead=2,
+        nLayer=1,
+        dropout=0.0,
+    )
+    trainConfig = TrainConfig(batchSize=2, device="cpu")
+    tokens = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long)
+    dataModule = SequenceDataModule(
+        modelConfig,
+        trainConfig,
+        sequence=tokens,
+        validationSequence=tokens,
+    )
+    model = TinyGPTLanguageModel(modelConfig)
+    evaluator = Evaluator(
+        model,
+        dataModule,
+        trainConfig,
+        EarlyStopping(patience=1, delta=0.0),
+    )
+
+    full_loss = evaluator.estimate_split_full("val", batch_size=2)
+
+    losses: list[torch.Tensor] = []
+    with torch.no_grad():
+        for start in range(tokens.size(0) - modelConfig.blockSize):
+            batch_x = tokens[start : start + modelConfig.blockSize].unsqueeze(0)
+            batch_y = tokens[start + 1 : start + modelConfig.blockSize + 1].unsqueeze(0)
+            logits, _, _ = model(batch_x)
+            losses.append(
+                torch.nn.functional.cross_entropy(
+                    logits.reshape(-1, logits.size(-1)),
+                    batch_y.reshape(-1),
+                    reduction="sum",
+                )
+            )
+    expected = sum(float(loss.item()) for loss in losses) / (
+        len(losses) * modelConfig.blockSize
+    )
+
+    assert abs(full_loss - expected) < 1e-6

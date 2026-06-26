@@ -64,6 +64,9 @@ class SequenceDataModule:
             return self.testSequence
         raise ValueError(f"Unknown split: {split}")
 
+    def splitSequence(self, split: str) -> torch.Tensor:
+        return self._getSource(split)
+
     def getBatch(
         self,
         split: str,

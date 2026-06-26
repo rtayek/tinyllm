@@ -18,6 +18,7 @@ import math
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+from typing import Sequence
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -116,7 +117,7 @@ def reference_losses_for_books(
     return losses
 
 
-def main() -> None:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="N-gram baselines")
     parser.add_argument("--train", default=DEFAULT_TRAIN)
     parser.add_argument("--max-n", type=int, default=5)
@@ -127,7 +128,14 @@ def main() -> None:
         help="Optional eval_per_book JSON to use as transformer reference",
     )
     parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.max_n < 1:
+        parser.error("--max-n must be greater than zero")
+    return args
+
+
+def main() -> None:
+    args = parse_args()
 
     train_path = Path(args.train)
     if not train_path.exists():

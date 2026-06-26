@@ -77,3 +77,27 @@ def test_write_run_metadata_is_not_overwritten_on_resume(tmp_path: Path) -> None
     assert second_path == first_path
     assert first_path.read_text(encoding="utf-8") == original_text
     assert json.loads(first_path.read_text(encoding="utf-8"))["created_at"] == original_created_at
+
+
+def test_run_artifacts_append_continuation_after_metadata_exists(tmp_path: Path) -> None:
+    run = tmp_path / "runs" / "experiment"
+    config = TrainConfig(
+        ckptPath=str(run / "checkpoints" / "best.pt"),
+        dataPath="train.txt",
+        validationDataPath="validation.txt",
+        testDataPath="test.txt",
+        device="cpu",
+    )
+    artifacts = RunArtifacts(ModelConfig(blockSize=16), config)
+
+    assert artifacts.appendContinuation() is None
+    assert artifacts.writeRunMetadata() is not None
+    continuation_path = artifacts.appendContinuation()
+
+    assert continuation_path == run / "continuations.jsonl"
+    assert continuation_path is not None
+    record = json.loads(continuation_path.read_text(encoding="utf-8"))
+    assert record["model"]["blockSize"] == 16
+    assert record["training"]["ckptPath"] == str(run / "checkpoints" / "best.pt")
+    assert "dataPath" not in record["training"]
+    assert record["corpora"]["train"]["path"] == "train.txt"

@@ -53,6 +53,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
+    parser.add_argument(
+        "--full-split",
+        action="store_true",
+        help="Evaluate every valid window instead of sampled batches",
+    )
     args = parser.parse_args(argv)
     if args.iters < 1:
         parser.error("--iters must be greater than zero")
@@ -85,6 +90,7 @@ def main() -> None:
         "checkpoint": args.checkpoint,
         "device": device,
         "iters": args.iters,
+        "full_split": args.full_split,
         "seed": args.seed,
         "books": [],
     }
@@ -107,8 +113,11 @@ def main() -> None:
             model, data_module, train_cfg, EarlyStopping(patience=1, delta=0.0)
         )
 
-        generator = book_generator(args.seed, name)
-        loss = evaluator.estimate_split("val", generator)
+        if args.full_split:
+            loss = evaluator.estimate_split_full("val")
+        else:
+            generator = book_generator(args.seed, name)
+            loss = evaluator.estimate_split("val", generator)
         perplexity = torch.exp(torch.tensor(loss)).item()
         results.append((name, loss))
         books = output["books"]
