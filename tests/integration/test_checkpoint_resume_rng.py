@@ -9,6 +9,7 @@ from llm.Trainer import LMTrainer
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 from llm.TrainingCallback import CheckpointCallback
+from llm.train_app import buildCheckpointContext
 
 
 def test_checkpoint_restores_generator_state(tmp_path: Path) -> None:
@@ -46,7 +47,9 @@ def test_checkpoint_restores_generator_state(tmp_path: Path) -> None:
         logger=mock_logger,
     )
     trainer = LMTrainer(modelConfig, trainConfig, model, dataModule, evaluator=evaluator, logger=mock_logger)
-    trainer.callbacks = [CheckpointCallback(trainer, mock_logger)]
+    trainer.callbacks = [
+        CheckpointCallback(buildCheckpointContext(trainer), mock_logger)
+    ]
 
     trainer.loadCheckpointIfExists()
     trainer.train()

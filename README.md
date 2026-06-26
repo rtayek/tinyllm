@@ -153,6 +153,12 @@ Checkpoints contain optimizer and RNG state and are loaded with PyTorch's full
 checkpoint loader. Treat checkpoint files as trusted local artifacts; do not
 load checkpoints from untrusted sources.
 
+When you package a run for sharing, keep the metadata and analysis artifacts
+and usually leave out the `.pt` checkpoint files. A shared archive normally
+includes `run.json`, `metrics.jsonl`, plots, samples, and source code, while
+the checkpoint binaries stay in `runs/<experiment>/checkpoints/` unless
+someone specifically needs to resume training.
+
 The three newest periodic snapshots are retained by default. Configure this
 with `--snapshot-interval` and `--max-snapshots`; use zero to disable snapshots
 or retention respectively. After training, `best.pt` is evaluated on
@@ -258,6 +264,14 @@ python scripts/eval_per_book.py --out runs/austen-byte/eval-per-book.json
 python scripts/ngram_baseline.py --out runs/austen-byte/ngram-baseline.json
 python scripts/destruction_experiments.py --out runs/austen-byte/destruction.json
 ```
+
+## Sharing Archives
+
+Shared source archives should omit generated Python caches, pytest caches, and
+checkpoint binaries. In particular, `*.pt` files under `runs/` are experiment
+artifacts, not source files. Share small metadata such as `run.json`,
+`metrics.jsonl`, plots, and notes when useful; regenerate or transfer
+checkpoints separately when the actual weights are needed.
 
 ## Library Usage
 

@@ -121,6 +121,9 @@ class TrainConfig:
         return dict(self.__dict__)
 
     def toSerializableDict(self) -> ConfigPayload:
+        return dict(self.__dict__)
+
+    def toRunJsonDict(self) -> ConfigPayload:
         return {k: v for k, v in self.__dict__.items() if k not in self._PATH_FIELDS}
 
     @classmethod

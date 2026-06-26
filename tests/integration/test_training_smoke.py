@@ -12,6 +12,7 @@ from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 from llm.Checkpoint import Checkpoint, CheckpointManager
 from llm.TrainingCallback import CheckpointCallback
+from llm.train_app import buildCheckpointContext
 
 
 def test_training_smoke(tmp_path: Path) -> None:
@@ -58,7 +59,9 @@ def test_training_smoke(tmp_path: Path) -> None:
         logger=mock_logger,
     )
     trainer = LMTrainer(modelConfig, trainConfig, model, dataModule, evaluator=evaluator, logger=mock_logger)
-    trainer.callbacks = [CheckpointCallback(trainer, mock_logger)]
+    trainer.callbacks = [
+        CheckpointCallback(buildCheckpointContext(trainer), mock_logger)
+    ]
 
     trainer.loadCheckpointIfExists()
     trainer.train()
@@ -119,7 +122,12 @@ def test_short_training_resumes_from_latest_checkpoint(tmp_path: Path) -> None:
             evaluator=evaluator,
             logger=logging.getLogger("test.resume"),
         )
-        trainer.callbacks = [CheckpointCallback(trainer, logging.getLogger("test.resume"))]
+        trainer.callbacks = [
+            CheckpointCallback(
+                buildCheckpointContext(trainer),
+                logging.getLogger("test.resume"),
+            )
+        ]
         return trainer
 
     torch.manual_seed(42)  # pyright: ignore[reportUnknownMemberType]
@@ -190,7 +198,10 @@ def test_completed_max_steps_run_does_not_train_again(
             logger=logging.getLogger("test.max-steps"),
         )
         trainer.callbacks = [
-            CheckpointCallback(trainer, logging.getLogger("test.max-steps"))
+            CheckpointCallback(
+                buildCheckpointContext(trainer),
+                logging.getLogger("test.max-steps"),
+            )
         ]
         return trainer
 
@@ -429,7 +440,9 @@ def test_best_checkpoint_tracks_lower_loss_below_early_stop_delta(
         data_module,
         evaluator=evaluator,
     )
-    trainer.callbacks = [CheckpointCallback(trainer, logging.getLogger("test"))]
+    trainer.callbacks = [
+        CheckpointCallback(buildCheckpointContext(trainer), logging.getLogger("test"))
+    ]
     monkeypatch.setattr(trainer, "_trainStep", lambda: 0.0)
 
     trainer.train()

@@ -4,7 +4,7 @@ The ``TrainingCallback`` protocol defines two lifecycle hooks that fire during
 training.  Concrete callbacks implement one or both hooks and are registered on
 ``LMTrainer`` at construction time.  The trainer calls them in registration
 order, which makes the full event flow visible in one place (``buildTrainer``
-in ``Main.py``).
+in ``train_app.py``).
 
 Hooks
 -----
@@ -19,9 +19,10 @@ on_train_end(curve)
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 from pathlib import Path
-from typing import Protocol
+from typing import Callable, Protocol
 
 from .Config import ModelConfig, TrainConfig
 from .Evaluator import EvalResult
@@ -36,33 +37,15 @@ class MetricSink(Protocol):
     def appendMetric(self, record: dict[str, object]) -> Path | None: ...
 
 
-class CheckpointPaths(Protocol):
-    @property
-    def ckptPath(self) -> str: ...
-
-    @property
-    def latestPath(self) -> str: ...
-
-    def snapshotPath(self, step: int) -> str: ...
-    def pruneSnapshots(self) -> None: ...
-
-
-class CheckpointTarget(Protocol):
-    @property
-    def trainConfig(self) -> TrainConfig: ...
-
-    @property
-    def bestValLoss(self) -> float | None: ...
-
-    @property
-    def checkpoints(self) -> CheckpointPaths: ...
-
-    def saveCheckpoint(
-        self,
-        step: int,
-        path: str,
-        earlyStoppingState: dict[str, object] | None = None,
-    ) -> None: ...
+@dataclass(frozen=True)
+class CheckpointContext:
+    saveCheckpoint: Callable[[int, str, dict[str, object] | None], None]
+    ckptPath: str
+    latestPath: str
+    snapshotPath: Callable[[int], str]
+    pruneSnapshots: Callable[[], None]
+    snapshotInterval: int
+    bestValLoss: Callable[[], float | None]
 
 
 # ---------------------------------------------------------------------------
@@ -132,38 +115,38 @@ class CheckpointCallback:
 
     def __init__(
         self,
-        trainer: CheckpointTarget,
+        context: CheckpointContext,
         logger: logging.Logger,
     ) -> None:
-        self._trainer = trainer
+        self._context = context
         self.logger = logger
 
     def on_eval(self, result: EvalResult, is_best: bool) -> None:
-        trainer = self._trainer
+        context = self._context
         step = result.step
 
         if is_best:
             # best.pt gets a clean patience counter so resume always starts
             # fresh from the best model rather than inheriting stale patience.
-            trainer.saveCheckpoint(
+            context.saveCheckpoint(
                 step,
-                trainer.checkpoints.ckptPath,
-                earlyStoppingState={
+                context.ckptPath,
+                {
                     "noImproveEvals": 0,
-                    "referenceLoss": trainer.bestValLoss,
+                    "referenceLoss": context.bestValLoss(),
                 },
             )
             self.logger.info(
                 "[step %s] Best checkpoint saved to %s.",
                 step,
-                trainer.checkpoints.ckptPath,
+                context.ckptPath,
             )
-        trainer.saveCheckpoint(step, trainer.checkpoints.latestPath)
+        context.saveCheckpoint(step, context.latestPath, None)
 
-        interval = trainer.trainConfig.snapshotInterval
+        interval = context.snapshotInterval
         if interval > 0 and step > 0 and step % interval == 0:
-            trainer.saveCheckpoint(step, trainer.checkpoints.snapshotPath(step))
-            trainer.checkpoints.pruneSnapshots()
+            context.saveCheckpoint(step, context.snapshotPath(step), None)
+            context.pruneSnapshots()
 
     def on_train_end(self, curve: list[tuple[int, float, float]]) -> None:
         pass

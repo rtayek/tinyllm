@@ -13,7 +13,14 @@ from llm.TextGenerator import AutoregressiveGenerator
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 from llm.RunArtifacts import RunArtifacts
-from llm.TrainingCallback import TrainingCallback, LoggingCallback, MetricsCallback, CheckpointCallback, TrainingCurveCallback
+from llm.TrainingCallback import (
+    CheckpointCallback,
+    CheckpointContext,
+    LoggingCallback,
+    MetricsCallback,
+    TrainingCallback,
+    TrainingCurveCallback,
+)
 from llm.tensor_utils import resolve_device
 from llm.train_cli import parseTrainCli
 
@@ -44,6 +51,18 @@ def build_data_module(modelConfig: ModelConfig, trainConfig: TrainConfig, active
     if modelConfig.vocabSize != tokenizer.vocabSize:
         activeLogger.warning("modelConfig.vocabSize (%s) differs from tokenizer vocabSize (%s)", modelConfig.vocabSize, tokenizer.vocabSize)
     return TokenDataModule(modelConfig, trainConfig, tokenizer=tokenizer, logger=activeLogger)
+
+
+def buildCheckpointContext(trainer: LMTrainer) -> CheckpointContext:
+    return CheckpointContext(
+        saveCheckpoint=trainer.saveCheckpoint,
+        ckptPath=trainer.checkpoints.ckptPath,
+        latestPath=trainer.checkpoints.latestPath,
+        snapshotPath=trainer.checkpoints.snapshotPath,
+        pruneSnapshots=trainer.checkpoints.pruneSnapshots,
+        snapshotInterval=trainer.trainConfig.snapshotInterval,
+        bestValLoss=lambda: trainer.bestValLoss,
+    )
 
 
 def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None = None) -> LMTrainer:
@@ -77,8 +96,7 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
     runArtifacts = RunArtifacts(modelConfig, trainConfig)
 
     # Callbacks are registered in the order they fire on each event.
-    # CheckpointCallback holds a reference to the trainer and is patched in
-    # after construction to break the circular dependency.
+    # CheckpointCallback receives only the narrow checkpoint context it needs.
     trainer = LMTrainer(
         modelConfig, trainConfig, model, dataModule,
         logger=activeLogger,
@@ -88,9 +106,9 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
     callbacks: list[TrainingCallback] = [
         LoggingCallback(trainConfig, activeLogger),
         MetricsCallback(runArtifacts),
-        CheckpointCallback(trainer, activeLogger),
         TrainingCurveCallback(modelConfig, trainConfig, activeLogger),
     ]
+    callbacks.insert(2, CheckpointCallback(buildCheckpointContext(trainer), activeLogger))
     trainer.callbacks = callbacks
     trainer.runArtifacts = runArtifacts
     return trainer

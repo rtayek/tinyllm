@@ -49,6 +49,32 @@ def test_train_config_rejects_invalid_values(
         TrainConfig(**cast(dict[str, Any], kwargs))
 
 
+def test_train_config_serializable_dict_round_trips() -> None:
+    config = TrainConfig(
+        seed=42,
+        batchSize=4,
+        learningRate=1e-3,
+        maxSteps=12,
+        ckptPath="runs/example/checkpoints/best.pt",
+        dataPath="data/train.txt",
+        validationDataPath="data/validation.txt",
+        testDataPath="data/test.txt",
+        device="cpu",
+    )
+
+    assert TrainConfig.fromDict(config.toSerializableDict()) == config
+
+
+def test_train_config_from_dict_restores_omitted_defaults() -> None:
+    config = TrainConfig.fromDict({"seed": 42, "device": "cpu"})
+
+    assert config.seed == 42
+    assert config.device == "cpu"
+    assert config.dataPath == TrainConfig().dataPath
+    assert config.validationDataPath == TrainConfig().validationDataPath
+    assert config.testDataPath == TrainConfig().testDataPath
+
+
 def test_run_config_loads_replayable_run_json(tmp_path: Path) -> None:
     run_json = tmp_path / "run.json"
     run_json.write_text(

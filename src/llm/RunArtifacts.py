@@ -57,7 +57,7 @@ class RunArtifacts:
         return {
             "git_commit": self._git_commit(),
             "model": self.modelConfig.toDict(),
-            "training": self.trainConfig.toSerializableDict(),
+            "training": self.trainConfig.toRunJsonDict(),
             "corpora": self._corporaPayload(),
         }
 
