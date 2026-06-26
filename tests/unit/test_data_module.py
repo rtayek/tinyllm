@@ -3,7 +3,12 @@ from pathlib import Path
 import torch
 
 from llm.Config import ModelConfig, TrainConfig
-from llm.DataModule import SequenceDataModule, TokenDataModule, Utf8ByteTokenizer
+from llm.DataModule import (
+    DataModuleConfig,
+    SequenceDataModule,
+    TokenDataModule,
+    Utf8ByteTokenizer,
+)
 
 
 def test_get_batch_accepts_exactly_one_valid_window() -> None:
@@ -11,7 +16,7 @@ def test_get_batch_accepts_exactly_one_valid_window() -> None:
     train_config = TrainConfig(batchSize=1, device="cpu")
     data_module = SequenceDataModule(
         model_config,
-        train_config,
+        DataModuleConfig.fromTrainConfig(train_config),
         torch.arange(50),
     )
     data_module.trainSequence = torch.tensor([10, 11, 12, 13, 14])
@@ -29,7 +34,7 @@ def test_get_batch_matches_expected_windows() -> None:
     train_config = TrainConfig(batchSize=2, device="cpu")
     data_module = SequenceDataModule(
         model_config,
-        train_config,
+        DataModuleConfig.fromTrainConfig(train_config),
         torch.arange(50),
     )
     data_module.trainSequence = torch.arange(10, 20)

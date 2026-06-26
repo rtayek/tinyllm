@@ -122,7 +122,7 @@ def test_checkpoint_manager_resumes_latest_checkpoint(
 
     loaded_model = TinyGPTLanguageModel(model_config)
     loaded_optimizer = torch.optim.AdamW(loaded_model.parameters())
-    result = manager.loadCheckpoint(loaded_model, loaded_optimizer)
+    result = manager.restoreCheckpoint(loaded_model, loaded_optimizer)
 
     assert manager.resumePath() == manager.latestPath
     assert result.step == 20

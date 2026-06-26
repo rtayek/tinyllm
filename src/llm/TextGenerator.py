@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, cast
 import logging
 
 import torch
@@ -12,10 +13,28 @@ if TYPE_CHECKING:
     from .Model import TinyGPTLanguageModel
 
 class AutoregressiveGenerator:
-    def __init__(self, model: "TinyGPTLanguageModel", device: str, logger: logging.Logger | None = None) -> None:
+    def __init__(
+        self,
+        model: "TinyGPTLanguageModel",
+        logger_or_device: logging.Logger | str | None = None,
+        logger: logging.Logger | None = None,
+    ) -> None:
         self.model: "TinyGPTLanguageModel" = model
-        self.device: str = device
-        self.logger: logging.Logger = logger or logging.getLogger(__name__)
+        active_logger = logger
+        if active_logger is None and isinstance(logger_or_device, logging.Logger):
+            active_logger = logger_or_device
+        self.logger: logging.Logger = active_logger or logging.getLogger(__name__)
+
+    @property
+    def device(self) -> str:
+        parameters = getattr(self.model, "parameters", None)
+        if not callable(parameters):
+            return "cpu"
+        typed_parameters = cast(Callable[[], Iterator[torch.Tensor]], parameters)
+        try:
+            return str(next(typed_parameters()).device)
+        except StopIteration:
+            return "cpu"
 
     def generateBytes(
         self,

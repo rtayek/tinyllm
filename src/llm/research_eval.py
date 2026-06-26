@@ -8,7 +8,7 @@ import torch
 
 from .Checkpoint import Checkpoint
 from .Config import ModelConfig, TrainConfig
-from .DataModule import SequenceDataModule
+from .DataModule import DataModuleConfig, SequenceDataModule
 from .EarlyStopping import EarlyStopping
 from .Evaluator import Evaluator
 from .Model import TinyGPTLanguageModel
@@ -70,7 +70,7 @@ def evaluator_for_tokens(
 ) -> Evaluator:
     data_module = SequenceDataModule(
         model_config,
-        train_config,
+        DataModuleConfig.fromTrainConfig(train_config),
         sequence=tokens,
         validationSequence=tokens,
     )

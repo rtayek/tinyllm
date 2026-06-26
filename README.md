@@ -281,6 +281,7 @@ Public components are available from `llm`:
 from llm import (
     AutoregressiveGenerator,
     ByteDataModule,
+    DataModuleConfig,
     TokenDataModule,
     SequenceDataModule,
     LMTrainer,

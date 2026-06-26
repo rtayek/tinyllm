@@ -141,7 +141,6 @@ def finish_training(trainer: LMTrainer, logger: logging.Logger) -> bool:
     trainer.evaluateBestCheckpointOnTest()
     textGenerator = AutoregressiveGenerator(
         trainer.model,
-        trainer.trainConfig.device,
         logger,
     )
     textGenerator.saveSample(

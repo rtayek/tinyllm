@@ -5,7 +5,7 @@ import torch
 from unittest.mock import MagicMock
 
 from llm.Config import ModelConfig, TrainConfig
-from llm.DataModule import ByteDataModule, SequenceDataModule
+from llm.DataModule import ByteDataModule, DataModuleConfig, SequenceDataModule
 from llm.EarlyStopping import EarlyStopping
 from llm.Model import TinyGPTLanguageModel
 from llm.Checkpoint import CheckpointManager
@@ -263,7 +263,7 @@ def test_checkpoint_roundtrip(tmp_path: Path) -> None:
     newModel = TinyGPTLanguageModel(modelConfig)
     newOptimizer = torch.optim.AdamW(newModel.parameters(), lr=trainConfig.learningRate, weight_decay=trainConfig.weightDecay)
 
-    result = manager.loadCheckpoint(newModel, newOptimizer, lrStrategy=None)
+    result = manager.restoreCheckpoint(newModel, newOptimizer, lrStrategy=None)
 
     assert result.step == 10
     assert result.bestValLoss == 0.5
@@ -314,7 +314,7 @@ def test_checkpoint_allows_non_shape_model_config_drift(tmp_path: Path) -> None:
     requested_optimizer = torch.optim.AdamW(requested_model.parameters())
     requested_manager = CheckpointManager(requested_config, trainConfig)
 
-    result = requested_manager.loadCheckpoint(requested_model, requested_optimizer)
+    result = requested_manager.restoreCheckpoint(requested_model, requested_optimizer)
 
     assert result.step == 3
     assert result.configDrift["model"] == {"dropout": 0.0, "use_cache": False}
@@ -394,7 +394,7 @@ def test_evaluator_full_split_matches_all_window_loss() -> None:
     tokens = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long)
     dataModule = SequenceDataModule(
         modelConfig,
-        trainConfig,
+        DataModuleConfig.fromTrainConfig(trainConfig),
         sequence=tokens,
         validationSequence=tokens,
     )

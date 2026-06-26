@@ -114,7 +114,7 @@ class LMTrainer:
     ) -> None:
         resumePath = self.checkpoints.resumePath()
         checkpointExists = os.path.exists(resumePath)
-        result: CheckpointLoadResult = self.checkpoints.loadCheckpoint(
+        result: CheckpointLoadResult = self.checkpoints.restoreCheckpoint(
             self.model,
             self.optimizer,
             self.lrStrategy,
@@ -265,5 +265,5 @@ class LMTrainer:
     def printSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
         from .TextGenerator import AutoregressiveGenerator
 
-        generator = AutoregressiveGenerator(self.model, self.trainConfig.device, self.logger)
+        generator = AutoregressiveGenerator(self.model, self.logger)
         generator.logSample(maxNewTokens=maxNewTokens, prompt=prompt)

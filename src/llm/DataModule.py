@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol, Sequence
 import logging
 import torch
@@ -25,18 +26,29 @@ class Utf8ByteTokenizer:
     def decode(self, ids: Sequence[int]) -> str:
         return bytes(int(i) for i in ids).decode("utf-8", errors="replace")
 
+
+@dataclass(frozen=True)
+class DataModuleConfig:
+    batchSize: int
+    device: str
+
+    @classmethod
+    def fromTrainConfig(cls, trainConfig: TrainConfig) -> "DataModuleConfig":
+        return cls(batchSize=trainConfig.batchSize, device=trainConfig.device)
+
+
 class SequenceDataModule:
     def __init__(
         self,
         modelConfig: ModelConfig,
-        trainConfig: TrainConfig,
+        dataConfig: DataModuleConfig,
         sequence: torch.Tensor,
         validationSequence: torch.Tensor | None = None,
         testSequence: torch.Tensor | None = None,
         logger: logging.Logger | None = None,
     ) -> None:
         self.modelConfig = modelConfig
-        self.trainConfig = trainConfig
+        self.dataConfig = dataConfig
         self.logger = logger or logging.getLogger(__name__)
 
         if validationSequence is None:
@@ -73,7 +85,7 @@ class SequenceDataModule:
         generator: torch.Generator | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         modelConfig = self.modelConfig
-        trainConfig = self.trainConfig
+        dataConfig = self.dataConfig
         source = self._getSource(split)
 
         minRequired = modelConfig.blockSize + 1
@@ -89,14 +101,14 @@ class SequenceDataModule:
         indices = torch.randint(
             low=0,
             high=high,
-            size=(trainConfig.batchSize,),
+            size=(dataConfig.batchSize,),
             generator=generator,
         )
 
         offsets = torch.arange(modelConfig.blockSize)
         positions = indices.unsqueeze(1) + offsets.unsqueeze(0)
-        batchX = source[positions].to(trainConfig.device)
-        batchY = source[positions + 1].to(trainConfig.device)
+        batchX = source[positions].to(dataConfig.device)
+        batchY = source[positions + 1].to(dataConfig.device)
         return batchX, batchY
 
 
@@ -125,7 +137,7 @@ class ByteDataModule(SequenceDataModule):
         )
         super().__init__(
             modelConfig,
-            trainConfig,
+            DataModuleConfig.fromTrainConfig(trainConfig),
             sequence,
             validationSequence,
             testSequence,
@@ -173,7 +185,7 @@ class TokenDataModule(SequenceDataModule):
 
         super().__init__(
             modelConfig,
-            trainConfig,
+            DataModuleConfig.fromTrainConfig(trainConfig),
             sequence,
             validationSequence,
             testSequence,

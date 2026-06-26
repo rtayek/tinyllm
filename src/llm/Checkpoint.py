@@ -217,7 +217,7 @@ class CheckpointManager:
             return self.latestPath
         return self.ckptPath
 
-    def loadCheckpoint(
+    def restoreCheckpoint(
         self,
         model: TinyGPTLanguageModel,
         optimizer: torch.optim.Optimizer,
@@ -291,3 +291,12 @@ class CheckpointManager:
             evaluatorGeneratorState=checkpoint.evaluatorGeneratorState,
             earlyStoppingState=checkpoint.earlyStoppingState,
         )
+
+    def loadCheckpoint(
+        self,
+        model: TinyGPTLanguageModel,
+        optimizer: torch.optim.Optimizer,
+        lrStrategy: Optional[Any] = None,
+    ) -> CheckpointLoadResult:
+        """Compatibility wrapper for the mutating checkpoint restore path."""
+        return self.restoreCheckpoint(model, optimizer, lrStrategy)

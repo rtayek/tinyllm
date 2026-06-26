@@ -51,7 +51,7 @@ class FixedOutputModel(RecordingModel):
 
 def test_generate_text_uses_utf8_prompt_bytes() -> None:
     model = RecordingModel()
-    generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
 
     text = generator.generateText(prompt="Holmés", maxNewTokens=12)
 
@@ -64,7 +64,7 @@ def test_generate_text_uses_utf8_prompt_bytes() -> None:
 
 def test_generate_text_uses_zero_token_for_empty_prompt() -> None:
     model = RecordingModel()
-    generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
 
     data = generator.generateBytes(prompt="", maxNewTokens=0)
 
@@ -73,9 +73,16 @@ def test_generate_text_uses_zero_token_for_empty_prompt() -> None:
     assert data == b"\x00"
 
 
-def test_generate_text_forwards_sampling_options() -> None:
+def test_constructor_ignores_legacy_device_argument() -> None:
     model = RecordingModel()
     generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+
+    assert generator.generateBytes(prompt="", maxNewTokens=0) == b"\x00"
+
+
+def test_generate_text_forwards_sampling_options() -> None:
+    model = RecordingModel()
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
 
     generator.generateText(
         prompt="Holmes",
@@ -96,7 +103,7 @@ def test_save_sample_creates_tmp_directory(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     model = RecordingModel()
-    generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
 
     generator.saveSample(prompt="Holmes", maxNewTokens=0)
 
@@ -107,7 +114,7 @@ def test_save_sample_creates_tmp_directory(
 
 def test_save_sample_accepts_run_specific_path(tmp_path: Path) -> None:
     model = RecordingModel()
-    generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
     path = tmp_path / "runs" / "experiment" / "samples" / "sample.txt"
 
     generator.saveSample(prompt="Holmes", maxNewTokens=0, path=path)
@@ -117,7 +124,7 @@ def test_save_sample_accepts_run_specific_path(tmp_path: Path) -> None:
 
 def test_generate_text_replaces_invalid_utf8_by_default() -> None:
     model = FixedOutputModel(b"A\xffB")
-    generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
 
     assert generator.generateBytes(maxNewTokens=0) == b"A\xffB"
     assert generator.generateText(maxNewTokens=0) == "A\ufffdB"
@@ -125,6 +132,6 @@ def test_generate_text_replaces_invalid_utf8_by_default() -> None:
 
 def test_generate_text_allows_ignore_override() -> None:
     model = FixedOutputModel(b"A\xffB")
-    generator = AutoregressiveGenerator(model, "cpu")  # type: ignore[arg-type]
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
 
     assert generator.generateText(maxNewTokens=0, errors="ignore") == "AB"

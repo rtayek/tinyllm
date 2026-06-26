@@ -73,7 +73,7 @@ def build_generator(
         model_cfg = ModelConfig.fromDict(checkpoint.modelConfig)
     model = TinyGPTLanguageModel(model_cfg).to(device)
     model.load_state_dict(checkpoint.modelState)
-    return AutoregressiveGenerator(model, device, active_logger), train_cfg
+    return AutoregressiveGenerator(model, active_logger), train_cfg
 
 
 def main(argv: Sequence[str] | None = None) -> None:

@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from llm.Config import ModelConfig, TrainConfig
-from llm.DataModule import ByteDataModule, SequenceDataModule
+from llm.DataModule import ByteDataModule, DataModuleConfig, SequenceDataModule
 from llm.Model import TinyGPTLanguageModel
 from llm.Trainer import LMTrainer
 from llm.Evaluator import Evaluator
@@ -312,7 +312,11 @@ def test_missing_checkpoint_is_reported_as_new_run(
         device="cpu",
     )
     sequence = torch.arange(40, dtype=torch.long)
-    dataModule = SequenceDataModule(modelConfig, trainConfig, sequence)
+    dataModule = SequenceDataModule(
+        modelConfig,
+        DataModuleConfig.fromTrainConfig(trainConfig),
+        sequence,
+    )
     model = TinyGPTLanguageModel(modelConfig)
     trainer = LMTrainer(
         modelConfig,
@@ -350,7 +354,7 @@ def test_best_checkpoint_is_evaluated_on_test_split(tmp_path: Path) -> None:
     )
     data_module = SequenceDataModule(
         model_config,
-        train_config,
+        DataModuleConfig.fromTrainConfig(train_config),
         torch.arange(100) % model_config.vocabSize,
         validationSequence=torch.arange(40) % model_config.vocabSize,
         testSequence=torch.arange(40) % model_config.vocabSize,
@@ -416,7 +420,7 @@ def test_best_checkpoint_tracks_lower_loss_below_early_stop_delta(
     )
     data_module = SequenceDataModule(
         model_config,
-        train_config,
+        DataModuleConfig.fromTrainConfig(train_config),
         torch.arange(100) % model_config.vocabSize,
     )
     model = TinyGPTLanguageModel(model_config)
@@ -481,7 +485,7 @@ def test_exhausted_early_stopping_requires_explicit_reset(
     )
     data_module = SequenceDataModule(
         model_config,
-        train_config,
+        DataModuleConfig.fromTrainConfig(train_config),
         torch.arange(100) % model_config.vocabSize,
     )
 
