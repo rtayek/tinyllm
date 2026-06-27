@@ -421,3 +421,68 @@ baseline, a one-layer transformer, and the full transformer.
 Byte tokens force the model to construct letters, word boundaries, spelling,
 and larger units from raw symbols. BPE would obscure what the transformer
 learned. Add BPE only as a controlled comparison after scaling.
+
+### 9. Structure-Preservation / Invariance Probes
+
+The destruction experiments ask "what happens when I *break* a structure?"
+This strand asks the dual question: "what transformations can I apply that the
+model treats as *equivalent*?" A transformation the model is invariant to is
+one its learned representation preserves.
+
+**Motivation (the categorical lens).** Borrowing loosely from category theory:
+a structure-preserving map (a functor) sends objects and their relationships to
+new objects while keeping the relationships intact; a diagram "commutes" when
+two paths through it agree. Translated to a transformer, the "objects" are
+representations in the residual stream and the "morphisms" are the maps the
+attention/MLP layers apply to them. Asking whether the model is invariant to a
+structure-preserving input transformation is asking whether the corresponding
+diagram commutes in representation space — whether the model learned the
+*relationship* rather than the surface tokens. This is the measurable,
+representation-level version of the idea; category theory is the analysis
+framework here, not training data. (Training the model *on* category-theory
+text is a separate, and for a tiny local model unpromising, question.)
+
+**This is not hypothetical — we already have two invariance results.** The
+existing destruction suite was secretly measuring structure preservation:
+
+- `replace_names` (+0.05 nats, near-zero) is an invariance result. Swapping
+  Elizabeth -> Alpha consistently leaves the loss almost unchanged, which means
+  the model learned a representation where the name slot is interchangeable —
+  a near-commuting diagram / natural-transformation-like property. The
+  Sherlock/Alice 0.0 control confirms the measurement is clean.
+- `shuffle_middle` vs `shuffle_letters` (the ~0.51 ratio) shows word-shape
+  recognition is preserved independently of internal spelling — two separable
+  structure-preserving maps.
+
+**Proposed new probes.** Define input transformations that *should* leave a
+structure-respecting model's loss invariant, and measure the actual delta. A
+small delta means the model learned a representation in which that
+transformation commutes; a large delta means it did not. Candidates:
+
+- **Consistent variable/name renaming** — generalize `replace_names`: rename a
+  token consistently everywhere and measure invariance. Already partly done;
+  formalize and extend to non-name tokens.
+- **Consistent character substitution** — swap two characters (e.g. every `e`
+  <-> `q`) throughout the text. A model keyed to *relationships* between
+  symbols rather than their identities would be partly invariant; a purely
+  identity-based model would not. The gap quantifies how identity-bound the
+  representation is.
+- **Numeric shift** (for a future math/synthetic corpus) — add a constant to
+  every number. Invariance would indicate the model learned numeric
+  *relationships* rather than memorized digit strings.
+- **Case/whitespace-preserving permutations** — transformations that preserve a
+  named structural property, to isolate which properties the model encodes.
+
+**Method.** Reuse the destruction-suite machinery exactly: same checkpoint,
+same eval, one transformation at a time, report baseline / transformed / delta
+per book. The only conceptual difference is the *expected* result — for
+destruction we expect a large delta (structure was used), for invariance probes
+we expect a *small* delta (structure was preserved). Low delta = the model
+learned the invariance; high delta = it did not. Controls (a transformation
+applied to a book it cannot affect, mirroring the Sherlock/Alice control in
+`replace_names`) keep the measurement honest.
+
+**Why it is worth doing.** It turns a vague intuition ("the model learned a
+hierarchy of objects and relationships") into falsifiable measurements using
+tooling that already exists, and it gives a principled vocabulary for results
+like `replace_names` that we already have but described only informally.
