@@ -143,6 +143,7 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
         modelConfig, trainConfig, model, dataModule,
         logger=activeLogger,
         evaluator=evaluator,
+        runArtifacts=runArtifacts,
     )
 
     callbacks: list[TrainingCallback] = [
@@ -155,7 +156,6 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
         CheckpointCallback(buildCheckpointContext(trainer), activeLogger),
     )
     trainer.callbacks = callbacks
-    trainer.runArtifacts = runArtifacts
     return trainer
 
 

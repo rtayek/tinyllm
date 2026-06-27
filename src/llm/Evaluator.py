@@ -82,11 +82,31 @@ class Evaluator:
         split: str,
         batch_size: int | None = None,
     ) -> float:
-        """Evaluate every valid fixed-width window for a split."""
+        """Deterministic full-pass cross-entropy over a split.
+
+        Every target byte in the split is scored exactly once, using up to
+        ``block_size`` bytes of preceding context. Windows are laid out with a
+        stride equal to ``block_size`` (non-overlapping), so no position is
+        counted more than once and the result is a true held-out average rather
+        than a sampled estimate.
+
+        Two consequences of the non-overlapping layout are worth noting:
+
+        - The first ``block_size`` positions of the split anchor the first
+          window, so the very first target has only one byte of context, the
+          second has two, and so on. These short-context positions at each
+          window's leading edge are a deliberate, fixed cost shared by every
+          checkpoint evaluated this way, so comparisons remain fair.
+        - Up to ``block_size - 1`` trailing bytes that cannot start a full
+          window are not scored. They are a negligible fraction of any real
+          split.
+
+        Unlike ``estimate_split``/``estimate_loss``, this never advances the
+        early-stopping state and does not depend on a random generator.
+        """
         source = self.dataModule.splitSequence(split)
         block_size = self.dataModule.modelConfig.blockSize
-        high = source.size(0) - block_size
-        if high <= 0:
+        if source.size(0) < block_size + 1:
             raise ValueError(
                 f"Dataset split '{split}' too small for blockSize {block_size}"
             )
@@ -94,6 +114,12 @@ class Evaluator:
         active_batch_size = batch_size or self.trainConfig.batchSize
         if active_batch_size < 1:
             raise ValueError("batch_size must be greater than zero")
+
+        # Window start positions, stride = block_size (non-overlapping). The
+        # last start is the largest index for which a full block_size+1 window
+        # (context plus its final target) still fits inside the split.
+        last_start = source.size(0) - block_size - 1
+        starts = list(range(0, last_start + 1, block_size))
 
         was_training = self.model.training
         device = self.trainConfig.device
@@ -103,8 +129,9 @@ class Evaluator:
         try:
             self.model.eval()
             with torch.no_grad():
-                for start in range(0, high, active_batch_size):
-                    indices = torch.arange(start, min(start + active_batch_size, high))
+                for batch_start in range(0, len(starts), active_batch_size):
+                    batch_starts = starts[batch_start : batch_start + active_batch_size]
+                    indices = torch.tensor(batch_starts, dtype=torch.long)
                     positions = indices.unsqueeze(1) + offsets.unsqueeze(0)
                     batch_x = source[positions].to(device)
                     batch_y = source[positions + 1].to(device)

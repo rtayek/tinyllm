@@ -27,6 +27,7 @@ class LMTrainer:
         logger: Optional[logging.Logger] = None,
         evaluator: Optional[Evaluator] = None,
         callbacks: Optional[list[TrainingCallback]] = None,
+        runArtifacts: Optional[RunArtifacts] = None,
     ) -> None:
         self.modelConfig = modelConfig
         self.trainConfig = trainConfig
@@ -49,7 +50,7 @@ class LMTrainer:
             warmup_frac=self.trainConfig.warmupFrac,
         )
         self.checkpoints = CheckpointManager(self.modelConfig, self.trainConfig, logger=self.logger)
-        self.runArtifacts = RunArtifacts(self.modelConfig, self.trainConfig)
+        self.runArtifacts = runArtifacts or RunArtifacts(self.modelConfig, self.trainConfig)
 
         self.globalStep: int = 0
         self.bestValLoss: Optional[float] = None
