@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any, ClassVar, cast
 
@@ -125,7 +125,9 @@ class TrainConfig:
 
     @classmethod
     def fromDict(cls, data: ConfigPayload) -> "TrainConfig":
-        return cls(**data)  # type: ignore[arg-type]
+        valid_fields = {field.name for field in fields(cls)}
+        filtered = {k: v for k, v in data.items() if k in valid_fields}
+        return cls(**filtered)  # type: ignore[arg-type]
 
 
 @dataclass(frozen=True)

@@ -54,7 +54,17 @@ def test_train_config_dict_round_trips() -> None:
         seed=42,
         batchSize=4,
         learningRate=1e-3,
+        warmupFrac=0.25,
         maxSteps=12,
+        evalInterval=3,
+        evalIters=5,
+        snapshotInterval=6,
+        maxSnapshots=2,
+        weightDecay=0.03,
+        earlyStopPatience=7,
+        earlyStopDelta=0.002,
+        plotCurve=False,
+        dataModule="token",
         ckptPath="runs/example/checkpoints/best.pt",
         dataPath="data/train.txt",
         validationDataPath="data/validation.txt",
@@ -63,6 +73,43 @@ def test_train_config_dict_round_trips() -> None:
     )
 
     assert TrainConfig.fromDict(config.toDict()) == config
+
+
+def test_train_config_run_json_dict_round_trips_with_default_paths() -> None:
+    config = TrainConfig(
+        seed=42,
+        batchSize=4,
+        learningRate=1e-3,
+        warmupFrac=0.25,
+        maxSteps=12,
+        evalInterval=3,
+        evalIters=5,
+        snapshotInterval=6,
+        maxSnapshots=2,
+        weightDecay=0.03,
+        earlyStopPatience=7,
+        earlyStopDelta=0.002,
+        plotCurve=False,
+        dataModule="token",
+        ckptPath="runs/example/checkpoints/best.pt",
+        device="cpu",
+    )
+
+    assert TrainConfig.fromDict(config.toRunJsonDict()) == config
+
+
+def test_train_config_from_dict_ignores_unknown_keys() -> None:
+    config = TrainConfig.fromDict(
+        {
+            "seed": 42,
+            "device": "cpu",
+            "futureField": "ignored",
+            "schema_version": 3,
+        }
+    )
+
+    assert config.seed == 42
+    assert config.device == "cpu"
 
 
 def test_train_config_from_dict_restores_omitted_defaults() -> None:

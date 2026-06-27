@@ -1,6 +1,6 @@
 # tinyllm Handoff
 
-Last verified: June 25, 2026
+Last verified: June 27, 2026
 
 ## Project
 
@@ -30,8 +30,8 @@ Verification:
 
 ```text
 pyright: 0 errors
-pytest: 151 passed
-coverage: 87.95%
+pytest: 164 passed
+coverage: 88.56%
 ```
 
 The current checkpoint layout still uses the canonical `runs/` directory.
@@ -102,6 +102,9 @@ state through that context.
 `ModelConfig` and `TrainConfig` validate their fields in `__post_init__`.
 
 `TrainConfig.toDict()` now round-trips with `TrainConfig.fromDict()`.
+Unknown training fields are ignored when restoring from dictionaries, so older
+code can tolerate newer metadata fields while preserving validation for known
+fields.
 `RunArtifacts` writes a filtered training payload to `run.json` via
 `TrainConfig.toRunJsonDict()`, so the stored run metadata keeps corpus paths in
 the dedicated `corpora` section.
@@ -261,9 +264,11 @@ corpora/jane-austen/northanger-abbey/                       (31 chapters)
 `tinyllm-prepare-corpora --download-austen` downloads the five remaining
 Austen novels.
 
-When you share a run archive, include metadata and analysis artifacts, not the
-`.pt` checkpoint files. The usual archive contents are `run.json`,
-`metrics.jsonl`, plots, samples, and source code.
+When you share a run archive, include metadata and selected analysis artifacts,
+not `.pt` checkpoint files or generated local caches. The usual archive
+contents are `run.json`, `metrics.jsonl`, notes, and source code. Transfer
+selected plots, samples, or checkpoints separately when those artifacts are
+needed.
 
 ## Tests
 

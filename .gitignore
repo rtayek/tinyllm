@@ -43,6 +43,11 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+# Local share/archive outputs
+*.tar.gz
+*.tgz
+*.zip
+
 # PyTorch specific
 # Checkpoints and saved models
 *.pt
@@ -106,4 +111,3 @@ dmypy.json
 
 # claude
 .claude/
-

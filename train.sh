@@ -11,7 +11,7 @@ rm -f "$RUN_DIR"/checkpoints/*.pt
 rm -f "$RUN_DIR"/metrics.jsonl "$RUN_DIR"/run.json
 rm -f "$RUN_DIR"/plots/* "$RUN_DIR"/samples/*
 
-python -m llm.Main \
+python -m llm.train_app \
   --corpus corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/train.txt \
   --validation-corpus corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/validation.txt \
   --test-corpus corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/splits/test.txt \

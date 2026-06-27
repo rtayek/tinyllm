@@ -1,7 +1,8 @@
 # Retained Models
 
-This is a manual promotion/export destination. Normal training and inference
-use checkpoints under `runs/`; no model is promoted here automatically.
+This is a manual promotion/export destination for retained artifacts. Normal
+training and inference use experimental checkpoints under `runs/`; no model is
+promoted here automatically.
 
 This directory describes intentionally retained inference models. Use one
 directory per promoted model:

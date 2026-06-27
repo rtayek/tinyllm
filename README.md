@@ -113,7 +113,7 @@ tinyllm-train
 Equivalent module invocation:
 
 ```sh
-python -m llm.Main
+python -m llm.train_app
 ```
 
 Useful options:
@@ -125,10 +125,11 @@ tinyllm-train --run-dir runs/austen-block256 --block-size 256
 ```
 
 The default checkpoint is
-`runs/sherlock-byte-default/checkpoints/best.pt`. Put other experiments under
-`runs/<experiment>/`; publish selected model artifacts under `models/`. When
-the checkpoint is under `runs/<experiment>/checkpoints/`, plots and samples
-are written to that run's `plots/` and `samples/` directories.
+`runs/sherlock-byte-default/checkpoints/best.pt`. Put experimental run outputs
+under `runs/<experiment>/`; publish promoted, intentionally retained model
+artifacts under `models/`. When the checkpoint is under
+`runs/<experiment>/checkpoints/`, plots and samples are written to that run's
+`plots/` and `samples/` directories.
 
 Training maintains:
 
@@ -154,10 +155,11 @@ checkpoint loader. Treat checkpoint files as trusted local artifacts; do not
 load checkpoints from untrusted sources.
 
 When you package a run for sharing, keep the metadata and analysis artifacts
-and usually leave out the `.pt` checkpoint files. A shared archive normally
-includes `run.json`, `metrics.jsonl`, plots, samples, and source code, while
-the checkpoint binaries stay in `runs/<experiment>/checkpoints/` unless
-someone specifically needs to resume training.
+and usually leave out `.pt` checkpoint files and other generated artifacts. A
+shared archive normally includes `run.json`, `metrics.jsonl`, selected plots,
+selected samples, and source code, while checkpoint binaries stay in
+`runs/<experiment>/checkpoints/` unless someone specifically needs to resume
+training.
 
 The three newest periodic snapshots are retained by default. Configure this
 with `--snapshot-interval` and `--max-snapshots`; use zero to disable snapshots
@@ -267,11 +269,19 @@ python scripts/destruction_experiments.py --out runs/austen-byte/destruction.jso
 
 ## Sharing Archives
 
-Shared source archives should omit generated Python caches, pytest caches, and
-checkpoint binaries. In particular, `*.pt` files under `runs/` are experiment
-artifacts, not source files. Share small metadata such as `run.json`,
-`metrics.jsonl`, plots, and notes when useful; regenerate or transfer
-checkpoints separately when the actual weights are needed.
+Create a shareable source tarball with:
+
+```sh
+sh scripts/archive-source.sh
+```
+
+Shared source archives omit generated Python caches, local tool caches,
+editable-install metadata, coverage data, `.claude/`, checkpoint binaries, and
+run-local generated checkpoint/plot/sample directories. In particular, `*.pt`
+files under `runs/` and `models/` are generated or promoted artifacts, not
+source files. Share small metadata such as `run.json`, `metrics.jsonl`, and
+notes when useful; transfer selected plots, samples, or checkpoints separately
+when those artifacts are needed.
 
 ## Library Usage
 

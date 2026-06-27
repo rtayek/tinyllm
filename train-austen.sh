@@ -15,7 +15,7 @@ if [ "$RESUME" != "1" ]; then
   rm -f "$RUN_DIR"/plots/* "$RUN_DIR"/samples/*
 fi
 
-python -m llm.Main \
+python -m llm.train_app \
   --corpus corpora/jane-austen/combined/splits/train.txt \
   --validation-corpus corpora/jane-austen/combined/splits/validation.txt \
   --test-corpus corpora/jane-austen/combined/splits/test.txt \
