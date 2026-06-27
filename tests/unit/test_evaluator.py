@@ -15,36 +15,7 @@ from llm.Config import ModelConfig, TrainConfig
 from llm.DataModule import DataModuleConfig, SequenceDataModule
 from llm.EarlyStopping import EarlyStopping
 from llm.Evaluator import Evaluator
-
-
-class CountingModel(torch.nn.Module):
-    """Minimal model with a real embedding-based logit map.
-
-    Returns (logits, loss, None) to match the TinyGPT calling convention.
-    Deterministic given its initialization seed.
-    """
-
-    def __init__(self, vocab_size: int) -> None:
-        super().__init__()
-        self.vocab_size = vocab_size
-        self.forward_calls = 0
-        torch.manual_seed(0)
-        self.table = torch.nn.Embedding(vocab_size, vocab_size)
-
-    def forward(
-        self,
-        idx: torch.Tensor,
-        targets: torch.Tensor | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor | None, None]:
-        self.forward_calls += 1
-        logits = self.table(idx)
-        loss = None
-        if targets is not None:
-            loss = F.cross_entropy(
-                logits.reshape(-1, logits.size(-1)),
-                targets.reshape(-1),
-            )
-        return logits, loss, None
+from llm.Model import TinyGPTLanguageModel
 
 
 def _make_evaluator(
@@ -59,6 +30,7 @@ def _make_evaluator(
         nEmbed=16,
         nHead=2,
         nLayer=1,
+        dropout=0.0,
     )
     train_config = TrainConfig(batchSize=batch_size, device="cpu", evalIters=5)
     data_module = SequenceDataModule(
@@ -67,8 +39,7 @@ def _make_evaluator(
         sequence=source,
         validationSequence=source,
     )
-    model = CountingModel(vocab_size)
-    model.eval()
+    model = TinyGPTLanguageModel(model_config).eval()
     return Evaluator(
         model, data_module, train_config, EarlyStopping(patience=1, delta=0.0)
     )
@@ -83,18 +54,18 @@ def test_full_split_is_deterministic() -> None:
 
 
 def test_full_split_batch_size_invariant() -> None:
-    # The mean must not depend on how windows are batched.
+    # The mean must not depend on how windows are batched. Reuse one evaluator
+    # so the model weights are identical across the three calls.
     source = torch.arange(200) % 16
-    a = _make_evaluator(source, block_size=8, batch_size=1).estimate_split_full("val")
-    b = _make_evaluator(source, block_size=8, batch_size=4).estimate_split_full("val")
-    c = _make_evaluator(source, block_size=8, batch_size=7).estimate_split_full("val")
+    evaluator = _make_evaluator(source, block_size=8, batch_size=1)
+    a = evaluator.estimate_split_full("val", batch_size=1)
+    b = evaluator.estimate_split_full("val", batch_size=4)
+    c = evaluator.estimate_split_full("val", batch_size=7)
     assert math.isclose(a, b, rel_tol=1e-6)
     assert math.isclose(a, c, rel_tol=1e-6)
 
 
 def test_full_split_scores_each_target_once() -> None:
-    # With non-overlapping windows of stride block_size, the number of scored
-    # targets is floor over the available windows times block_size.
     block_size = 8
     source = torch.arange(64) % 16  # 64 tokens
     evaluator = _make_evaluator(source, block_size=block_size, batch_size=4)

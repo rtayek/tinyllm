@@ -391,7 +391,7 @@ def test_evaluator_full_split_matches_all_window_loss() -> None:
         dropout=0.0,
     )
     trainConfig = TrainConfig(batchSize=2, device="cpu")
-    tokens = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long)
+    tokens = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7], dtype=torch.long)
     dataModule = SequenceDataModule(
         modelConfig,
         DataModuleConfig.fromTrainConfig(trainConfig),
@@ -408,11 +408,16 @@ def test_evaluator_full_split_matches_all_window_loss() -> None:
 
     full_loss = evaluator.estimate_split_full("val", batch_size=2)
 
+    # Reference: non-overlapping windows, stride = blockSize, each target
+    # scored exactly once.
+    block_size = modelConfig.blockSize
+    last_start = tokens.size(0) - block_size - 1
+    starts = list(range(0, last_start + 1, block_size))
     losses: list[torch.Tensor] = []
     with torch.no_grad():
-        for start in range(tokens.size(0) - modelConfig.blockSize):
-            batch_x = tokens[start : start + modelConfig.blockSize].unsqueeze(0)
-            batch_y = tokens[start + 1 : start + modelConfig.blockSize + 1].unsqueeze(0)
+        for start in starts:
+            batch_x = tokens[start : start + block_size].unsqueeze(0)
+            batch_y = tokens[start + 1 : start + block_size + 1].unsqueeze(0)
             logits, _, _ = model(batch_x)
             losses.append(
                 torch.nn.functional.cross_entropy(
@@ -422,7 +427,7 @@ def test_evaluator_full_split_matches_all_window_loss() -> None:
                 )
             )
     expected = sum(float(loss.item()) for loss in losses) / (
-        len(losses) * modelConfig.blockSize
+        len(losses) * block_size
     )
 
     assert abs(full_loss - expected) < 1e-6
