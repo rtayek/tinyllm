@@ -87,10 +87,11 @@ def estimate_validation_loss(
     seed: int,
     book_name: str,
     full_split: bool = False,
+    stride: int | None = None,
 ) -> float:
     evaluator = evaluator_for_tokens(model, tokens, model_config, train_config)
     if full_split:
-        return evaluator.estimate_split_full("val")
+        return evaluator.estimate_split_full("val", stride=stride)
     return evaluator.estimate_split("val", book_generator(seed, book_name))
 
 

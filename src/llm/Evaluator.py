@@ -81,28 +81,35 @@ class Evaluator:
         self,
         split: str,
         batch_size: int | None = None,
+        stride: int | None = None,
     ) -> float:
         """Deterministic full-pass cross-entropy over a split.
 
-        Every target byte in the split is scored exactly once, using up to
-        ``block_size`` bytes of preceding context. Windows are laid out with a
-        stride equal to ``block_size`` (non-overlapping), so no position is
-        counted more than once and the result is a true held-out average rather
-        than a sampled estimate.
+        Windows of ``block_size`` tokens slide across the split with the given
+        ``stride``; every target byte is scored exactly once. The result is a
+        true held-out average rather than a sampled estimate, and (unlike
+        ``estimate_split``/``estimate_loss``) it never advances early-stopping
+        state and does not depend on a random generator.
 
-        Two consequences of the non-overlapping layout are worth noting:
+        The ``stride`` controls the context/compute tradeoff:
 
-        - The first ``block_size`` positions of the split anchor the first
-          window, so the very first target has only one byte of context, the
-          second has two, and so on. These short-context positions at each
-          window's leading edge are a deliberate, fixed cost shared by every
-          checkpoint evaluated this way, so comparisons remain fair.
-        - Up to ``block_size - 1`` trailing bytes that cannot start a full
-          window are not scored. They are a negligible fraction of any real
-          split.
+        - ``stride == block_size`` (the default): non-overlapping windows, the
+          cheapest option. Each window scores all ``block_size`` of its
+          positions, so the leading positions of every window are predicted
+          with little context (the first target sees 1 byte, the second 2, and
+          so on). This systematically handicaps the model and slightly
+          overstates loss, but it is fast and fair across checkpoints.
+        - ``stride < block_size``: overlapping windows. Only the final
+          ``stride`` positions of each window are scored (the first window
+          scores all of its positions, since nothing precedes it), so every
+          scored target after the first window has at least
+          ``block_size - stride`` bytes of context. Smaller strides give each
+          target more context at proportionally more compute. ``stride == 1``
+          is the maximal-context sliding-window perplexity used in the LM
+          literature; ``stride == block_size // 2`` is the common compromise.
 
-        Unlike ``estimate_split``/``estimate_loss``, this never advances the
-        early-stopping state and does not depend on a random generator.
+        Up to ``block_size - 1`` trailing bytes that cannot close a full window
+        may go unscored; they are a negligible fraction of any real split.
         """
         source = self.dataModule.splitSequence(split)
         block_size = self.dataModule.modelConfig.blockSize
@@ -115,20 +122,30 @@ class Evaluator:
         if active_batch_size < 1:
             raise ValueError("batch_size must be greater than zero")
 
-        # Window start positions, stride = block_size (non-overlapping). The
-        # last start is the largest index for which a full block_size+1 window
-        # (context plus its final target) still fits inside the split.
+        active_stride = stride if stride is not None else block_size
+        if not (1 <= active_stride <= block_size):
+            raise ValueError(
+                f"stride must be in [1, blockSize={block_size}], got {active_stride}"
+            )
+
+        # Window start positions. The last start is the largest index for which
+        # a full block_size+1 window (context plus its final target) still fits.
         last_start = source.size(0) - block_size - 1
-        starts = list(range(0, last_start + 1, block_size))
+        starts = list(range(0, last_start + 1, active_stride))
 
         was_training = self.model.training
         device = self.trainConfig.device
         total_loss = 0.0
         total_tokens = 0
         offsets = torch.arange(block_size)
+        # For overlapping windows, score only the last `scored` positions of
+        # each window (after the first) so each target is counted once. The
+        # number of newly-exposed positions equals the gap between this window's
+        # start and the previous one, capped at block_size.
         try:
             self.model.eval()
             with torch.no_grad():
+                prev_start: int | None = None
                 for batch_start in range(0, len(starts), active_batch_size):
                     batch_starts = starts[batch_start : batch_start + active_batch_size]
                     indices = torch.tensor(batch_starts, dtype=torch.long)
@@ -136,13 +153,25 @@ class Evaluator:
                     batch_x = source[positions].to(device)
                     batch_y = source[positions + 1].to(device)
                     logits, _, _ = self.model(batch_x)
-                    loss_sum = F.cross_entropy(
-                        logits.reshape(-1, logits.size(-1)),
-                        batch_y.reshape(-1),
-                        reduction="sum",
-                    )
-                    total_loss += float(loss_sum.item())
-                    total_tokens += int(batch_y.numel())
+
+                    for row, window_start in enumerate(batch_starts):
+                        if prev_start is None:
+                            scored = block_size  # first window: score everything
+                        else:
+                            scored = min(window_start - prev_start, block_size)
+                        if scored <= 0:
+                            prev_start = window_start
+                            continue
+                        row_logits = logits[row, -scored:, :]
+                        row_targets = batch_y[row, -scored:]
+                        loss_sum = F.cross_entropy(
+                            row_logits,
+                            row_targets,
+                            reduction="sum",
+                        )
+                        total_loss += float(loss_sum.item())
+                        total_tokens += int(row_targets.numel())
+                        prev_start = window_start
         finally:
             if was_training:
                 self.model.train()

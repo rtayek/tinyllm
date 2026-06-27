@@ -43,8 +43,22 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Evaluate every valid window instead of sampled batches",
     )
+    parser.add_argument(
+        "--stride",
+        type=int,
+        default=None,
+        help=(
+            "With --full-split, window stride. Defaults to blockSize "
+            "(non-overlapping); use 1 for maximal-context sliding-window "
+            "perplexity, or blockSize//2 for the common compromise."
+        ),
+    )
     args = parser.parse_args(argv)
     require_positive(parser, "--iters", args.iters)
+    if args.stride is not None:
+        require_positive(parser, "--stride", args.stride)
+        if not args.full_split:
+            parser.error("--stride only applies with --full-split")
     return args
 
 
@@ -72,6 +86,7 @@ def build_report(args: argparse.Namespace, device: str) -> PerBookReport | None:
             args.seed,
             book.name,
             full_split=args.full_split,
+            stride=args.stride,
         )
         perplexity = torch.exp(torch.tensor(loss)).item()
         rows.append(

@@ -296,6 +296,19 @@ pytest tests/unit/test_training_callbacks.py
 - `CheckpointManager.loadCheckpoint` remains as a compatibility wrapper; new
   code should call `restoreCheckpoint`.
 
+- `Evaluator.estimate_split_full` drops the trailing up-to-`block_size-1`
+  target positions rather than scoring them in a final window. This is fine
+  and conventional for the non-overlapping default (`stride == block_size`):
+  the dropped tail is <1% of any real split and the result is fair across
+  checkpoints. It is *slightly off* for the sliding-window case
+  (`stride < block_size`), where the whole point is to score every target
+  with good context, yet the final tail still goes unscored. **Before relying
+  on any `--stride 1` or `--stride block_size//2` ("publication-quality")
+  sliding-window perplexity number, tighten the tail handling**: append a final
+  window anchored at `last_start` and compute its `scored` count from the
+  actual gap to the previous window. The default-stride numbers in use today
+  are unaffected.
+
 ## Roadmap
 
 1. Scale capacity, not context.
