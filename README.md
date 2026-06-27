@@ -280,12 +280,6 @@ names remain `tinyllm-eval-per-book`, `tinyllm-ngram-baseline`, and
 
 ## Sharing Archives
 
-Create a shareable source tarball with:
-
-```sh
-sh scripts/archive-source.sh
-```
-
 Shared source archives omit generated Python caches, local tool caches,
 editable-install metadata, coverage data, `.claude/`, checkpoint binaries, and
 run-local generated checkpoint/plot/sample directories. In particular, `*.pt`
