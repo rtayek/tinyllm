@@ -30,7 +30,7 @@ Verification:
 
 ```text
 pyright: 0 errors
-pytest: 173 passed
+pytest: 174 passed
 coverage: 88.56%
 ```
 
@@ -130,10 +130,11 @@ perplexity, optional token/window counts, method (`sampled`, `full_nonoverlap`,
 or `full_stride`), and optional checkpoint/corpus notes. It supports
 `toDict()`/`fromDict()` for JSON-ready reports.
 
-The existing training callback `Evaluator.EvalResult` remains in place for
-training-loop state. New research code should prefer structured
-`llm.EvalResult.EvalResult` records over ad hoc dicts or loose floats; the
-raw-float evaluator APIs remain available for compatibility.
+`llm.Evaluator.EvalResult` is the older training-loop callback result used for
+step, train-loss, validation-loss, and early-stopping state. New research code
+should prefer structured `llm.EvalResult.EvalResult` records over ad hoc dicts
+or loose floats; the raw-float evaluator APIs remain available for
+compatibility.
 
 `EvaluationMode.py` names the currently supported evaluation modes explicitly:
 `SampledLossEvaluator`, `FullSplitEvaluator`, `PerBookEvaluator`,

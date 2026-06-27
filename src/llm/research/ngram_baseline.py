@@ -6,9 +6,13 @@ in nats so results are directly comparable to the transformer's val loss.
 
 Usage
 -----
+    tinyllm-ngram-baseline
+    tinyllm-ngram-baseline --max-n 5
+    python -m llm.research.ngram_baseline
+    python -m llm.research.ngram_baseline --train corpora/jane-austen/combined/splits/train.txt
+
+Compatibility wrapper:
     python scripts/ngram_baseline.py
-    python scripts/ngram_baseline.py --max-n 5
-    python scripts/ngram_baseline.py --train corpora/jane-austen/combined/splits/train.txt
 """
 from __future__ import annotations
 

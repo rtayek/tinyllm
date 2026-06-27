@@ -6,10 +6,13 @@ kinds of structure the model has actually learned.
 
 Usage
 -----
+    tinyllm-destruction-experiments
+    tinyllm-destruction-experiments --checkpoint runs/austen-byte/checkpoints/best.pt
+    python -m llm.research.destruction_experiments
+    python -m llm.research.destruction_experiments --iters 200 --seed 42
+
+Compatibility wrapper:
     python scripts/destruction_experiments.py
-    python scripts/destruction_experiments.py --checkpoint runs/austen-byte/checkpoints/best.pt
-    python scripts/destruction_experiments.py --iters 200 --seed 42
-    python scripts/destruction_experiments.py --no-per-book
 """
 from __future__ import annotations
 

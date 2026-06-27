@@ -1,9 +1,13 @@
 """Evaluate best.pt against each book's validation split individually.
 
 Usage:
+    tinyllm-eval-per-book
+    tinyllm-eval-per-book --checkpoint runs/austen-byte/checkpoints/best.pt
+    python -m llm.research.eval_per_book
+    python -m llm.research.eval_per_book --iters 200
+
+Compatibility wrappers:
     python scripts/eval_per_book.py
-    python scripts/eval_per_book.py --checkpoint runs/austen-byte/checkpoints/best.pt
-    python scripts/eval_per_book.py --iters 200
 """
 from __future__ import annotations
 

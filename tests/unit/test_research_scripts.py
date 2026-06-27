@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from importlib import import_module
 from pathlib import Path
 from types import ModuleType
 
@@ -22,6 +23,16 @@ def _load_script(name: str) -> ModuleType:
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def test_canonical_research_modules_are_importable() -> None:
+    for name in (
+        "llm.research.eval_per_book",
+        "llm.research.destruction_experiments",
+        "llm.research.ngram_baseline",
+    ):
+        module = import_module(name)
+        assert hasattr(module, "main")
 
 
 def test_ngram_training_counts_final_prediction() -> None:
