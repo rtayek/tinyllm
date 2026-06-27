@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import platform
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+
+import torch
+
 from .Config import ModelConfig, TrainConfig
 from .json_utils import write_json
 
@@ -37,6 +43,42 @@ class RunArtifacts:
             return None
         return result.stdout.strip() or None
 
+    @staticmethod
+    def _git_dirty() -> bool | None:
+        try:
+            result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except (OSError, subprocess.CalledProcessError):
+            return None
+        return bool(result.stdout.strip())
+
+    @staticmethod
+    def _git_diff_sha256() -> str | None:
+        try:
+            result = subprocess.run(
+                ["git", "diff", "HEAD", "--"],
+                check=True,
+                capture_output=True,
+            )
+        except (OSError, subprocess.CalledProcessError):
+            return None
+        if not result.stdout:
+            return None
+        return hashlib.sha256(result.stdout).hexdigest()
+
+    @staticmethod
+    def _environmentPayload() -> dict[str, Any]:
+        return {
+            "python": sys.version.split()[0],
+            "platform": platform.platform(),
+            "torch": torch.__version__,
+            "cuda_available": torch.cuda.is_available(),
+        }
+
     def _corporaPayload(self) -> dict[str, dict[str, str | None]]:
         return {
             "train": {
@@ -56,6 +98,9 @@ class RunArtifacts:
     def _runMetadataPayload(self) -> dict[str, object]:
         return {
             "git_commit": self._git_commit(),
+            "git_dirty": self._git_dirty(),
+            "git_diff_sha256": self._git_diff_sha256(),
+            "environment": self._environmentPayload(),
             "model": self.modelConfig.toDict(),
             "training": self.trainConfig.toRunJsonDict(),
             "corpora": self._corporaPayload(),

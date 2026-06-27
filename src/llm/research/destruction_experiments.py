@@ -102,6 +102,32 @@ def context_start_indices(
     return torch.randint(0, high, (batch_size,), generator=generator)
 
 
+def context_target_indices(
+    token_count: int,
+    max_context: int,
+    batch_size: int,
+    generator: torch.Generator,
+) -> torch.Tensor:
+    if token_count <= max_context:
+        raise ValueError(
+            f"Sequence too short ({token_count}) for context length {max_context}"
+        )
+    return torch.randint(max_context, token_count, (batch_size,), generator=generator)
+
+
+def context_target_batches(
+    token_count: int,
+    max_context: int,
+    batch_size: int,
+    eval_iters: int,
+    generator: torch.Generator,
+) -> list[torch.Tensor]:
+    return [
+        context_target_indices(token_count, max_context, batch_size, generator)
+        for _ in range(eval_iters)
+    ]
+
+
 def estimate_loss(
     model: TinyGPTLanguageModel,
     tokens: torch.Tensor,
@@ -126,24 +152,29 @@ def estimate_loss_context(
     train_cfg: TrainConfig,
     seed: int,
     context_len: int,
+    target_batches: Sequence[torch.Tensor] | None = None,
 ) -> float:
     """Estimate next-byte loss given exactly ``context_len`` bytes of history."""
     model.eval()
     device = train_cfg.device
     losses: list[float] = []
-    generator = fresh_generator(seed)
-    window = context_len + 1
+    batches = (
+        list(target_batches)
+        if target_batches is not None
+        else context_target_batches(
+            tokens.size(0),
+            context_len,
+            train_cfg.batchSize,
+            train_cfg.evalIters,
+            fresh_generator(seed),
+        )
+    )
 
     with torch.no_grad():
-        for _ in range(train_cfg.evalIters):
-            idx = context_start_indices(
-                tokens.size(0),
-                window,
-                train_cfg.batchSize,
-                generator,
-            )
-            offsets = torch.arange(window)
-            positions = idx.unsqueeze(1) + offsets.unsqueeze(0)
+        for target_idx in batches:
+            offsets = torch.arange(context_len + 1)
+            starts = target_idx - context_len
+            positions = starts.unsqueeze(1) + offsets.unsqueeze(0)
             block = tokens[positions].to(device)
             block_x = block[:, :context_len]
             target = block[:, context_len]
@@ -231,9 +262,29 @@ def run_context_probe(
 
     rows: list[ContextProbeRow] = []
     prev_avg: float | None = None
-    for ctx in context_sizes(model_cfg.blockSize):
+    sizes = context_sizes(model_cfg.blockSize)
+    max_context = max(sizes)
+    targets_by_book = {
+        book.name: context_target_batches(
+            book.tokens.size(0),
+            max_context,
+            train_cfg.batchSize,
+            train_cfg.evalIters,
+            fresh_generator(stable_seed(seed, "context_probe", book.name)),
+        )
+        for book in book_data
+    }
+    for ctx in sizes:
         ctx_losses = [
-            estimate_loss_context(model, book.tokens, model_cfg, train_cfg, seed, ctx)
+            estimate_loss_context(
+                model,
+                book.tokens,
+                model_cfg,
+                train_cfg,
+                seed,
+                ctx,
+                target_batches=targets_by_book[book.name],
+            )
             for book in book_data
         ]
         avg = sum(ctx_losses) / len(ctx_losses)

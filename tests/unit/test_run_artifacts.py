@@ -43,6 +43,11 @@ def test_run_artifacts_write_metadata_and_metrics(tmp_path: Path) -> None:
     assert metadata["corpora"]["validation"]["path"] == str(validation)
     assert metadata["corpora"]["test"]["path"] == str(test)
     assert metadata["corpora"]["train"]["sha256"] is not None
+    assert isinstance(metadata["git_dirty"], bool) or metadata["git_dirty"] is None
+    assert "git_diff_sha256" in metadata
+    assert "python" in metadata["environment"]
+    assert "torch" in metadata["environment"]
+    assert "platform" in metadata["environment"]
     metric = json.loads(metrics_path.read_text(encoding="utf-8"))
     assert metric["type"] == "evaluation"
     assert metric["step"] == 10

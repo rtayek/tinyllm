@@ -5,11 +5,13 @@ import sys
 from importlib import import_module
 from pathlib import Path
 from types import ModuleType
+from typing import cast
 
 import pytest
 import torch
 
 from llm.research_books import RESEARCH_BOOKS, research_book_pairs
+from llm.research_reports import BookLossRow, PerBookReport
 
 
 REPO_ROOT = Path(__file__).parents[2]
@@ -87,6 +89,39 @@ def test_context_start_indices_reject_short_sequence() -> None:
         )
 
 
+def test_context_target_batches_reuse_targets_across_context_lengths() -> None:
+    module = _load_script("destruction_experiments")
+    generator = torch.Generator().manual_seed(123)
+
+    batches = module.context_target_batches(
+        token_count=32,
+        max_context=8,
+        batch_size=4,
+        eval_iters=3,
+        generator=generator,
+    )
+
+    assert len(batches) == 3
+    for targets in batches:
+        assert targets.min().item() >= 8
+        assert targets.max().item() < 32
+        short_starts = targets - 2
+        long_starts = targets - 8
+        assert torch.equal(short_starts + 2, long_starts + 8)
+
+
+def test_context_target_indices_reject_short_sequence() -> None:
+    module = _load_script("destruction_experiments")
+
+    with pytest.raises(ValueError, match="Sequence too short"):
+        module.context_target_indices(
+            token_count=8,
+            max_context=8,
+            batch_size=1,
+            generator=torch.Generator(),
+        )
+
+
 def test_per_book_generator_is_stable_per_book() -> None:
     module = _load_script("eval_per_book")
 
@@ -104,6 +139,42 @@ def test_eval_per_book_accepts_full_split_flag() -> None:
     args = module.parse_args(["--full-split"])
 
     assert args.full_split is True
+
+
+def test_per_book_report_serializes_evaluation_policy_metadata() -> None:
+    report = PerBookReport(
+        checkpoint="runs/example/checkpoints/best.pt",
+        device="cpu",
+        iters=10,
+        full_split=True,
+        method="full_stride",
+        stride=16,
+        seed=42,
+        books=[
+            BookLossRow(
+                book="Emma",
+                path="corpora/emma/splits/validation.txt",
+                seed=123,
+                loss=1.5,
+                perplexity=4.48,
+                method="full_stride",
+                stride=16,
+                nTokens=1024,
+                nWindows=64,
+            )
+        ],
+        average_loss=1.5,
+    )
+
+    data = report.to_json_dict()
+
+    assert data["method"] == "full_stride"
+    assert data["stride"] == 16
+    books = cast(list[object], data["books"])
+    book = books[0]
+    assert isinstance(book, dict)
+    assert book["method"] == "full_stride"
+    assert book["nTokens"] == 1024
 
 
 @pytest.mark.parametrize("script_name", ["eval_per_book", "destruction_experiments"])
@@ -147,6 +218,20 @@ def test_ngram_reference_losses_load_from_eval_json(tmp_path: Path) -> None:
     )
 
     assert module.load_transformer_references(reference_path) == {"Emma": 1.23}
+
+
+def test_ngram_reference_defaults_to_no_transformer_comparison() -> None:
+    module = _load_script("ngram_baseline")
+
+    assert module.load_transformer_references(None) == {}
+
+
+def test_ngram_reference_can_opt_into_historical_builtin() -> None:
+    module = _load_script("ngram_baseline")
+
+    references = module.load_transformer_references(None, use_builtin=True)
+
+    assert references["Emma"] == module.TRANSFORMER_LOSSES_BY_BOOK["Emma"]
 
 
 def test_corrupt_with_seed_is_independent_of_call_order() -> None:

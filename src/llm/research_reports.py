@@ -10,6 +10,10 @@ class BookLossRow:
     seed: int
     loss: float
     perplexity: float
+    method: str
+    stride: int | None
+    nTokens: int | None
+    nWindows: int | None
 
 
 @dataclass(frozen=True)
@@ -18,6 +22,8 @@ class PerBookReport:
     device: str
     iters: int
     full_split: bool
+    method: str | None
+    stride: int | None
     seed: int
     books: list[BookLossRow]
     average_loss: float | None

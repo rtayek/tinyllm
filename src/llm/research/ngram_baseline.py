@@ -86,9 +86,12 @@ class NgramModel:
         return -total_log_prob / num_predictions
 
 
-def load_transformer_references(path: Path | None) -> dict[str, float]:
+def load_transformer_references(
+    path: Path | None,
+    use_builtin: bool = False,
+) -> dict[str, float]:
     if path is None:
-        return dict(TRANSFORMER_LOSSES_BY_BOOK)
+        return dict(TRANSFORMER_LOSSES_BY_BOOK) if use_builtin else {}
 
     raw_data: Any = json.loads(path.read_text(encoding="utf-8"))
     data = cast(object, raw_data)
@@ -135,6 +138,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Optional eval_per_book JSON to use as transformer reference",
     )
+    parser.add_argument(
+        "--use-built-in-reference",
+        action="store_true",
+        help="Use historical built-in transformer losses when --reference-json is omitted",
+    )
     parser.add_argument("--out", type=Path, default=None, help="Optional JSON output path")
     args = parser.parse_args(argv)
     require_positive(parser, "--max-n", args.max_n)
@@ -166,7 +174,10 @@ def main() -> None:
         print("No validation files found.")
         sys.exit(1)
 
-    transformer_losses = load_transformer_references(args.reference_json)
+    transformer_losses = load_transformer_references(
+        args.reference_json,
+        use_builtin=args.use_built_in_reference,
+    )
 
     # Header
     col = 14
@@ -196,7 +207,7 @@ def main() -> None:
         {
             "losses": t_losses,
             "average": t_avg,
-            "source": str(args.reference_json) if args.reference_json else "built-in",
+            "source": str(args.reference_json) if args.reference_json else "built-in-historical",
         }
         if t_losses is not None and t_avg is not None
         else None

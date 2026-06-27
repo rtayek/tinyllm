@@ -18,6 +18,7 @@ from llm.TextGenerator import AutoregressiveGenerator
 from llm.Evaluator import Evaluator
 from llm.EarlyStopping import EarlyStopping
 from llm.RunArtifacts import RunArtifacts
+from llm.split_preflight import assert_no_exact_split_reuse
 from llm.TrainingCallback import (
     CheckpointCallback,
     CheckpointContext,
@@ -117,6 +118,13 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
 
     device = resolve_device(trainConfig.device, activeLogger)
     trainConfig = replace(trainConfig, device=device)
+    assert_no_exact_split_reuse(
+        {
+            "train": trainConfig.dataPath,
+            "validation": trainConfig.validationDataPath,
+            "test": trainConfig.testDataPath,
+        }
+    )
 
     dataModule = build_data_module(modelConfig, trainConfig, activeLogger)
 

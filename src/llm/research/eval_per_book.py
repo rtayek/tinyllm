@@ -99,6 +99,10 @@ def build_report(args: argparse.Namespace, device: str) -> PerBookReport | None:
                 seed=book_seed(args.seed, book.name),
                 loss=result.loss,
                 perplexity=result.perplexity,
+                method=result.method,
+                stride=args.stride if args.full_split else None,
+                nTokens=result.nTokens,
+                nWindows=result.nWindows,
             )
         )
         print(f"  {book.name:<26}  {result.loss:>8.4f}  {result.perplexity:>10.2f}")
@@ -114,6 +118,8 @@ def build_report(args: argparse.Namespace, device: str) -> PerBookReport | None:
         device=device,
         iters=args.iters,
         full_split=args.full_split,
+        method=rows[0].method if rows else None,
+        stride=args.stride if args.full_split else None,
         seed=args.seed,
         books=rows,
         average_loss=average_loss,
