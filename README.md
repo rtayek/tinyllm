@@ -3,6 +3,12 @@
 A small byte-level GPT implemented in PyTorch. The project includes training,
 checkpointing, evaluation, text generation, and prompt-based inference.
 
+`src/llm/` contains the reusable byte-level GPT implementation plus
+training, inference, checkpointing, corpus preparation, and evaluation
+building blocks. `src/llm/research/` contains learned-structure experiments,
+per-book evaluation, destruction experiments, and n-gram baselines built on
+top of that reusable core.
+
 ## Installation
 
 Create and activate the environment, then install the package with development
@@ -266,6 +272,11 @@ python scripts/eval_per_book.py --out runs/austen-byte/eval-per-book.json
 python scripts/ngram_baseline.py --out runs/austen-byte/ngram-baseline.json
 python scripts/destruction_experiments.py --out runs/austen-byte/destruction.json
 ```
+
+Equivalent package module invocations are under `llm.research`, for example
+`python -m llm.research.eval_per_book --help`. The installed console command
+names remain `tinyllm-eval-per-book`, `tinyllm-ngram-baseline`, and
+`tinyllm-destruction-experiments`.
 
 ## Sharing Archives
 

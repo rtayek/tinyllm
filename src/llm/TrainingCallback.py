@@ -1,4 +1,4 @@
-﻿"""Training event callbacks.
+"""Training event callbacks.
 
 The ``TrainingCallback`` protocol defines two lifecycle hooks that fire during
 training.  Concrete callbacks implement one or both hooks and are registered on

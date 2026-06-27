@@ -14,6 +14,14 @@ import torch.nn.functional as F
 from llm.Config import ModelConfig, TrainConfig
 from llm.DataModule import DataModuleConfig, SequenceDataModule
 from llm.EarlyStopping import EarlyStopping
+from llm.EvalResult import EvalResult as LossEvalResult
+from llm.EvaluationMode import (
+    BaselineEvaluator,
+    CorruptionEvaluator,
+    FullSplitEvaluator,
+    PerBookEvaluator,
+    SampledLossEvaluator,
+)
 from llm.Evaluator import Evaluator
 from llm.Model import TinyGPTLanguageModel
 
@@ -51,6 +59,142 @@ def test_full_split_is_deterministic() -> None:
     first = evaluator.estimate_split_full("val")
     second = evaluator.estimate_split_full("val")
     assert first == second  # no randomness at all
+
+
+def test_loss_eval_result_computes_perplexity() -> None:
+    result = LossEvalResult(name="validation", split="val", loss=1.25)
+
+    assert math.isclose(result.perplexity, math.exp(1.25))
+
+
+def test_loss_eval_result_serialization_round_trips() -> None:
+    result = LossEvalResult(
+        name="Emma",
+        split="val",
+        loss=1.5,
+        nTokens=128,
+        nWindows=16,
+        method="full_nonoverlap",
+        checkpoint="runs/example/checkpoints/best.pt",
+        corpus="corpora/example/splits/validation.txt",
+        notes="reference",
+    )
+
+    restored = LossEvalResult.fromDict(result.toDict())
+
+    assert restored == result
+
+
+def test_sampled_split_result_reports_metadata() -> None:
+    source = torch.arange(64) % 16
+    evaluator = _make_evaluator(source, block_size=8, batch_size=4)
+    generator = torch.Generator().manual_seed(123)
+
+    result = evaluator.estimate_split_result("val", generator, name="validation")
+
+    assert result.name == "validation"
+    assert result.split == "val"
+    assert math.isfinite(result.loss)
+    assert math.isclose(result.perplexity, math.exp(result.loss))
+    assert result.method == "sampled"
+    assert result.nWindows == evaluator.trainConfig.evalIters * evaluator.trainConfig.batchSize
+    assert result.nWindows is not None
+    assert result.nTokens == result.nWindows * evaluator.dataModule.modelConfig.blockSize
+
+
+def test_full_split_result_reports_distinct_method() -> None:
+    source = torch.arange(64) % 16
+    evaluator = _make_evaluator(source, block_size=8, batch_size=4)
+
+    sampled = evaluator.estimate_split_result("val", torch.Generator().manual_seed(123))
+    full = evaluator.estimate_split_full_result("val")
+    strided = evaluator.estimate_split_full_result("val", stride=1)
+
+    assert full.method == "full_nonoverlap"
+    assert strided.method == "full_stride"
+    assert full.method != sampled.method
+    assert full.nTokens == 56
+    assert full.nWindows == 7
+
+
+def test_sampled_loss_evaluator_mode_wraps_existing_evaluator() -> None:
+    source = torch.arange(64) % 16
+    evaluator = _make_evaluator(source, block_size=8, batch_size=4)
+    generator = torch.Generator().manual_seed(123)
+
+    result = SampledLossEvaluator(
+        evaluator,
+        split="val",
+        generator=generator,
+        name="validation",
+    ).evaluate()
+
+    assert result.name == "validation"
+    assert result.method == "sampled"
+    assert result.split == "val"
+
+
+def test_full_split_evaluator_mode_wraps_existing_evaluator() -> None:
+    source = torch.arange(64) % 16
+    evaluator = _make_evaluator(source, block_size=8, batch_size=4)
+
+    result = FullSplitEvaluator(evaluator, split="val").evaluate()
+
+    assert result.method == "full_nonoverlap"
+    assert result.nTokens == 56
+    assert result.nWindows == 7
+
+
+def test_per_book_evaluator_mode_reports_book_name_and_corpus() -> None:
+    source = torch.arange(64) % 16
+    evaluator = _make_evaluator(source, block_size=8, batch_size=4)
+
+    result = PerBookEvaluator(
+        evaluator.model,
+        evaluator.dataModule.modelConfig,
+        evaluator.trainConfig,
+        seed=42,
+    ).evaluate("Example Book", source, corpus="corpora/example/validation.txt")
+
+    assert result.name == "Example Book"
+    assert result.corpus == "corpora/example/validation.txt"
+    assert result.method == "sampled"
+
+
+def test_corruption_evaluator_mode_applies_corruption() -> None:
+    source = torch.arange(64) % 16
+    evaluator = _make_evaluator(source, block_size=8, batch_size=4)
+
+    def reverse_bytes(raw: bytes, _name: str) -> bytes:
+        return raw[::-1]
+
+    result = CorruptionEvaluator(
+        evaluator.model,
+        evaluator.dataModule.modelConfig,
+        evaluator.trainConfig,
+        seed=42,
+        corrupt=reverse_bytes,
+    ).evaluate("reverse", bytes(i % 16 for i in range(64)))
+
+    assert result.name == "reverse"
+    assert result.method == "sampled"
+    assert math.isfinite(result.loss)
+
+
+def test_baseline_evaluator_mode_wraps_external_loss() -> None:
+    result = BaselineEvaluator(method="ngram").evaluate(
+        "3-gram",
+        "validation",
+        loss=1.75,
+        n_tokens=123,
+        notes="Laplace",
+    )
+
+    assert result.name == "3-gram"
+    assert result.method == "ngram"
+    assert result.nTokens == 123
+    assert result.notes == "Laplace"
+    assert math.isclose(result.perplexity, math.exp(1.75))
 
 
 def test_full_split_batch_size_invariant() -> None:

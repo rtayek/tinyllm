@@ -1,18 +1,22 @@
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 
 import torch
 
-from .Checkpoint import Checkpoint
-from .Config import ModelConfig, TrainConfig
-from .DataModule import DataModuleConfig, SequenceDataModule
-from .EarlyStopping import EarlyStopping
-from .Evaluator import Evaluator
-from .Model import TinyGPTLanguageModel
-from .research_books import RESEARCH_BOOKS
+from ..Checkpoint import Checkpoint
+from ..Config import ModelConfig, TrainConfig
+from ..EvalResult import EvalResult
+from ..EvaluationMode import (
+    PerBookEvaluator,
+    book_generator as _book_generator,
+    book_seed as _book_seed,
+    evaluator_for_tokens as _evaluator_for_tokens,
+)
+from ..Evaluator import Evaluator
+from ..Model import TinyGPTLanguageModel
+from ..research_books import RESEARCH_BOOKS
 
 
 @dataclass(frozen=True)
@@ -35,14 +39,11 @@ def load_tokens(path: Path) -> torch.Tensor:
 
 
 def book_seed(seed: int, book_name: str) -> int:
-    digest = hashlib.sha256(f"{seed}:{book_name}".encode("utf-8")).digest()
-    return int.from_bytes(digest[:8], byteorder="big") % (2**63)
+    return _book_seed(seed, book_name)
 
 
 def book_generator(seed: int, book_name: str) -> torch.Generator:
-    generator = torch.Generator()
-    generator.manual_seed(book_seed(seed, book_name))
-    return generator
+    return _book_generator(seed, book_name)
 
 
 def load_checkpoint_model(
@@ -68,15 +69,7 @@ def evaluator_for_tokens(
     model_config: ModelConfig,
     train_config: TrainConfig,
 ) -> Evaluator:
-    data_module = SequenceDataModule(
-        model_config,
-        DataModuleConfig.fromTrainConfig(train_config),
-        sequence=tokens,
-        validationSequence=tokens,
-    )
-    return Evaluator(
-        model, data_module, train_config, EarlyStopping(patience=1, delta=0.0)
-    )
+    return _evaluator_for_tokens(model, tokens, model_config, train_config)
 
 
 def estimate_validation_loss(
@@ -89,10 +82,39 @@ def estimate_validation_loss(
     full_split: bool = False,
     stride: int | None = None,
 ) -> float:
-    evaluator = evaluator_for_tokens(model, tokens, model_config, train_config)
-    if full_split:
-        return evaluator.estimate_split_full("val", stride=stride)
-    return evaluator.estimate_split("val", book_generator(seed, book_name))
+    return estimate_validation_result(
+        model,
+        tokens,
+        model_config,
+        train_config,
+        seed,
+        book_name,
+        full_split=full_split,
+        stride=stride,
+    ).loss
+
+
+def estimate_validation_result(
+    model: TinyGPTLanguageModel,
+    tokens: torch.Tensor,
+    model_config: ModelConfig,
+    train_config: TrainConfig,
+    seed: int,
+    book_name: str,
+    full_split: bool = False,
+    stride: int | None = None,
+    checkpoint: str | None = None,
+    corpus: str | None = None,
+) -> EvalResult:
+    return PerBookEvaluator(
+        model,
+        model_config,
+        train_config,
+        seed,
+        full_split=full_split,
+        stride=stride,
+        checkpoint=checkpoint,
+    ).evaluate(book_name, tokens, corpus=corpus)
 
 
 def load_research_book_data() -> tuple[list[ResearchBookData], list[tuple[str, Path]]]:

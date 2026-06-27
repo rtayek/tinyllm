@@ -11,15 +11,13 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
-import torch
-
 from llm.cli_utils import require_positive
 from llm.json_utils import write_json
-from llm import research_eval as _research_eval
+from llm.research import research_eval as _research_eval
 from llm.research_reports import BookLossRow, PerBookReport
-from llm.research_eval import (
+from llm.research.research_eval import (
     book_seed,
-    estimate_validation_loss,
+    estimate_validation_result,
     load_checkpoint_model,
     load_research_book_data,
 )
@@ -78,7 +76,7 @@ def build_report(args: argparse.Namespace, device: str) -> PerBookReport | None:
         print(f"  {name:<26}  {'(not found)':>8}")
 
     for book in books:
-        loss = estimate_validation_loss(
+        result = estimate_validation_result(
             checkpoint_model.model,
             book.tokens,
             checkpoint_model.model_config,
@@ -87,18 +85,19 @@ def build_report(args: argparse.Namespace, device: str) -> PerBookReport | None:
             book.name,
             full_split=args.full_split,
             stride=args.stride,
+            checkpoint=args.checkpoint,
+            corpus=str(book.path),
         )
-        perplexity = torch.exp(torch.tensor(loss)).item()
         rows.append(
             BookLossRow(
                 book=book.name,
                 path=str(book.path),
                 seed=book_seed(args.seed, book.name),
-                loss=loss,
-                perplexity=perplexity,
+                loss=result.loss,
+                perplexity=result.perplexity,
             )
         )
-        print(f"  {book.name:<26}  {loss:>8.4f}  {perplexity:>10.2f}")
+        print(f"  {book.name:<26}  {result.loss:>8.4f}  {result.perplexity:>10.2f}")
 
     average_loss = None
     if rows:

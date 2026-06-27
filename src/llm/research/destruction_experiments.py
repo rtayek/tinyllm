@@ -35,7 +35,7 @@ from llm.corruptions import (
     make_corrupt_replace_names,
 )
 from llm.json_utils import write_json
-from llm.research_eval import (
+from llm.research.research_eval import (
     ResearchBookData,
     estimate_validation_loss,
     load_checkpoint_model,

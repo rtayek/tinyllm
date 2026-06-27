@@ -27,9 +27,9 @@ dev = [
 tinyllm-train = "llm.train_app:main"
 tinyllm-infer = "llm.infer:main"
 tinyllm-prepare-corpora = "llm.corpus:main"
-tinyllm-eval-per-book = "llm.eval_per_book:main"
-tinyllm-destruction-experiments = "llm.destruction_experiments:main"
-tinyllm-ngram-baseline = "llm.ngram_baseline:main"
+tinyllm-eval-per-book = "llm.research.eval_per_book:main"
+tinyllm-destruction-experiments = "llm.research.destruction_experiments:main"
+tinyllm-ngram-baseline = "llm.research.ngram_baseline:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -41,9 +41,9 @@ where = ["src"]
 branch = true
 source = ["llm"]
 omit = [
-  "src/llm/destruction_experiments.py",
-  "src/llm/eval_per_book.py",
-  "src/llm/ngram_baseline.py",
+  "src/llm/research/destruction_experiments.py",
+  "src/llm/research/eval_per_book.py",
+  "src/llm/research/ngram_baseline.py",
 ]
 
 [tool.coverage.report]

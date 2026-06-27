@@ -11,6 +11,7 @@ from .Config import TrainConfig
 from .Model import TinyGPTLanguageModel
 from .DataModule import SequenceDataModule
 from .EarlyStopping import EarlyStopping, EarlyStopResult
+from .EvalResult import EvalResult as LossEvalResult
 
 
 @dataclass
@@ -77,12 +78,76 @@ class Evaluator:
             if was_training:
                 self.model.train()
 
+    def estimate_split_result(
+        self,
+        split: str,
+        generator: torch.Generator | None = None,
+        name: str | None = None,
+        checkpoint: str | None = None,
+        corpus: str | None = None,
+        notes: str | None = None,
+    ) -> LossEvalResult:
+        loss = self.estimate_split(split, generator)
+        return LossEvalResult(
+            name=name or split,
+            split=split,
+            loss=loss,
+            nTokens=self.trainConfig.evalIters
+            * self.trainConfig.batchSize
+            * self.dataModule.modelConfig.blockSize,
+            nWindows=self.trainConfig.evalIters * self.trainConfig.batchSize,
+            method="sampled",
+            checkpoint=checkpoint,
+            corpus=corpus,
+            notes=notes,
+        )
+
     def estimate_split_full(
         self,
         split: str,
         batch_size: int | None = None,
         stride: int | None = None,
     ) -> float:
+        loss, _total_tokens, _n_windows, _method = self._estimate_split_full_stats(
+            split,
+            batch_size=batch_size,
+            stride=stride,
+        )
+        return loss
+
+    def estimate_split_full_result(
+        self,
+        split: str,
+        batch_size: int | None = None,
+        stride: int | None = None,
+        name: str | None = None,
+        checkpoint: str | None = None,
+        corpus: str | None = None,
+        notes: str | None = None,
+    ) -> LossEvalResult:
+        loss, total_tokens, n_windows, method = self._estimate_split_full_stats(
+            split,
+            batch_size=batch_size,
+            stride=stride,
+        )
+        return LossEvalResult(
+            name=name or split,
+            split=split,
+            loss=loss,
+            nTokens=total_tokens,
+            nWindows=n_windows,
+            method=method,
+            checkpoint=checkpoint,
+            corpus=corpus,
+            notes=notes,
+        )
+
+    def _estimate_split_full_stats(
+        self,
+        split: str,
+        batch_size: int | None = None,
+        stride: int | None = None,
+    ) -> tuple[float, int, int, str]:
         """Deterministic full-pass cross-entropy over a split.
 
         Windows of ``block_size`` tokens slide across the split with the given
@@ -176,7 +241,8 @@ class Evaluator:
             if was_training:
                 self.model.train()
 
-        return total_loss / float(total_tokens)
+        method = "full_nonoverlap" if active_stride == block_size else "full_stride"
+        return total_loss / float(total_tokens), total_tokens, len(starts), method
 
     def evaluate(self, step: int, best_val_loss: Optional[float]) -> EvalResult:
         losses = self.estimate_loss()

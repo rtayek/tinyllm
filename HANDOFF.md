@@ -30,7 +30,7 @@ Verification:
 
 ```text
 pyright: 0 errors
-pytest: 164 passed
+pytest: 173 passed
 coverage: 88.56%
 ```
 
@@ -39,6 +39,10 @@ Checkpoint compatibility depends on the saved model architecture matching the
 requested run configuration.
 
 ## Architecture
+
+`src/llm/` contains the reusable byte-level GPT implementation and the
+training/inference/corpus-preparation code. `src/llm/research/` contains the
+learned-structure experiments and baselines that use that reusable core.
 
 Important modules:
 
@@ -49,6 +53,8 @@ src/llm/Transformer.py        decoder blocks, attention, and KV cache
 src/llm/Model.py              language model, loss, and generation sampling
 src/llm/Trainer.py            training loop and checkpoint resume
 src/llm/Evaluator.py          train/validation loss estimation
+src/llm/EvalResult.py         structured loss/perplexity evaluation records
+src/llm/EvaluationMode.py     first-class evaluation mode wrappers
 src/llm/EarlyStopping.py      patience-based early stopping, state_dict round-trip
 src/llm/LRScheduleStrategy.py warmup + cosine LR schedule
 src/llm/Checkpoint.py         full training checkpoint and resume logic
@@ -62,6 +68,10 @@ src/llm/plot_utils.py         training curve plotting
 src/llm/tensor_utils.py       device helpers
 src/llm/corpus.py             corpus preparation pipeline
 src/llm/corpus_sources.py     corpus cleaning and logical-unit specs
+src/llm/research/eval_per_book.py              per-book validation evaluation
+src/llm/research/destruction_experiments.py    corruption/destruction probes
+src/llm/research/ngram_baseline.py             byte n-gram baselines
+src/llm/research/research_eval.py              shared research eval helpers
 ```
 
 Research findings, including n-gram baselines and destruction experiments, are
@@ -111,6 +121,25 @@ the dedicated `corpora` section.
 
 `RunConfig.fromDict` raises `ValueError` if the `model` or `train` keys are not
 dicts.
+
+## Evaluation Results
+
+`llm.EvalResult.EvalResult` is the shared schema for loss/perplexity-style
+evaluation records. It stores the evaluation name, split, loss, computed
+perplexity, optional token/window counts, method (`sampled`, `full_nonoverlap`,
+or `full_stride`), and optional checkpoint/corpus notes. It supports
+`toDict()`/`fromDict()` for JSON-ready reports.
+
+The existing training callback `Evaluator.EvalResult` remains in place for
+training-loop state. New research code should prefer structured
+`llm.EvalResult.EvalResult` records over ad hoc dicts or loose floats; the
+raw-float evaluator APIs remain available for compatibility.
+
+`EvaluationMode.py` names the currently supported evaluation modes explicitly:
+`SampledLossEvaluator`, `FullSplitEvaluator`, `PerBookEvaluator`,
+`CorruptionEvaluator`, and `BaselineEvaluator`. These are intentionally thin
+wrappers over the existing computation paths so evaluation policy is visible
+without changing model behavior or report formats.
 
 ## Checkpoints
 
