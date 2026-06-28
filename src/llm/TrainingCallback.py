@@ -25,11 +25,11 @@ from pathlib import Path
 from typing import Callable, Protocol
 
 from .Config import ModelConfig, TrainConfig
-from .Evaluator import EvalResult
+from .Evaluator import TrainEvalResult
 
 
 class TrainingCallback:
-    def on_eval(self, result: EvalResult, is_best: bool) -> None:
+    def on_eval(self, result: TrainEvalResult, is_best: bool) -> None:
         pass
 
     def on_train_end(self, curve: list[tuple[int, float, float]]) -> None:
@@ -63,7 +63,7 @@ class LoggingCallback(TrainingCallback):
         self.trainConfig = trainConfig
         self.logger = logger
 
-    def on_eval(self, result: EvalResult, is_best: bool) -> None:
+    def on_eval(self, result: TrainEvalResult, is_best: bool) -> None:
         self.logger.info(
             "[step %s] train loss %.4f, val loss %.4f",
             result.step, result.train_loss, result.val_loss,
@@ -96,7 +96,7 @@ class MetricsCallback(TrainingCallback):
     def __init__(self, runArtifacts: MetricSink) -> None:
         self._runArtifacts = runArtifacts
 
-    def on_eval(self, result: EvalResult, is_best: bool) -> None:
+    def on_eval(self, result: TrainEvalResult, is_best: bool) -> None:
         self._runArtifacts.appendMetric(
             {
                 "type": "evaluation",
@@ -122,7 +122,7 @@ class CheckpointCallback(TrainingCallback):
         self._context = context
         self.logger = logger
 
-    def on_eval(self, result: EvalResult, is_best: bool) -> None:
+    def on_eval(self, result: TrainEvalResult, is_best: bool) -> None:
         context = self._context
         step = result.step
 

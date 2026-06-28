@@ -15,7 +15,13 @@ from .EvalResult import EvalResult as LossEvalResult
 
 
 @dataclass
-class EvalResult:
+class TrainEvalResult:
+    """Result of a training-loop evaluation step.
+
+    Distinct from ``EvalResult`` in ``llm.EvalResult``, which is the richer
+    frozen dataclass used by research scripts and the ``EvaluationMode``
+    evaluator hierarchy.
+    """
     step: int
     train_loss: float
     val_loss: float
@@ -244,14 +250,14 @@ class Evaluator:
         method = "full_nonoverlap" if active_stride == block_size else "full_stride"
         return total_loss / float(total_tokens), total_tokens, len(starts), method
 
-    def evaluate(self, step: int, best_val_loss: Optional[float]) -> EvalResult:
+    def evaluate(self, step: int, best_val_loss: Optional[float]) -> TrainEvalResult:
         losses = self.estimate_loss()
         train_loss = losses["train"]
         val_loss = losses["val"]
 
         stop: EarlyStopResult = self.early_stopping.check(best_val_loss, val_loss)
 
-        return EvalResult(
+        return TrainEvalResult(
             step=step,
             train_loss=train_loss,
             val_loss=val_loss,

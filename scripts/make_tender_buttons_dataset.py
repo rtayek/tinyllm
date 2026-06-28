@@ -17,35 +17,20 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import re
 import unicodedata
 import urllib.request
 from pathlib import Path
 from typing import Sequence
 
+from llm.corpus_sources import normalize_text
+from llm.json_utils import write_json
+
 GUTENBERG_URL = "https://www.gutenberg.org/ebooks/15396.txt.utf-8"
 IDENTIFIER = "gertrude-stein/tender-buttons"
 SECTION_HEADING = re.compile(r"^(OBJECTS|FOOD|ROOMS)\.?\s*$", re.MULTILINE)
 START_MARKER = re.compile(r"^\*\*\* START OF .*?\*\*\*\s*$", re.MULTILINE)
 END_MARKER = re.compile(r"^\*\*\* END OF .*?\*\*\*\s*$", re.MULTILINE)
-
-
-def normalize_text(text: str) -> str:
-    text = unicodedata.normalize("NFC", text.lstrip("\ufeff"))
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    lines = [line.rstrip(" \t") for line in text.split("\n")]
-    output: list[str] = []
-    blank_count = 0
-    for line in lines:
-        if line:
-            blank_count = 0
-            output.append(line)
-        else:
-            blank_count += 1
-            if blank_count <= 2:
-                output.append("")
-    return "\n".join(output).strip() + "\n"
 
 
 def download_raw_text(url: str = GUTENBERG_URL) -> str:
@@ -89,15 +74,6 @@ def split_sections(text: str) -> list[tuple[str, str]]:
 def write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8", newline="\n")
-
-
-def write_json(path: Path, payload: object) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
 
 
 def file_metadata(path: Path, relative_to: Path) -> dict[str, object]:
@@ -161,7 +137,7 @@ def prepare_tender_buttons(root: Path, url: str = GUTENBERG_URL) -> Path:
         "splits": split_records,
     }
     manifest_path = work_dir / "manifest.json"
-    write_json(manifest_path, manifest)
+    write_json(manifest_path, manifest, ensure_ascii=False)
     return manifest_path
 
 

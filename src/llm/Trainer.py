@@ -12,7 +12,7 @@ from llm.Model import TinyGPTLanguageModel
 from llm.DataModule import SequenceDataModule
 from llm.Checkpoint import Checkpoint, CheckpointManager, CheckpointLoadResult, CHECKPOINT_VERSION
 from llm.LRScheduleStrategy import WarmupCosineStrategy
-from llm.Evaluator import Evaluator, EvalResult
+from llm.Evaluator import Evaluator, TrainEvalResult
 from llm.RunArtifacts import RunArtifacts
 from llm.TrainingCallback import TrainingCallback
 
@@ -101,7 +101,7 @@ class LMTrainer:
         )
         self.logger.info("[step %s] Checkpoint saved to %s.", step, path)
 
-    def _fire_on_eval(self, result: EvalResult, is_best: bool) -> None:
+    def _fire_on_eval(self, result: TrainEvalResult, is_best: bool) -> None:
         for cb in self.callbacks:
             cb.on_eval(result, is_best)
 

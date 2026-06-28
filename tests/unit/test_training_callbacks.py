@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from llm.Config import ModelConfig, TrainConfig
-from llm.Evaluator import EvalResult
+from llm.Evaluator import TrainEvalResult
 from llm.TrainingCallback import (
     CheckpointCallback,
     CheckpointContext,
@@ -26,8 +26,8 @@ def _result(
     improved: bool = True,
     should_stop: bool = False,
     no_improve_evals: int = 0,
-) -> EvalResult:
-    return EvalResult(
+) -> TrainEvalResult:
+    return TrainEvalResult(
         step=step,
         train_loss=train_loss,
         val_loss=val_loss,
