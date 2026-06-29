@@ -194,7 +194,7 @@ Two notes:
 |---|---|
 | `RewardFn` protocol | Genuinely new; nothing exists. Net-new module. |
 | Dynamic data path | Half-built: `SequenceDataModule` takes in-memory tensors. |
-| Best-of-N harness | Needs batched generation; generator is ~90% there. |
+| Best-of-N harness | Phase 1 candidate API exists; true tensor-batched generation remains future work. |
 | Frozen reference + degeneracy guard | New, but `Checkpoint.load` + a 2nd model gives the frozen ref trivially. |
 | Per-iteration structure profiling | Already exists: `EvaluationMode` + `EvalResult` provenance. |
 | Determinism controls | Strong base (explicit generators); add `use_deterministic_algorithms` + seed isolation. |
@@ -209,7 +209,7 @@ on core only (consistent with the existing one-directional layering), e.g.
 | # | Item | Type |
 |---|---|---|
 | 1 | `RewardFn` protocol in a new core-only-dependent package | New abstraction (highest value) |
-| 2 | Batched N-candidate generation in `AutoregressiveGenerator` | Small seam |
+| 2 | True tensor-batched N-candidate generation in `AutoregressiveGenerator` | Small seam |
 | 3 | ~~Decide optimizer/scheduler injection for iterated training~~ Done 2026-06-28 via factory protocols | Design decision |
 | 4 | `on_test_end` callback so test metrics use `MetricsCallback` | Consistency |
 | 5 | ~~Consider splitting `TrainConfig` into science vs. plumbing~~ Done 2026-06-28: `RunPaths` view (plumbing) + optimizer factories (science) | Future-proofing |

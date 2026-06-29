@@ -116,7 +116,10 @@ class ByteDataModule(SequenceDataModule):
     @staticmethod
     def _read_bytes(path: str) -> torch.Tensor:
         with open(path, "rb") as f:
-            return torch.tensor(list(f.read()), dtype=torch.long)
+            data = f.read()
+        if not data:
+            raise ValueError(f"Byte dataset is empty: {path}")
+        return torch.tensor(list(data), dtype=torch.long)
 
     def __init__(
         self,

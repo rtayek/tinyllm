@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Protocol, TypeAlias, runtime_checkable
+from typing import Any, Protocol, TypeAlias, cast, runtime_checkable
 
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
@@ -10,6 +10,25 @@ ConfigPayload: TypeAlias = dict[str, Any]
 CheckpointPayload: TypeAlias = dict[str, Any]
 CheckpointState: TypeAlias = dict[str, Any]
 ConfigDrift: TypeAlias = dict[str, dict[str, Any]]
+
+
+def optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)
+
+
+def optional_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def int_tuple(value: Any, field_name: str) -> tuple[int, ...]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field_name} must be a list")
+    items = cast(list[object], value)
+    return tuple(int(cast(Any, item)) for item in items)
 
 
 @runtime_checkable

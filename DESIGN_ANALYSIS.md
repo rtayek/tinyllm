@@ -91,15 +91,13 @@ The *deserialization* side diverges:
 - `ModelConfig.fromDict` — `cls(**data)`, trusting
 - `TrainConfig.fromDict` — filters to valid fields (tolerant of extra keys)
 - `EvalResult.fromDict` / `GeneratedCandidate.fromDict` — field-by-field
-  coercion with `_optional_int` / `cast`
+  coercion with shared helpers from `serialization_types.py`
 - `Checkpoint.fromDict` — `@staticmethod`, different convention
 
-Four deserialization philosophies: trusting, filtering, coercing, and a
-different method kind. `_optional_int` is duplicated in three files
-(`EvalResult`, `GeneratedCandidate`, inline in `Config`). Not worth a framework,
-but the `_optional_int` / `_optional_str` helpers should live once, in
-`serialization_types.py` alongside the protocol they support, making that module
-the single place the serialization contract lives.
+Four deserialization philosophies remain: trusting, filtering, coercing, and a
+different method kind. The small optional coercion helpers now live in
+`serialization_types.py` alongside the protocol they support, avoiding local
+duplicates without introducing a serialization framework.
 
 ## 5. GeneratedCandidate shows the self-improvement design starting well — with one early smell
 
@@ -116,12 +114,11 @@ entire self-improvement project, so the place performance matters most is the
 place currently leaving it on the table. Worth deciding before the loop is built
 around the per-candidate call.
 
-Subtler point: `continuation = text[len(prompt):] if text.startswith(prompt)`.
-With byte-level UTF-8 and `errors="replace"`, a multi-byte character split
-across the prompt/continuation boundary could make `startswith` false and
-silently return the *whole* text as the continuation. The token-level boundary
-(`promptTokenCount`) is the reliable split; the string-prefix approach is the
-fragile one.
+The prompt/continuation split is now token-boundary based:
+`GeneratedCandidate.continuation` is decoded from
+`tokenIds[promptTokenCount:]`, while `text` remains the decoded full generated
+sequence. This avoids the earlier UTF-8 / `errors="replace"` fragility from
+string-prefix slicing.
 
 ## 6. Where the structure will bend under self-improvement — synthesis
 
@@ -151,16 +148,13 @@ subsystem built for the comparative experiments the project exists to run, and
 immutable self-describing records (`EvalResult`, `GeneratedCandidate`) as the
 consistent currency.
 
-Three things to watch, in priority:
+Two things to watch, in priority:
 
 1. **Unify the evaluation family behind a parameter object + protocol** when the
    invariance probes land. The real structural seam; self-improvement forces it.
-2. **Consolidate the serialization coercion helpers** (`_optional_int` /
-   `_optional_str`) into `serialization_types.py`. Small, prevents drift across
-   the now-six round-trip types.
-3. **Decide batched generation for best-of-N** before the loop is built around
-   per-candidate calls, and **split candidates on the token boundary, not the
-   string prefix.**
+2. **Decide true tensor-batched generation for best-of-N** before the loop is
+   optimized around per-candidate calls. Phase 1 candidate records exist, but
+   generation still loops internally.
 
 None is urgent and none is a defect. They are the places the next phase will
 apply force, and the structure should take that force well.
@@ -194,11 +188,12 @@ flavor needs (split-bound evaluators ignore `tokens`/`raw`; per-item evaluators
 use them), and a `Protocol` that finally gives the family a common type.
 
 **The key structural finding for this snapshot: the abstraction is defined and
-exported, but not yet adopted.** `EvaluationMode.py` is unchanged — its five
+exported, but not yet broadly adopted.** `EvaluationMode.py` is unchanged — its five
 evaluators (`SampledLossEvaluator`, `FullSplitEvaluator`, `PerBookEvaluator`,
 `CorruptionEvaluator`, `BaselineEvaluator`) still have their original divergent
-`evaluate()` signatures and none implements `EvaluationProbe`. Nothing in the
-core, research scripts, or tests consumes `EvalContext` yet.
+`evaluate()` signatures and none implements `EvaluationProbe`. A small unit
+test exercises the protocol with a fake probe, but core and research evaluators
+do not consume `EvalContext` yet.
 
 This is a normal and reasonable intermediate state — the target type was
 introduced first, ahead of the migration that will conform the evaluators to

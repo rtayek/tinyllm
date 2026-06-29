@@ -66,9 +66,11 @@ class TinyGPTLanguageModel(nn.Module):
         temperature: float = 1.0,
         topK: int | None = None,
         seed: int | None = None,
-    ) -> Tensor:
+        ) -> Tensor:
         if indices.dim() != 2:
             raise ValueError(f"indices must be 2D (batch, time), got {indices.shape}")
+        if maxNewTokens < 0:
+            raise ValueError("maxNewTokens must be non-negative")
         if temperature <= 0:
             raise ValueError("temperature must be greater than zero")
         if topK is not None and topK <= 0:

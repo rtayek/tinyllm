@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass, field
-from typing import Any, cast
 
-from llm.serialization_types import ConfigPayload
+from llm.serialization_types import ConfigPayload, optional_int, optional_str
 
 
 @dataclass(frozen=True)
@@ -32,22 +31,10 @@ class EvalResult:
             name=str(data["name"]),
             split=str(data["split"]),
             loss=float(data["loss"]),
-            nTokens=_optional_int(data.get("nTokens")),
-            nWindows=_optional_int(data.get("nWindows")),
+            nTokens=optional_int(data.get("nTokens")),
+            nWindows=optional_int(data.get("nWindows")),
             method=str(data.get("method", "sampled")),
-            checkpoint=_optional_str(data.get("checkpoint")),
-            corpus=_optional_str(data.get("corpus")),
-            notes=_optional_str(data.get("notes")),
+            checkpoint=optional_str(data.get("checkpoint")),
+            corpus=optional_str(data.get("corpus")),
+            notes=optional_str(data.get("notes")),
         )
-
-
-def _optional_int(value: Any) -> int | None:
-    if value is None:
-        return None
-    return int(value)
-
-
-def _optional_str(value: Any) -> str | None:
-    if value is None:
-        return None
-    return cast(str, value)

@@ -4,6 +4,7 @@ import torch
 
 from llm.Config import ModelConfig, TrainConfig
 from llm.DataModule import (
+    ByteDataModule,
     DataModuleConfig,
     SequenceDataModule,
     TokenDataModule,
@@ -88,3 +89,21 @@ def test_token_data_module_loads_explicit_splits(tmp_path: Path) -> None:
         data_module.testSequence,
         torch.tensor(list(b"test sequence")),
     )
+
+
+def test_byte_data_module_rejects_empty_dataset(tmp_path: Path) -> None:
+    train = tmp_path / "empty.txt"
+    train.write_bytes(b"")
+    config = TrainConfig(
+        dataPath=str(train),
+        validationDataPath=None,
+        testDataPath=None,
+        device="cpu",
+    )
+
+    try:
+        ByteDataModule(ModelConfig(blockSize=4), config)
+    except ValueError as exc:
+        assert "Byte dataset is empty" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for empty byte dataset")

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import cast
 
-
-def _optional_int(value: object) -> int | None:
-    return None if value is None else int(cast(int, value))
+from llm.serialization_types import int_tuple, optional_int
 
 
 @dataclass(frozen=True)
@@ -37,19 +35,15 @@ class GeneratedCandidate:
 
     @classmethod
     def fromDict(cls, data: dict[str, object]) -> "GeneratedCandidate":
-        raw_token_ids = data["tokenIds"]
-        if not isinstance(raw_token_ids, list):
-            raise ValueError("GeneratedCandidate tokenIds must be a list")
-        token_ids = cast(list[object], raw_token_ids)
         return cls(
             prompt=str(data["prompt"]),
             continuation=str(data["continuation"]),
             text=str(data["text"]),
-            tokenIds=tuple(int(cast(Any, token)) for token in token_ids),
+            tokenIds=int_tuple(data["tokenIds"], "GeneratedCandidate tokenIds"),
             promptTokenCount=int(cast(int, data["promptTokenCount"])),
             generatedTokenCount=int(cast(int, data["generatedTokenCount"])),
-            seed=_optional_int(data.get("seed")),
+            seed=optional_int(data.get("seed")),
             temperature=float(cast(float, data["temperature"])),
-            topK=_optional_int(data.get("topK")),
+            topK=optional_int(data.get("topK")),
             maxNewTokens=int(cast(int, data["maxNewTokens"])),
         )

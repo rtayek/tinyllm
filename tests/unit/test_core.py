@@ -98,6 +98,43 @@ def test_cached_generation_sanity() -> None:
     assert torch.all((generated >= 0) & (generated < modelConfig.vocabSize))
 
 
+def test_generation_zero_tokens_preserves_prompt() -> None:
+    modelConfig = ModelConfig(
+        blockSize=8,
+        vocabSize=32,
+        nEmbed=16,
+        nHead=4,
+        nLayer=1,
+        dropout=0.0,
+    )
+    model = TinyGPTLanguageModel(modelConfig)
+    prompt = torch.tensor([[1, 2, 3]], dtype=torch.long)
+
+    generated = model.generate_autoregressive(prompt, maxNewTokens=0)
+
+    assert torch.equal(generated, prompt)
+
+
+def test_generation_rejects_negative_max_new_tokens() -> None:
+    modelConfig = ModelConfig(
+        blockSize=8,
+        vocabSize=32,
+        nEmbed=16,
+        nHead=4,
+        nLayer=1,
+        dropout=0.0,
+    )
+    model = TinyGPTLanguageModel(modelConfig)
+    prompt = torch.tensor([[1, 2, 3]], dtype=torch.long)
+
+    try:
+        model.generate_autoregressive(prompt, maxNewTokens=-1)
+    except ValueError as exc:
+        assert "maxNewTokens must be non-negative" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for negative maxNewTokens")
+
+
 def test_generation_seed_is_reproducible() -> None:
     modelConfig = ModelConfig(
         blockSize=8,
