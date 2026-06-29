@@ -268,15 +268,22 @@ pytest --cov --cov-report=html
 Research scripts can emit machine-readable JSON:
 
 ```sh
-python scripts/eval_per_book.py --out runs/austen-byte/eval-per-book.json
-python scripts/ngram_baseline.py --out runs/austen-byte/ngram-baseline.json
-python scripts/destruction_experiments.py --out runs/austen-byte/destruction.json
+tinyllm-eval-per-book --out runs/austen-byte/eval-per-book.json
+tinyllm-ngram-baseline --out runs/austen-byte/ngram-baseline.json
+tinyllm-destruction-experiments --out runs/austen-byte/destruction.json
 ```
 
-Equivalent package module invocations are under `llm.research`, for example
-`python -m llm.research.eval_per_book --help`. The installed console command
-names remain `tinyllm-eval-per-book`, `tinyllm-ngram-baseline`, and
-`tinyllm-destruction-experiments`.
+Equivalent package module invocations are under `llm.research`:
+
+```sh
+python -m llm.research.eval_per_book --help
+python -m llm.research.ngram_baseline --help
+python -m llm.research.destruction_experiments --help
+```
+
+The `scripts/eval_per_book.py`, `scripts/ngram_baseline.py`, and
+`scripts/destruction_experiments.py` files remain compatibility wrappers for
+older shell history, but they are not the preferred interface.
 
 ## Sharing Archives
 

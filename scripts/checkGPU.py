@@ -1,6 +1,13 @@
 from __future__ import annotations
-import torch
-print("CUDA available:", torch.cuda.is_available())
-print("Device count:", torch.cuda.device_count())
-print("Current device:", torch.cuda.current_device() if torch.cuda.is_available() else None)
-print("Name:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else None)
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from check_gpu import *  # noqa: F403
+from check_gpu import main
+
+
+if __name__ == "__main__":
+    main()

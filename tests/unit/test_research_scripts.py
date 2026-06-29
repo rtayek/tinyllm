@@ -37,6 +37,36 @@ def test_canonical_research_modules_are_importable() -> None:
         assert hasattr(module, "main")
 
 
+def test_canonical_diagnostic_scripts_are_importable() -> None:
+    for name in ("check_gpu", "data_bottleneck_profiler"):
+        module = _load_script(name)
+        assert hasattr(module, "main")
+
+
+def test_legacy_diagnostic_script_wrappers_are_importable() -> None:
+    for name in ("checkGPU", "DataBottleneckProfiler"):
+        module = _load_script(name)
+        assert hasattr(module, "main")
+
+
+def test_legacy_diagnostic_wrappers_reexport_canonical_names() -> None:
+    check_gpu = _load_script("checkGPU")
+    profiler = _load_script("DataBottleneckProfiler")
+
+    assert hasattr(check_gpu, "parse_args")
+    assert hasattr(profiler, "runBottleneckTest")
+
+
+def test_data_bottleneck_profiler_rejects_invalid_steps() -> None:
+    module = _load_script("data_bottleneck_profiler")
+
+    with pytest.raises(SystemExit):
+        module.parse_args(["--steps", "0"])
+
+    with pytest.raises(SystemExit):
+        module.parse_args(["--warmup-steps", "-1"])
+
+
 def test_ngram_training_counts_final_prediction() -> None:
     module = _load_script("ngram_baseline")
     model = module.NgramModel(2)
