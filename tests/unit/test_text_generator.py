@@ -6,7 +6,9 @@ import pytest
 import torch
 from torch import Tensor
 
+from llm.GeneratedCandidate import GeneratedCandidate
 from llm.TextGenerator import AutoregressiveGenerator
+from llm.tensor_utils import tensor_to_int_list
 
 
 class RecordingModel:
@@ -135,3 +137,106 @@ def test_generate_text_allows_ignore_override() -> None:
     generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
 
     assert generator.generateText(maxNewTokens=0, errors="ignore") == "AB"
+
+
+def test_generated_candidate_serialization_round_trips() -> None:
+    candidate = GeneratedCandidate(
+        prompt="Holmes",
+        continuation=" returned",
+        text="Holmes returned",
+        tokenIds=(72, 111, 108, 109, 101, 115),
+        promptTokenCount=6,
+        generatedTokenCount=2,
+        seed=42,
+        temperature=0.8,
+        topK=50,
+        maxNewTokens=12,
+    )
+
+    assert GeneratedCandidate.fromDict(candidate.toDict()) == candidate
+
+
+def test_generate_candidate_returns_structured_result() -> None:
+    model = FixedOutputModel(b"Holmes returned")
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
+
+    candidate = generator.generateCandidate(
+        prompt="Holmes",
+        maxNewTokens=8,
+        temperature=0.8,
+        topK=50,
+        seed=123,
+    )
+
+    assert isinstance(candidate, GeneratedCandidate)
+    assert candidate.prompt == "Holmes"
+    assert candidate.continuation == " returned"
+    assert candidate.text == "Holmes returned"
+    assert candidate.tokenIds == tuple(b"Holmes returned")
+    assert candidate.promptTokenCount == len(b"Holmes")
+    assert candidate.generatedTokenCount == len(b" returned")
+    assert candidate.seed == 123
+    assert candidate.temperature == 0.8
+    assert candidate.topK == 50
+    assert candidate.maxNewTokens == 8
+
+
+def test_generate_candidate_text_matches_generate_text_for_same_settings() -> None:
+    model = FixedOutputModel(b"Holmes returned")
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
+
+    text = generator.generateText(
+        prompt="Holmes",
+        maxNewTokens=8,
+        temperature=0.8,
+        topK=50,
+        seed=123,
+    )
+    candidate = generator.generateCandidate(
+        prompt="Holmes",
+        maxNewTokens=8,
+        temperature=0.8,
+        topK=50,
+        seed=123,
+    )
+
+    assert candidate.text == text
+
+
+def test_generate_candidates_zero_returns_empty_list() -> None:
+    model = RecordingModel()
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
+
+    assert generator.generateCandidates(prompt="Holmes", n=0) == []
+
+
+def test_generate_candidates_assigns_per_candidate_seeds() -> None:
+    class SeedEchoModel(RecordingModel):
+        def generate_autoregressive(
+            self,
+            indices: Tensor,
+            maxNewTokens: int,
+            temperature: float = 1.0,
+            topK: int | None = None,
+            seed: int | None = None,
+        ) -> Tensor:
+            del maxNewTokens, temperature, topK
+            suffix = 0 if seed is None else seed
+            prefix = tensor_to_int_list(indices[0].to(dtype=torch.long).view(-1))
+            return torch.tensor([prefix + [suffix]], dtype=torch.long)
+
+    model = SeedEchoModel()
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
+
+    candidates = generator.generateCandidates(prompt="", n=3, seed=100)
+
+    assert [candidate.seed for candidate in candidates] == [100, 101, 102]
+    assert len(candidates) == 3
+
+
+def test_generate_candidates_rejects_negative_n() -> None:
+    model = RecordingModel()
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="n must be non-negative"):
+        generator.generateCandidates(n=-1)

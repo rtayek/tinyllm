@@ -107,6 +107,7 @@ def test_parse_train_cli_builds_run_config(tmp_path: Path) -> None:
     assert train_config.snapshotInterval == 2
     assert train_config.maxSnapshots == 1
     assert train_config.plotCurve is True
+    assert Path(train_config.runDir or "").as_posix().endswith("exp")
     assert Path(train_config.ckptPath).as_posix().endswith("exp/checkpoints/best.pt")
 
 
@@ -165,6 +166,7 @@ def test_main_accepts_model_shape_and_run_dir_flags(
     assert Path(run_config.trainConfig.ckptPath).as_posix().endswith(
         "block256/checkpoints/best.pt"
     )
+    assert Path(run_config.trainConfig.runDir or "").as_posix().endswith("block256")
     assert fake_trainer.runArtifacts.written is True
     assert fake_trainer.evaluated is True
     assert FakeGenerator.save_calls == 1

@@ -133,16 +133,18 @@ tinyllm-train --run-dir runs/austen-block256 --block-size 256
 The default checkpoint is
 `runs/sherlock-byte-default/checkpoints/best.pt`. Put experimental run outputs
 under `runs/<experiment>/`; publish promoted, intentionally retained model
-artifacts under `models/`. When the checkpoint is under
-`runs/<experiment>/checkpoints/`, plots and samples are written to that run's
-`plots/` and `samples/` directories.
+artifacts under `models/`. New training runs treat `runDir` as the explicit
+source of truth for run artifacts; `--run-dir runs/<experiment>` records that
+directory and writes checkpoints under `runs/<experiment>/checkpoints/`. Older
+configs that only set `ckptPath` still infer the run directory from the
+`runs/<experiment>/checkpoints/` layout as a backward-compatible fallback.
 
 Training maintains:
 
 - `best.pt`: the lowest validation loss, used by default for inference.
 - `latest.pt`: the most recent evaluation state, preferred when resuming.
 - `step-NNNNNN.pt`: periodic snapshots, every 1,000 steps by default.
-- `run.json`: Git commit, corpus paths and hashes, seed, and configuration.
+- `run.json`: Git commit, corpus paths and hashes, run directory, seed, and configuration.
   Written once at the start of a fresh run; never overwritten on resume.
 - `metrics.jsonl`: validation evaluations and the final test result.
 

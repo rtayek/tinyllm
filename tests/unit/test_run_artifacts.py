@@ -14,6 +14,7 @@ def test_run_artifacts_write_metadata_and_metrics(tmp_path: Path) -> None:
     test.write_text("test", encoding="utf-8")
     run = tmp_path / "runs" / "experiment"
     config = TrainConfig(
+        runDir=str(run),
         ckptPath=str(run / "checkpoints" / "best.pt"),
         dataPath=str(train),
         validationDataPath=str(validation),
@@ -36,6 +37,7 @@ def test_run_artifacts_write_metadata_and_metrics(tmp_path: Path) -> None:
     assert metadata["training"]["ckptPath"] == str(
         run / "checkpoints" / "best.pt"
     )
+    assert metadata["training"]["runDir"] == str(run)
     assert "dataPath" not in metadata["training"]
     assert "validationDataPath" not in metadata["training"]
     assert "testDataPath" not in metadata["training"]
@@ -62,6 +64,27 @@ def test_run_artifacts_ignore_legacy_checkpoint_path(tmp_path: Path) -> None:
 
     assert artifacts.writeRunMetadata() is None
     assert artifacts.appendMetric({"type": "test"}) is None
+
+
+def test_run_artifacts_use_explicit_run_dir_for_nonstandard_checkpoint(
+    tmp_path: Path,
+) -> None:
+    run = tmp_path / "runs" / "explicit"
+    checkpoint = tmp_path / "weights" / "best.pt"
+    config = TrainConfig(
+        runDir=str(run),
+        ckptPath=str(checkpoint),
+        device="cpu",
+    )
+    artifacts = RunArtifacts(ModelConfig(), config)
+
+    metadata_path = artifacts.writeRunMetadata()
+
+    assert metadata_path == run / "run.json"
+    assert metadata_path is not None
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["training"]["runDir"] == str(run)
+    assert metadata["training"]["ckptPath"] == str(checkpoint)
 
 
 def test_write_run_metadata_is_not_overwritten_on_resume(tmp_path: Path) -> None:

@@ -59,6 +59,7 @@ def runConfigFromArgs(
     if args.run_dir:
         trainConfig = replace(
             trainConfig,
+            runDir=args.run_dir,
             ckptPath=str(Path(args.run_dir) / "checkpoints" / "best.pt"),
         )
     if args.block_size is not None:

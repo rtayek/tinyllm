@@ -7,6 +7,7 @@ import logging
 
 import torch
 
+from .GeneratedCandidate import GeneratedCandidate
 from .tensor_utils import tensor_to_int_list
 
 if TYPE_CHECKING:
@@ -44,6 +45,23 @@ class AutoregressiveGenerator:
         topK: int | None = None,
         seed: int | None = None,
     ) -> bytes:
+        data, _tokenIds, _promptTokenCount = self._generateBytesAndTokenIds(
+            maxNewTokens=maxNewTokens,
+            prompt=prompt,
+            temperature=temperature,
+            topK=topK,
+            seed=seed,
+        )
+        return data
+
+    def _generateBytesAndTokenIds(
+        self,
+        maxNewTokens: int,
+        prompt: str,
+        temperature: float,
+        topK: int | None,
+        seed: int | None,
+    ) -> tuple[bytes, tuple[int, ...], int]:
         if prompt:
             promptBytes = prompt.encode("utf-8")
             promptTensor = torch.tensor(
@@ -67,7 +85,7 @@ class AutoregressiveGenerator:
         raw_list: list[int] = tensor_to_int_list(
             firstSeq.to(dtype=torch.long).view(-1)
         )
-        return bytes(raw_list)
+        return bytes(raw_list), tuple(raw_list), promptTensor.size(1)
 
     def generateText(
         self,
@@ -78,7 +96,7 @@ class AutoregressiveGenerator:
         topK: int | None = None,
         seed: int | None = None,
     ) -> str:
-        data = self.generateBytes(
+        data, _tokenIds, _promptTokenCount = self._generateBytesAndTokenIds(
             maxNewTokens=maxNewTokens,
             prompt=prompt,
             temperature=temperature,
@@ -86,6 +104,62 @@ class AutoregressiveGenerator:
             seed=seed,
         )
         return data.decode("utf-8", errors=errors)
+
+    def generateCandidate(
+        self,
+        prompt: str = "",
+        maxNewTokens: int = 400,
+        temperature: float = 1.0,
+        topK: int | None = None,
+        seed: int | None = None,
+        errors: str = "replace",
+    ) -> GeneratedCandidate:
+        data, tokenIds, promptTokenCount = self._generateBytesAndTokenIds(
+            maxNewTokens=maxNewTokens,
+            prompt=prompt,
+            temperature=temperature,
+            topK=topK,
+            seed=seed,
+        )
+        text = data.decode("utf-8", errors=errors)
+        continuation = text[len(prompt) :] if text.startswith(prompt) else text
+        generatedTokenCount = max(0, len(tokenIds) - promptTokenCount)
+        return GeneratedCandidate(
+            prompt=prompt,
+            continuation=continuation,
+            text=text,
+            tokenIds=tokenIds,
+            promptTokenCount=promptTokenCount,
+            generatedTokenCount=generatedTokenCount,
+            seed=seed,
+            temperature=temperature,
+            topK=topK,
+            maxNewTokens=maxNewTokens,
+        )
+
+    def generateCandidates(
+        self,
+        prompt: str = "",
+        n: int = 1,
+        maxNewTokens: int = 400,
+        temperature: float = 1.0,
+        topK: int | None = None,
+        seed: int | None = None,
+        errors: str = "replace",
+    ) -> list[GeneratedCandidate]:
+        if n < 0:
+            raise ValueError("n must be non-negative")
+        return [
+            self.generateCandidate(
+                prompt=prompt,
+                maxNewTokens=maxNewTokens,
+                temperature=temperature,
+                topK=topK,
+                seed=seed + index if seed is not None else None,
+                errors=errors,
+            )
+            for index in range(n)
+        ]
 
     def logSample(self, maxNewTokens: int = 200, prompt: str = "") -> None:
         text = self.generateText(maxNewTokens=maxNewTokens, prompt=prompt)

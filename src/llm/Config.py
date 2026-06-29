@@ -57,12 +57,13 @@ class RunPaths:
     (mirroring ``DataModuleConfig.fromTrainConfig``). It groups the "where it
     ran" plumbing so consumers that only need paths can depend on this instead
     of reaching into the full ``TrainConfig``. ``TrainConfig`` remains the
-    serialization boundary, so run.json and checkpoint formats are unchanged.
+    serialization boundary, so run.json and checkpoint formats stay explicit.
     """
     dataPath: str
     validationDataPath: str | None
     testDataPath: str | None
     ckptPath: str
+    runDir: str | None
 
     @classmethod
     def fromTrainConfig(cls, trainConfig: "TrainConfig") -> "RunPaths":
@@ -71,9 +72,12 @@ class RunPaths:
             validationDataPath=trainConfig.validationDataPath,
             testDataPath=trainConfig.testDataPath,
             ckptPath=trainConfig.ckptPath,
+            runDir=trainConfig.runDir,
         )
 
     def runDirectory(self) -> Path | None:
+        if self.runDir is not None:
+            return Path(self.runDir)
         checkpointDir = Path(self.ckptPath).parent
         if checkpointDir.name == "checkpoints" and checkpointDir.parent != Path("."):
             return checkpointDir.parent
@@ -96,6 +100,7 @@ class TrainConfig:
     earlyStopDelta: float = 0.001
     plotCurve: bool = True
     dataModule: str = "token"
+    runDir: str | None = None
     ckptPath: str = "runs/sherlock-byte-default/checkpoints/best.pt"
     dataPath: str = (
         "corpora/arthur-conan-doyle/adventures-of-sherlock-holmes/"

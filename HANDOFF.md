@@ -217,7 +217,10 @@ metrics, plots, and samples under `runs/sherlock-byte-default/`. Override
 `RUN_DIR` to isolate another experiment.
 
 Run-specific checkpoints under `runs/<experiment>/checkpoints/` place plots
-and generated samples under the same run directory.
+and generated samples under the same run directory. `TrainConfig.runDir` is now
+the explicit source of truth for run artifacts when present; old configs that
+only specify `ckptPath` still infer the run directory from the
+`runs/<experiment>/checkpoints/` layout.
 
 Training flags:
 
@@ -266,6 +269,11 @@ Sampling options:
 - `--temperature`: controls randomness; lower values favor likely tokens.
 - `--top-k`: limits sampling to the K most likely next bytes.
 - `--seed`: makes repeated runs reproducible.
+
+`AutoregressiveGenerator.generateCandidate()` and `generateCandidates()` provide
+Phase 1 API-level candidate batching for self-improvement / best-of-N
+experiments. This currently loops over single-candidate generation internally;
+true tensor-batched GPU generation remains future work.
 
 The shell wrapper accepts the same arguments:
 

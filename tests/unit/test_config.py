@@ -65,6 +65,7 @@ def test_train_config_dict_round_trips() -> None:
         earlyStopDelta=0.002,
         plotCurve=False,
         dataModule="token",
+        runDir="runs/example",
         ckptPath="runs/example/checkpoints/best.pt",
         dataPath="data/train.txt",
         validationDataPath="data/validation.txt",
@@ -91,6 +92,7 @@ def test_train_config_run_json_dict_round_trips_with_default_paths() -> None:
         earlyStopDelta=0.002,
         plotCurve=False,
         dataModule="token",
+        runDir="runs/example",
         ckptPath="runs/example/checkpoints/best.pt",
         device="cpu",
     )
@@ -152,6 +154,7 @@ def test_run_config_loads_replayable_run_json(tmp_path: Path) -> None:
                     "earlyStopDelta": 0.0,
                     "plotCurve": False,
                     "dataModule": "token",
+                    "runDir": "runs/example",
                     "ckptPath": "runs/example/checkpoints/best.pt",
                     "device": "cpu",
                 },
@@ -169,6 +172,7 @@ def test_run_config_loads_replayable_run_json(tmp_path: Path) -> None:
 
     assert run_config.modelConfig.blockSize == 32
     assert run_config.trainConfig.seed == 99
+    assert run_config.trainConfig.runDir == "runs/example"
     assert run_config.trainConfig.dataPath == "data/train.txt"
     assert run_config.trainConfig.validationDataPath == "data/val.txt"
     assert run_config.trainConfig.testDataPath == "data/test.txt"
@@ -177,6 +181,7 @@ def test_run_config_loads_replayable_run_json(tmp_path: Path) -> None:
 def test_run_paths_from_train_config_copies_path_fields() -> None:
     config = TrainConfig(
         ckptPath="runs/example/checkpoints/best.pt",
+        runDir="runs/example",
         dataPath="data/train.txt",
         validationDataPath="data/validation.txt",
         testDataPath="data/test.txt",
@@ -188,6 +193,7 @@ def test_run_paths_from_train_config_copies_path_fields() -> None:
     assert paths.validationDataPath == config.validationDataPath
     assert paths.testDataPath == config.testDataPath
     assert paths.ckptPath == config.ckptPath
+    assert paths.runDir == config.runDir
 
 
 def test_run_paths_handles_none_optional_paths() -> None:
@@ -210,6 +216,17 @@ def test_run_directory_delegates_to_run_paths() -> None:
     )
     assert config.runDirectory() == config.paths().runDirectory()
     assert config.runDirectory() == Path("runs/example")
+
+
+def test_run_paths_run_directory_prefers_explicit_run_dir() -> None:
+    config = TrainConfig(
+        runDir="runs/explicit",
+        ckptPath="somewhere/custom-name.pt",
+        device="cpu",
+    )
+
+    assert config.paths().runDirectory() == Path("runs/explicit")
+    assert config.runDirectory() == Path("runs/explicit")
 
 
 def test_run_paths_run_directory_none_for_nonstandard_layout() -> None:
