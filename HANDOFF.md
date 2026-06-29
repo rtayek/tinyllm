@@ -1,7 +1,5 @@
 # tinyllm Handoff
 
-Last verified: June 27, 2026
-
 ## Project
 
 Tiny byte-level GPT implemented in PyTorch.
@@ -22,16 +20,6 @@ The package uses a `src/` layout and exposes these CLI entry points:
 tinyllm-train
 tinyllm-infer
 tinyllm-prepare-corpora
-```
-
-## Current Status
-
-Verification:
-
-```text
-pyright: 0 errors
-pytest: 174 passed
-coverage: 88.56%
 ```
 
 The current checkpoint layout still uses the canonical `runs/` directory.
