@@ -8,6 +8,17 @@ from llm.serialization_types import ConfigPayload
 from llm.json_utils import read_json
 
 
+def _require(condition: bool, message: str) -> None:
+    """Raise ``ValueError(message)`` unless ``condition`` holds.
+
+    A thin guard so config validation reads as a list of declarative
+    constraints rather than repeated ``if ...: raise`` blocks. Works uniformly
+    for simple bound checks and cross-field checks (e.g. divisibility).
+    """
+    if not condition:
+        raise ValueError(message)
+
+
 @dataclass(frozen=True)
 class ModelConfig:
     vocabSize: int = 256
@@ -19,22 +30,16 @@ class ModelConfig:
     use_cache: bool = False
 
     def __post_init__(self) -> None:
-        if self.blockSize < 1:
-            raise ValueError(f"blockSize must be >= 1, got {self.blockSize}")
-        if self.vocabSize < 1:
-            raise ValueError(f"vocabSize must be >= 1, got {self.vocabSize}")
-        if self.nEmbed < 1:
-            raise ValueError(f"nEmbed must be >= 1, got {self.nEmbed}")
-        if self.nHead < 1:
-            raise ValueError(f"nHead must be >= 1, got {self.nHead}")
-        if self.nLayer < 1:
-            raise ValueError(f"nLayer must be >= 1, got {self.nLayer}")
-        if self.nEmbed % self.nHead != 0:
-            raise ValueError(
-                f"nEmbed must be divisible by nHead, got {self.nEmbed} and {self.nHead}"
-            )
-        if not (0 <= self.dropout < 1):
-            raise ValueError(f"dropout must be in [0, 1), got {self.dropout}")
+        _require(self.blockSize >= 1, f"blockSize must be >= 1, got {self.blockSize}")
+        _require(self.vocabSize >= 1, f"vocabSize must be >= 1, got {self.vocabSize}")
+        _require(self.nEmbed >= 1, f"nEmbed must be >= 1, got {self.nEmbed}")
+        _require(self.nHead >= 1, f"nHead must be >= 1, got {self.nHead}")
+        _require(self.nLayer >= 1, f"nLayer must be >= 1, got {self.nLayer}")
+        _require(
+            self.nEmbed % self.nHead == 0,
+            f"nEmbed must be divisible by nHead, got {self.nEmbed} and {self.nHead}",
+        )
+        _require(0 <= self.dropout < 1, f"dropout must be in [0, 1), got {self.dropout}")
 
     def toDict(self) -> ConfigPayload:
         return dict(self.__dict__)
@@ -107,36 +112,27 @@ class TrainConfig:
     device: str = "cuda"  # desired/default device; actual availability is checked at runtime
 
     def __post_init__(self) -> None:
-        if self.seed < 0:
-            raise ValueError(f"seed must be >= 0, got {self.seed}")
-        if self.batchSize < 1:
-            raise ValueError(f"batchSize must be >= 1, got {self.batchSize}")
-        if self.learningRate <= 0:
-            raise ValueError(f"learningRate must be > 0, got {self.learningRate}")
-        if not (0 <= self.warmupFrac <= 1):
-            raise ValueError(f"warmupFrac must be in [0, 1], got {self.warmupFrac}")
-        if self.maxSteps < 1:
-            raise ValueError(f"maxSteps must be >= 1, got {self.maxSteps}")
-        if self.evalInterval < 1:
-            raise ValueError(f"evalInterval must be >= 1, got {self.evalInterval}")
-        if self.evalIters < 1:
-            raise ValueError(f"evalIters must be >= 1, got {self.evalIters}")
-        if self.snapshotInterval < 0:
-            raise ValueError(
-                f"snapshotInterval must be >= 0, got {self.snapshotInterval}"
-            )
-        if self.maxSnapshots < 0:
-            raise ValueError(f"maxSnapshots must be >= 0, got {self.maxSnapshots}")
-        if self.weightDecay < 0:
-            raise ValueError(f"weightDecay must be >= 0, got {self.weightDecay}")
-        if self.earlyStopPatience < 1:
-            raise ValueError(
-                f"earlyStopPatience must be >= 1, got {self.earlyStopPatience}"
-            )
-        if self.earlyStopDelta < 0:
-            raise ValueError(
-                f"earlyStopDelta must be >= 0, got {self.earlyStopDelta}"
-            )
+        _require(self.seed >= 0, f"seed must be >= 0, got {self.seed}")
+        _require(self.batchSize >= 1, f"batchSize must be >= 1, got {self.batchSize}")
+        _require(self.learningRate > 0, f"learningRate must be > 0, got {self.learningRate}")
+        _require(0 <= self.warmupFrac <= 1, f"warmupFrac must be in [0, 1], got {self.warmupFrac}")
+        _require(self.maxSteps >= 1, f"maxSteps must be >= 1, got {self.maxSteps}")
+        _require(self.evalInterval >= 1, f"evalInterval must be >= 1, got {self.evalInterval}")
+        _require(self.evalIters >= 1, f"evalIters must be >= 1, got {self.evalIters}")
+        _require(
+            self.snapshotInterval >= 0,
+            f"snapshotInterval must be >= 0, got {self.snapshotInterval}",
+        )
+        _require(self.maxSnapshots >= 0, f"maxSnapshots must be >= 0, got {self.maxSnapshots}")
+        _require(self.weightDecay >= 0, f"weightDecay must be >= 0, got {self.weightDecay}")
+        _require(
+            self.earlyStopPatience >= 1,
+            f"earlyStopPatience must be >= 1, got {self.earlyStopPatience}",
+        )
+        _require(
+            self.earlyStopDelta >= 0,
+            f"earlyStopDelta must be >= 0, got {self.earlyStopDelta}",
+        )
 
     def runDirectory(self) -> Path | None:
         return self.paths().runDirectory()
