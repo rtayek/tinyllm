@@ -4,3 +4,4 @@
 # Windows command scripts may need CRLF.
 *.bat text eol=crlf
 *.cmd text eol=crlf
+*.ps1 text eol=crlf
