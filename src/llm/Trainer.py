@@ -12,6 +12,12 @@ from llm.Model import TinyGPTLanguageModel
 from llm.DataModule import SequenceDataModule
 from llm.Checkpoint import Checkpoint, CheckpointManager, CheckpointLoadResult, CHECKPOINT_VERSION
 from llm.LRScheduleStrategy import WarmupCosineStrategy
+from llm.OptimizerFactory import (
+    OptimizerFactory,
+    SchedulerFactory,
+    default_optimizer_factory,
+    default_scheduler_factory,
+)
 from llm.Evaluator import Evaluator, TrainEvalResult
 from llm.RunArtifacts import RunArtifacts
 from llm.TrainingCallback import TrainingCallback
@@ -28,6 +34,8 @@ class LMTrainer:
         evaluator: Optional[Evaluator] = None,
         callbacks: Optional[list[TrainingCallback]] = None,
         runArtifacts: Optional[RunArtifacts] = None,
+        optimizerFactory: Optional[OptimizerFactory] = None,
+        schedulerFactory: Optional[SchedulerFactory] = None,
     ) -> None:
         self.modelConfig = modelConfig
         self.trainConfig = trainConfig
@@ -39,16 +47,10 @@ class LMTrainer:
 
         self.logger.info("MODEL CONFIG: %s", self.modelConfig)
         self.logger.info("TRAIN CONFIG: %s", self.trainConfig)
-        self.optimizer: torch.optim.Optimizer = torch.optim.AdamW(
-            model.parameters(),
-            lr=self.trainConfig.learningRate,
-            weight_decay=self.trainConfig.weightDecay,
-        )
-        self.lrStrategy: WarmupCosineStrategy = WarmupCosineStrategy(
-            self.optimizer,
-            max_steps=self.trainConfig.maxSteps,
-            warmup_frac=self.trainConfig.warmupFrac,
-        )
+        makeOptimizer: OptimizerFactory = optimizerFactory or default_optimizer_factory
+        makeScheduler: SchedulerFactory = schedulerFactory or default_scheduler_factory
+        self.optimizer: torch.optim.Optimizer = makeOptimizer(model, self.trainConfig)
+        self.lrStrategy: WarmupCosineStrategy = makeScheduler(self.optimizer, self.trainConfig)
         self.checkpoints = CheckpointManager(self.modelConfig, self.trainConfig, logger=self.logger)
         self.runArtifacts = runArtifacts or RunArtifacts(self.modelConfig, self.trainConfig)
 

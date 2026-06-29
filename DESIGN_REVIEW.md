@@ -114,7 +114,7 @@ Two design notes:
   truth for it.)**
 - `TrainConfig` mixes true hyperparameters (`learningRate`, `batchSize`) with
   environment/IO (`ckptPath`, `dataPath`, `device`). These have different
-  lifetimes and audiences. **(Partly addressed 2026-06-28 — see below.)**
+  lifetimes and audiences. **(Addressed 2026-06-28 in two parts — see below.)**
 
 ### `RunPaths`: path grouping without a serialization split (2026-06-28)
 
@@ -144,6 +144,28 @@ This view is also the natural stepping stone if a full `OptimConfig` /
 `IOConfig` split is ever wanted: consumers already depend on the grouped
 abstraction, so relocating the storage later is a smaller change.
 
+### Optimizer/scheduler factory injection (2026-06-28)
+
+The "science" half of the same tension was addressed differently: rather than
+moving optimizer hyperparameters out of `TrainConfig`, the *construction* of the
+optimizer and scheduler was pulled behind two factory protocols in
+`OptimizerFactory.py`:
+
+- `OptimizerFactory`: `(model, trainConfig) -> torch.optim.Optimizer`
+- `SchedulerFactory`: `(optimizer, trainConfig) -> WarmupCosineStrategy`
+
+`LMTrainer` gained optional `optimizerFactory` / `schedulerFactory` constructor
+parameters defaulting to `default_optimizer_factory` /
+`default_scheduler_factory`, which reproduce the previous inline AdamW +
+warmup-cosine construction exactly. Behavior is unchanged when no factory is
+passed, so every existing call site (including `buildTrainer`) is unaffected.
+
+This is the seam iterated training needs: an expert-iteration / self-improvement
+loop can hand the trainer a fresh optimizer per round (e.g. reset Adam moments,
+or switch to SGD for a fine-tuning phase) without the trainer knowing how the
+optimizer is built. It matches the existing dependency-injection style already
+used for `evaluator` and `runArtifacts`.
+
 ## Trainer Orchestration
 
 `LMTrainer.train()` is readable; callback firing keeps logging, metrics,
@@ -163,6 +185,8 @@ Two notes:
 - Trainer constructs its own optimizer and LR strategy. If iterated
   self-improvement wants a fresh optimizer per round or a different schedule,
   injecting them (as evaluator/runArtifacts already are) would be consistent.
+  **(Addressed 2026-06-28: optimizer/scheduler are now injectable via factory
+  protocols; defaults reproduce prior behavior. See the Config Design section.)**
 
 ## Readiness for Self-Improvement
 
@@ -186,8 +210,8 @@ on core only (consistent with the existing one-directional layering), e.g.
 |---|---|---|
 | 1 | `RewardFn` protocol in a new core-only-dependent package | New abstraction (highest value) |
 | 2 | Batched N-candidate generation in `AutoregressiveGenerator` | Small seam |
-| 3 | Decide optimizer/scheduler injection for iterated training | Design decision |
+| 3 | ~~Decide optimizer/scheduler injection for iterated training~~ Done 2026-06-28 via factory protocols | Design decision |
 | 4 | `on_test_end` callback so test metrics use `MetricsCallback` | Consistency |
-| 5 | ~~Consider splitting `TrainConfig` into science vs. plumbing~~ Path half done via `RunPaths` (2026-06-28); optimizer-injection half pending | Future-proofing |
+| 5 | ~~Consider splitting `TrainConfig` into science vs. plumbing~~ Done 2026-06-28: `RunPaths` view (plumbing) + optimizer factories (science) | Future-proofing |
 | 6 | `runDirectory()` string-match fragility (now single-sourced in `RunPaths`) | Minor robustness |
 | 7 | Drop `AutoregressiveGenerator` transitional `logger_or_device` param | Cleanup |

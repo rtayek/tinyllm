@@ -3,6 +3,12 @@
 from .Config import RunConfig, ModelConfig, TrainConfig, RunPaths
 from .Model import TinyGPTLanguageModel
 from .Trainer import LMTrainer
+from .OptimizerFactory import (
+    OptimizerFactory,
+    SchedulerFactory,
+    default_optimizer_factory,
+    default_scheduler_factory,
+)
 from .DataModule import ByteDataModule, DataModuleConfig, TokenDataModule, SequenceDataModule
 from .EvalResult import EvalResult
 from .EvaluationMode import (
@@ -22,6 +28,10 @@ __all__ = [
     "RunPaths",
     "TinyGPTLanguageModel",
     "LMTrainer",
+    "OptimizerFactory",
+    "SchedulerFactory",
+    "default_optimizer_factory",
+    "default_scheduler_factory",
     "ByteDataModule",
     "DataModuleConfig",
     "TokenDataModule",
