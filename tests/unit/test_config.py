@@ -6,7 +6,7 @@ from typing import Any, cast
 
 import pytest
 
-from llm.Config import ModelConfig, RunConfig, TrainConfig
+from llm.Config import ModelConfig, RunConfig, TrainConfig, RunPaths
 
 
 @pytest.mark.parametrize(
@@ -172,3 +172,46 @@ def test_run_config_loads_replayable_run_json(tmp_path: Path) -> None:
     assert run_config.trainConfig.dataPath == "data/train.txt"
     assert run_config.trainConfig.validationDataPath == "data/val.txt"
     assert run_config.trainConfig.testDataPath == "data/test.txt"
+
+
+def test_run_paths_from_train_config_copies_path_fields() -> None:
+    config = TrainConfig(
+        ckptPath="runs/example/checkpoints/best.pt",
+        dataPath="data/train.txt",
+        validationDataPath="data/validation.txt",
+        testDataPath="data/test.txt",
+        device="cpu",
+    )
+    paths = config.paths()
+    assert isinstance(paths, RunPaths)
+    assert paths.dataPath == config.dataPath
+    assert paths.validationDataPath == config.validationDataPath
+    assert paths.testDataPath == config.testDataPath
+    assert paths.ckptPath == config.ckptPath
+
+
+def test_run_paths_handles_none_optional_paths() -> None:
+    config = TrainConfig(
+        validationDataPath=None,
+        testDataPath=None,
+        device="cpu",
+    )
+    paths = config.paths()
+    assert paths.validationDataPath is None
+    assert paths.testDataPath is None
+
+
+def test_run_directory_delegates_to_run_paths() -> None:
+    # TrainConfig.runDirectory must agree with RunPaths.runDirectory after the
+    # delegation refactor (single source of truth).
+    config = TrainConfig(
+        ckptPath="runs/example/checkpoints/best.pt",
+        device="cpu",
+    )
+    assert config.runDirectory() == config.paths().runDirectory()
+    assert config.runDirectory() == Path("runs/example")
+
+
+def test_run_paths_run_directory_none_for_nonstandard_layout() -> None:
+    config = TrainConfig(ckptPath="best.pt", device="cpu")
+    assert config.paths().runDirectory() is None

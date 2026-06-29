@@ -1,6 +1,6 @@
 """Tiny LLM package."""
 
-from .Config import RunConfig, ModelConfig, TrainConfig
+from .Config import RunConfig, ModelConfig, TrainConfig, RunPaths
 from .Model import TinyGPTLanguageModel
 from .Trainer import LMTrainer
 from .DataModule import ByteDataModule, DataModuleConfig, TokenDataModule, SequenceDataModule
@@ -19,6 +19,7 @@ __all__ = [
     "RunConfig",
     "ModelConfig",
     "TrainConfig",
+    "RunPaths",
     "TinyGPTLanguageModel",
     "LMTrainer",
     "ByteDataModule",

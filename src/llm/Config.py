@@ -45,6 +45,37 @@ class ModelConfig:
 
 
 @dataclass(frozen=True)
+class RunPaths:
+    """The filesystem locations a run reads from and writes to.
+
+    This is a narrowing *view* over the path-valued fields of ``TrainConfig``
+    (mirroring ``DataModuleConfig.fromTrainConfig``). It groups the "where it
+    ran" plumbing so consumers that only need paths can depend on this instead
+    of reaching into the full ``TrainConfig``. ``TrainConfig`` remains the
+    serialization boundary, so run.json and checkpoint formats are unchanged.
+    """
+    dataPath: str
+    validationDataPath: str | None
+    testDataPath: str | None
+    ckptPath: str
+
+    @classmethod
+    def fromTrainConfig(cls, trainConfig: "TrainConfig") -> "RunPaths":
+        return cls(
+            dataPath=trainConfig.dataPath,
+            validationDataPath=trainConfig.validationDataPath,
+            testDataPath=trainConfig.testDataPath,
+            ckptPath=trainConfig.ckptPath,
+        )
+
+    def runDirectory(self) -> Path | None:
+        checkpointDir = Path(self.ckptPath).parent
+        if checkpointDir.name == "checkpoints" and checkpointDir.parent != Path("."):
+            return checkpointDir.parent
+        return None
+
+
+@dataclass(frozen=True)
 class TrainConfig:
     seed: int = 1337
     batchSize: int = 32
@@ -108,10 +139,10 @@ class TrainConfig:
             )
 
     def runDirectory(self) -> Path | None:
-        checkpointDir = Path(self.ckptPath).parent
-        if checkpointDir.name == "checkpoints" and checkpointDir.parent != Path("."):
-            return checkpointDir.parent
-        return None
+        return self.paths().runDirectory()
+
+    def paths(self) -> "RunPaths":
+        return RunPaths.fromTrainConfig(self)
 
     _PATH_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {"dataPath", "validationDataPath", "testDataPath"}

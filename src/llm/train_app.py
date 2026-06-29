@@ -118,11 +118,12 @@ def buildTrainer(runConfig: RunConfig | None = None, log: logging.Logger | None 
 
     device = resolve_device(trainConfig.device, activeLogger)
     trainConfig = replace(trainConfig, device=device)
+    paths = trainConfig.paths()
     assert_no_exact_split_reuse(
         {
-            "train": trainConfig.dataPath,
-            "validation": trainConfig.validationDataPath,
-            "test": trainConfig.testDataPath,
+            "train": paths.dataPath,
+            "validation": paths.validationDataPath,
+            "test": paths.testDataPath,
         }
     )
 

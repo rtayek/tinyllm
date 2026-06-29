@@ -11,7 +11,7 @@ from typing import Any
 
 import torch
 
-from .Config import ModelConfig, TrainConfig
+from .Config import ModelConfig, TrainConfig, RunPaths
 from .json_utils import write_json
 
 
@@ -19,7 +19,8 @@ class RunArtifacts:
     def __init__(self, modelConfig: ModelConfig, trainConfig: TrainConfig) -> None:
         self.modelConfig = modelConfig
         self.trainConfig = trainConfig
-        self.runDirectory = trainConfig.runDirectory()
+        self.paths: RunPaths = trainConfig.paths()
+        self.runDirectory = self.paths.runDirectory()
 
     @staticmethod
     def _sha256(path: str | None) -> str | None:
@@ -82,16 +83,16 @@ class RunArtifacts:
     def _corporaPayload(self) -> dict[str, dict[str, str | None]]:
         return {
             "train": {
-                "path": self.trainConfig.dataPath,
-                "sha256": self._sha256(self.trainConfig.dataPath),
+                "path": self.paths.dataPath,
+                "sha256": self._sha256(self.paths.dataPath),
             },
             "validation": {
-                "path": self.trainConfig.validationDataPath,
-                "sha256": self._sha256(self.trainConfig.validationDataPath),
+                "path": self.paths.validationDataPath,
+                "sha256": self._sha256(self.paths.validationDataPath),
             },
             "test": {
-                "path": self.trainConfig.testDataPath,
-                "sha256": self._sha256(self.trainConfig.testDataPath),
+                "path": self.paths.testDataPath,
+                "sha256": self._sha256(self.paths.testDataPath),
             },
         }
 
@@ -119,7 +120,7 @@ class RunArtifacts:
             # Preserve the original run record on resume; don't overwrite
             # git_commit, created_at, or parent_checkpoint.
             return path
-        checkpointPath = Path(self.trainConfig.ckptPath)
+        checkpointPath = Path(self.paths.ckptPath)
         latestPath = checkpointPath.with_name("latest.pt")
         parentCheckpoint = latestPath if latestPath.exists() else checkpointPath
         payload = {
