@@ -164,3 +164,70 @@ Three things to watch, in priority:
 
 None is urgent and none is a defect. They are the places the next phase will
 apply force, and the structure should take that force well.
+
+---
+
+## Addendum — 2026-06-29 (later): EvaluationProbe introduced but not yet adopted
+
+The live tree now contains a new module `EvaluationProbe.py` that did not exist
+in the snapshot analyzed above. It is exactly the parameter-object + protocol
+recommended in Section 3 and watch-item 1:
+
+```python
+@dataclass(frozen=True)
+class EvalContext:
+    name: str
+    split: str = "validation"
+    tokens: torch.Tensor | None = None
+    raw: bytes | None = None
+    corpus: str | None = None
+    checkpoint: str | None = None
+    notes: str | None = None
+
+class EvaluationProbe(Protocol):
+    def evaluate(self, context: EvalContext) -> EvalResult: ...
+```
+
+Both names are exported from `__init__`. This is the right design and the right
+shape: a single optional-field context that can carry the inputs each evaluator
+flavor needs (split-bound evaluators ignore `tokens`/`raw`; per-item evaluators
+use them), and a `Protocol` that finally gives the family a common type.
+
+**The key structural finding for this snapshot: the abstraction is defined and
+exported, but not yet adopted.** `EvaluationMode.py` is unchanged — its five
+evaluators (`SampledLossEvaluator`, `FullSplitEvaluator`, `PerBookEvaluator`,
+`CorruptionEvaluator`, `BaselineEvaluator`) still have their original divergent
+`evaluate()` signatures and none implements `EvaluationProbe`. Nothing in the
+core, research scripts, or tests consumes `EvalContext` yet.
+
+This is a normal and reasonable intermediate state — the target type was
+introduced first, ahead of the migration that will conform the evaluators to
+it. But it has two implications worth recording:
+
+1. **The seam from Section 3 is half-closed.** The destination exists; the
+   evaluators have not moved to it. Until they implement
+   `evaluate(context: EvalContext) -> EvalResult`, the family still cannot be
+   held in a `list[EvaluationProbe]` and run uniformly, which is the capability
+   the self-improvement loop needs. The recommendation upgrades from "add the
+   parameter object" to "complete the migration: make each `EvaluationMode`
+   evaluator implement `EvaluationProbe`, moving call-time inputs
+   (`book_name`/`tokens`/`raw`) out of `evaluate()`'s parameters and into the
+   `EvalContext` it receives."
+
+2. **Transitional risk: two ways to do the same thing.** While both the old
+   signatures and the new protocol coexist, new code could be written against
+   either. The migration should be finished (or the old signatures removed)
+   before the self-improvement loop is built on top, so the loop targets the
+   uniform `EvaluationProbe.evaluate(context)` contract rather than the
+   divergent ones.
+
+One small naming note: `EvalContext.split` defaults to `"validation"`, whereas
+the existing evaluators default `split` to `"val"`. When the migration happens,
+these must be reconciled (the `SequenceDataModule`/`Evaluator` split keys must
+match the context's), or a probe will request a split that does not exist.
+This is exactly the kind of mismatch the migration needs to catch.
+
+Net: the project moved in the direction this analysis recommended, and did so
+in the right order (target type first). The remaining work is conforming the
+five evaluators to the protocol and reconciling the `split` default before the
+self-improvement loop depends on the uniform contract.

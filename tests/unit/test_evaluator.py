@@ -125,10 +125,8 @@ def test_sampled_loss_evaluator_mode_wraps_existing_evaluator() -> None:
 
     result = SampledLossEvaluator(
         evaluator,
-        split="val",
         generator=generator,
-        name="validation",
-    ).evaluate()
+    ).evaluate(EvalContext(name="validation", split="val"))
 
     assert result.name == "validation"
     assert result.method == "sampled"
@@ -139,7 +137,9 @@ def test_full_split_evaluator_mode_wraps_existing_evaluator() -> None:
     source = torch.arange(64) % 16
     evaluator = _make_evaluator(source, block_size=8, batch_size=4)
 
-    result = FullSplitEvaluator(evaluator, split="val").evaluate()
+    result = FullSplitEvaluator(evaluator).evaluate(
+        EvalContext(name="validation", split="val")
+    )
 
     assert result.method == "full_nonoverlap"
     assert result.nTokens == 56
@@ -155,11 +155,34 @@ def test_per_book_evaluator_mode_reports_book_name_and_corpus() -> None:
         evaluator.dataModule.modelConfig,
         evaluator.trainConfig,
         seed=42,
-    ).evaluate("Example Book", source, corpus="corpora/example/validation.txt")
+    ).evaluate(
+        EvalContext(
+            name="Example Book",
+            tokens=source,
+            corpus="corpora/example/validation.txt",
+        )
+    )
 
     assert result.name == "Example Book"
     assert result.corpus == "corpora/example/validation.txt"
     assert result.method == "sampled"
+
+
+def test_per_book_evaluator_requires_tokens() -> None:
+    source = torch.arange(64) % 16
+    evaluator = _make_evaluator(source, block_size=8, batch_size=4)
+    probe = PerBookEvaluator(
+        evaluator.model,
+        evaluator.dataModule.modelConfig,
+        evaluator.trainConfig,
+        seed=42,
+    )
+    try:
+        probe.evaluate(EvalContext(name="missing tokens"))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError when context.tokens is None")
 
 
 def test_corruption_evaluator_mode_applies_corruption() -> None:
@@ -175,20 +198,36 @@ def test_corruption_evaluator_mode_applies_corruption() -> None:
         evaluator.trainConfig,
         seed=42,
         corrupt=reverse_bytes,
-    ).evaluate("reverse", bytes(i % 16 for i in range(64)))
+    ).evaluate(
+        EvalContext(name="reverse", raw=bytes(i % 16 for i in range(64)))
+    )
 
     assert result.name == "reverse"
     assert result.method == "sampled"
     assert math.isfinite(result.loss)
 
 
+def test_corruption_evaluator_requires_raw() -> None:
+    source = torch.arange(64) % 16
+    evaluator = _make_evaluator(source, block_size=8, batch_size=4)
+    probe = CorruptionEvaluator(
+        evaluator.model,
+        evaluator.dataModule.modelConfig,
+        evaluator.trainConfig,
+        seed=42,
+        corrupt=lambda raw, _name: raw[::-1],
+    )
+    try:
+        probe.evaluate(EvalContext(name="missing raw"))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError when context.raw is None")
+
+
 def test_baseline_evaluator_mode_wraps_external_loss() -> None:
-    result = BaselineEvaluator(method="ngram").evaluate(
-        "3-gram",
-        "validation",
-        loss=1.75,
-        n_tokens=123,
-        notes="Laplace",
+    result = BaselineEvaluator(method="ngram", loss=1.75, n_tokens=123).evaluate(
+        EvalContext(name="3-gram", split="val", notes="Laplace")
     )
 
     assert result.name == "3-gram"
@@ -196,6 +235,32 @@ def test_baseline_evaluator_mode_wraps_external_loss() -> None:
     assert result.nTokens == 123
     assert result.notes == "Laplace"
     assert math.isclose(result.perplexity, math.exp(1.75))
+
+
+def test_evaluation_mode_evaluators_satisfy_probe_protocol() -> None:
+    # All five EvaluationMode evaluators must conform to the EvaluationProbe
+    # protocol so the self-improvement loop can hold them in one list.
+    source = torch.arange(64) % 16
+    evaluator = _make_evaluator(source, block_size=8, batch_size=4)
+    probes: list[EvaluationProbe] = [
+        SampledLossEvaluator(evaluator),
+        FullSplitEvaluator(evaluator),
+        PerBookEvaluator(
+            evaluator.model,
+            evaluator.dataModule.modelConfig,
+            evaluator.trainConfig,
+            seed=42,
+        ),
+        CorruptionEvaluator(
+            evaluator.model,
+            evaluator.dataModule.modelConfig,
+            evaluator.trainConfig,
+            seed=42,
+            corrupt=lambda raw, _name: raw,
+        ),
+        BaselineEvaluator(loss=1.0),
+    ]
+    assert len(probes) == 5
 
 
 def test_evaluation_probe_protocol_seam_carries_context_metadata() -> None:

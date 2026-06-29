@@ -8,6 +8,7 @@ import torch
 from ..Checkpoint import Checkpoint
 from ..Config import ModelConfig, TrainConfig
 from ..EvalResult import EvalResult
+from ..EvaluationProbe import EvalContext
 from ..EvaluationMode import (
     PerBookEvaluator,
     book_generator as _book_generator,
@@ -113,8 +114,14 @@ def estimate_validation_result(
         seed,
         full_split=full_split,
         stride=stride,
-        checkpoint=checkpoint,
-    ).evaluate(book_name, tokens, corpus=corpus)
+    ).evaluate(
+        EvalContext(
+            name=book_name,
+            tokens=tokens,
+            corpus=corpus,
+            checkpoint=checkpoint,
+        )
+    )
 
 
 def load_research_book_data() -> tuple[list[ResearchBookData], list[tuple[str, Path]]]:
