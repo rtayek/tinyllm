@@ -181,6 +181,21 @@ def test_generate_candidate_returns_structured_result() -> None:
     assert candidate.maxNewTokens == 8
 
 
+def test_generate_candidate_continuation_uses_token_boundary() -> None:
+    # The decoded full text does not start with the prompt because the fake
+    # model returned invalid bytes in the prompt-token span. Continuation must
+    # still come from tokenIds[promptTokenCount:], not string-prefix slicing.
+    model = FixedOutputModel(b"\xc3\xffZ")
+    generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]
+
+    candidate = generator.generateCandidate(prompt="é", maxNewTokens=1)
+
+    assert candidate.text == "\ufffd\ufffdZ"
+    assert candidate.promptTokenCount == len("é".encode("utf-8"))
+    assert candidate.continuation == "Z"
+    assert candidate.generatedTokenCount == len(candidate.tokenIds) - candidate.promptTokenCount
+
+
 def test_generate_candidate_text_matches_generate_text_for_same_settings() -> None:
     model = FixedOutputModel(b"Holmes returned")
     generator = AutoregressiveGenerator(model)  # type: ignore[arg-type]

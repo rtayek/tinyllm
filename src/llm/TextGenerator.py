@@ -122,7 +122,8 @@ class AutoregressiveGenerator:
             seed=seed,
         )
         text = data.decode("utf-8", errors=errors)
-        continuation = text[len(prompt) :] if text.startswith(prompt) else text
+        continuationBytes = bytes(tokenIds[promptTokenCount:])
+        continuation = continuationBytes.decode("utf-8", errors=errors)
         generatedTokenCount = max(0, len(tokenIds) - promptTokenCount)
         return GeneratedCandidate(
             prompt=prompt,

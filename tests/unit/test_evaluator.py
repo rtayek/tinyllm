@@ -15,6 +15,7 @@ from llm.Config import ModelConfig, TrainConfig
 from llm.DataModule import DataModuleConfig, SequenceDataModule
 from llm.EarlyStopping import EarlyStopping
 from llm.EvalResult import EvalResult as LossEvalResult
+from llm.EvaluationProbe import EvalContext, EvaluationProbe
 from llm.EvaluationMode import (
     BaselineEvaluator,
     CorruptionEvaluator,
@@ -195,6 +196,37 @@ def test_baseline_evaluator_mode_wraps_external_loss() -> None:
     assert result.nTokens == 123
     assert result.notes == "Laplace"
     assert math.isclose(result.perplexity, math.exp(1.75))
+
+
+def test_evaluation_probe_protocol_seam_carries_context_metadata() -> None:
+    class FakeProbe:
+        def evaluate(self, context: EvalContext) -> LossEvalResult:
+            return LossEvalResult(
+                name=context.name,
+                split=context.split,
+                loss=1.25,
+                method="fake_probe",
+                checkpoint=context.checkpoint,
+                corpus=context.corpus,
+                notes=context.notes,
+            )
+
+    context = EvalContext(
+        name="candidate-a",
+        split="validation",
+        corpus="corpora/example/validation.txt",
+        checkpoint="runs/example/checkpoints/best.pt",
+        notes="best-of-n probe",
+    )
+
+    probe: EvaluationProbe = FakeProbe()
+    result = probe.evaluate(context)
+
+    assert result.name == "candidate-a"
+    assert result.split == "validation"
+    assert result.corpus == "corpora/example/validation.txt"
+    assert result.checkpoint == "runs/example/checkpoints/best.pt"
+    assert result.notes == "best-of-n probe"
 
 
 def test_full_split_batch_size_invariant() -> None:

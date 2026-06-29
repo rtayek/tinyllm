@@ -11,6 +11,7 @@ from .OptimizerFactory import (
 )
 from .DataModule import ByteDataModule, DataModuleConfig, TokenDataModule, SequenceDataModule
 from .EvalResult import EvalResult
+from .EvaluationProbe import EvalContext, EvaluationProbe
 from .GeneratedCandidate import GeneratedCandidate
 from .EvaluationMode import (
     BaselineEvaluator,
@@ -38,6 +39,8 @@ __all__ = [
     "TokenDataModule",
     "SequenceDataModule",
     "EvalResult",
+    "EvalContext",
+    "EvaluationProbe",
     "GeneratedCandidate",
     "BaselineEvaluator",
     "CorruptionEvaluator",

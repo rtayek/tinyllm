@@ -262,6 +262,12 @@ Sampling options:
 Phase 1 API-level candidate batching for self-improvement / best-of-N
 experiments. This currently loops over single-candidate generation internally;
 true tensor-batched GPU generation remains future work.
+`GeneratedCandidate.continuation` is split by generated token boundary, not by
+string-prefix slicing.
+
+`EvalContext` and `EvaluationProbe` provide a small future seam for
+self-improvement and learned-structure probes. Existing evaluators were not
+broadly rewritten around this protocol.
 
 The shell wrapper accepts the same arguments:
 
