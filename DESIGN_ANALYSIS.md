@@ -226,3 +226,72 @@ Net: the project moved in the direction this analysis recommended, and did so
 in the right order (target type first). The remaining work is conforming the
 five evaluators to the protocol and reconciling the `split` default before the
 self-improvement loop depends on the uniform contract.
+
+---
+
+## Addendum 2 — 2026-06-29 (later still): EvaluationProbe migration completed
+
+The migration described as pending in Addendum 1 has now landed. All five
+`EvaluationMode` evaluators implement `evaluate(context: EvalContext) ->
+EvalResult` and satisfy the `EvaluationProbe` protocol. The `split` default was
+reconciled to `"val"`. `research_eval.py` was updated to build an `EvalContext`.
+A unit test holds all five in a `list[EvaluationProbe]`, statically proving the
+family is now uniformly typed. **The Section 3 seam is closed.**
+
+### What the migration achieved structurally
+
+The family went from "five classes that look similar" to "five interchangeable
+implementations of one type." `list[EvaluationProbe]` now type-checks — the
+exact shape the self-improvement loop needs ("run all configured probes each
+iteration"). The split was made on the correct axis: *strategy* (how to
+evaluate) stayed on the instance; *subject* (what to evaluate) moved into the
+context. A probe is therefore a reusable configured object applicable to many
+subjects, and the composition chain `Corruption -> PerBook -> Full/Sampled` now
+reads as a clean pipeline of context transformations (each stage builds a fresh
+`EvalContext` and delegates) rather than threading positional args.
+
+### The new live tension: EvalContext is a union-typed bag
+
+The migration did not *eliminate* the old signature divergence — it *relocated*
+it. `EvalContext` carries `tokens`, `raw`, `split`, `corpus`, `checkpoint`,
+`notes`, but no evaluator uses all of them and the required subset differs per
+probe:
+
+- `PerBookEvaluator` requires `tokens`, ignores `raw`.
+- `CorruptionEvaluator` requires `raw`, ignores `tokens`.
+- `SampledLossEvaluator` / `FullSplitEvaluator` use only `split` + provenance.
+
+The runtime `ValueError` guards (`requires context.tokens`, `requires
+context.raw`) are the tell: the type says every field is optional, but each probe
+has a required subset the type cannot enforce. This is the inherent tradeoff of
+the Parameter Object pattern — many call signatures collapse into one wide
+optional-bag type, and per-consumer requirements move from compile-time (args)
+to runtime (guards). The "five different `evaluate` signatures" became "one
+signature plus three `ValueError` guards."
+
+This is an acceptable resolution and should **not** be undone: the uniformity
+is worth more than arg-level type safety, and it is what unblocks the loop. But
+it is the live design tension now. For a system whose discipline is measurement
+correctness, the standing risk is a malformed context (right probe, wrong field
+populated) slipping through. It cannot today — the guards raise — but the guards
+are the only thing standing there.
+
+### Precedent set for future probes
+
+The migration set a rule the invariance/structure-preservation probes should
+follow: **transformations are strategy (instance fields, like
+`CorruptionEvaluator.corrupt`); data is subject (context fields).** Following
+this keeps the family coherent as it grows. Watch the third or fourth new
+probe: if one needs something that fits neither "strategy on instance" nor
+"subject in context," `EvalContext` will either grow another optional field or
+the abstraction will need revisiting. That is the point at which the
+parameter-object design proves durable or shows strain.
+
+### Remaining gap is no longer structural
+
+The evaluation layer is now ready for the loop. What is missing is an
+*orchestrator*: something that holds a `list[EvaluationProbe]`, builds the
+per-iteration `EvalContext`(s), runs them, and collects the `EvalResult`s into a
+per-iteration structure profile. That orchestrator is the natural next piece and
+can now be written against the clean protocol rather than special-casing five
+evaluator types.
