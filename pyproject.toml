@@ -30,6 +30,7 @@ tinyllm-prepare-corpora = "llm.corpus:main"
 tinyllm-eval-per-book = "llm.research.eval_per_book:main"
 tinyllm-destruction-experiments = "llm.research.destruction_experiments:main"
 tinyllm-ngram-baseline = "llm.research.ngram_baseline:main"
+tinyllm-training-regression = "llm.training_regression:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

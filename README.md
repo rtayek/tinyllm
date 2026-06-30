@@ -267,6 +267,17 @@ Generate an HTML report under `htmlcov/`:
 pytest --cov --cov-report=html
 ```
 
+Manual training regressions retrain configured corpora with tiny deterministic
+settings and write outputs under `runs/regression/`. They are not part of normal
+`pytest`:
+
+```sh
+tinyllm-training-regression --profile smoke
+tinyllm-training-regression --profile all
+python -m llm.training_regression --profile smoke
+python -m llm.training_regression --profile all
+```
+
 Research scripts can emit machine-readable JSON:
 
 ```sh

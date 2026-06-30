@@ -311,6 +311,17 @@ pytest
 pyright
 ```
 
+Manual training regression is separate from normal tests. It retrains configured
+corpora with tiny deterministic settings and writes outputs under
+`runs/regression/`:
+
+```sh
+tinyllm-training-regression --profile smoke
+tinyllm-training-regression --profile all
+python -m llm.training_regression --profile smoke
+python -m llm.training_regression --profile all
+```
+
 Run branch coverage:
 
 ```sh
