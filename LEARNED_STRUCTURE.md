@@ -486,3 +486,69 @@ applied to a book it cannot affect, mirroring the Sherlock/Alice control in
 hierarchy of objects and relationships") into falsifiable measurements using
 tooling that already exists, and it gives a principled vocabulary for results
 like `replace_names` that we already have but described only informally.
+
+### 10. Efficient Sequence-Mixer Experiments (Convolution vs Attention)
+
+The corrected context probe's headline finding — **the model uses only ~8
+bytes of context** — is, in miniature, the exact empirical observation that an
+entire line of architecture research is built on: most of what a language model
+does is *local*, and only a small fraction of the work genuinely needs global
+attention. This strand asks: **if the model is local, does it even need
+attention?**
+
+**Background.** Softmax attention scales quadratically with sequence length
+(O(N^2) compute) and its KV cache grows linearly with context, which dominates
+memory at long context. A family of sub-quadratic alternatives replaces or
+reduces attention:
+
+- **State-space models** (Mamba / S4): a fixed-size recurrent state summarizes
+  history; O(1) memory per step, linear compute, but lossy long-range recall.
+- **Gated linear attention / RetNet**: reformulate attention as a linear
+  recurrence, dropping the quadratic softmax.
+- **Short convolutions**: mix each token with a fixed *local* window of
+  neighbors — cheap, linear, inherently local.
+- **Hybrids** (the current consensus, e.g. Liquid AI's LFM2): mostly cheap
+  local mixing (gated short convolutions) with a *small* number of attention
+  layers sprinkled in to recover precise long-range retrieval. LFM2 uses
+  roughly a 1:3 attention-to-convolution ratio — i.e. ~75% of layers are
+  local — a ratio found by hardware-in-the-loop architecture search.
+
+**The connection to our finding.** LFM2's 1:3 ratio is a quantified, expensively
+searched version of exactly what the context probe shows for this corpus: the
+bulk of the modeling is local. If the Austen model isn't using long-range
+attention anyway, replacing some of its attention layers with short causal
+convolutions should cost almost nothing — and would do so far more cheaply.
+
+**Proposed experiments.**
+
+- **Attention -> convolution ablation.** Replace one or more of the 4 attention
+  layers with short causal depthwise convolutions (fixed local window, e.g.
+  width 8 to match the measured context). Re-run the full destruction suite +
+  context probe. *Prediction, given the locality finding:* a mostly- or
+  fully-convolutional tinyllm should lose very little val loss, because the
+  model wasn't using long-range attention to begin with.
+- **Find where attention becomes load-bearing.** Sweep the
+  attention-to-convolution ratio (4:0, 3:1, 2:2, 1:3, 0:4) and locate the
+  point where val loss *does* degrade. That empirically pins down, for *this*
+  corpus, how much attention is genuinely necessary — a sharper, mechanistic
+  version of what LFM2 found via expensive search.
+- **Convolution window sweep.** Vary the convolution width (4, 8, 16, 32). The
+  context probe predicts width ~8 should suffice and wider windows should add
+  little — a second, independent confirmation of the ~8-byte locality result
+  from the architecture side rather than the probe side.
+
+**Why it reframes the scaling question.** The current roadmap (section 2) says
+"scale capacity, not context." This strand adds a third axis: **change the
+mixer.** If the model is local, a convolution-heavy variant may reach the same
+loss at substantially lower compute and memory. Measuring exactly that — the
+val-loss cost of removing attention, as a function of how much is removed —
+would be a legitimate, novel result on a corpus small enough to iterate on in
+minutes rather than the GPU-months such ablations cost at frontier scale.
+
+**Method.** Same discipline as everything else: one architectural variable at a
+time, the full probe suite (destruction + context probe + n-gram baseline) run
+on each variant, every variant compared against the current all-attention
+baseline at matched parameter count. The `Transformer`/`Model` split already
+isolates the mixing layer, so a convolution block is a drop-in alternative to
+the attention block behind the same interface — the architecture is well-placed
+for this ablation.
