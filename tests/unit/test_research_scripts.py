@@ -27,11 +27,12 @@ def _load_script(name: str) -> ModuleType:
     return module
 
 
-def test_canonical_research_modules_are_importable() -> None:
+def test_canonical_package_tool_modules_are_importable() -> None:
     for name in (
         "llm.research.eval_per_book",
         "llm.research.destruction_experiments",
         "llm.research.ngram_baseline",
+        "llm.training_regression",
     ):
         module = import_module(name)
         assert hasattr(module, "main")

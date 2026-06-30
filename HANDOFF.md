@@ -20,7 +20,16 @@ The package uses a `src/` layout and exposes these CLI entry points:
 tinyllm-train
 tinyllm-infer
 tinyllm-prepare-corpora
+tinyllm-eval-per-book
+tinyllm-ngram-baseline
+tinyllm-destruction-experiments
+tinyllm-training-regression
 ```
+
+Canonical implementations live under `src/llm/`. Supported tools are exposed as
+`tinyllm-*` console scripts in `pyproject.toml`; the canonical module form is
+`python -m llm...`. The `scripts/` directory is for compatibility wrappers and
+developer-only utilities, not primary implementations of supported features.
 
 The current checkpoint layout still uses the canonical `runs/` directory.
 Checkpoint compatibility depends on the saved model architecture matching the

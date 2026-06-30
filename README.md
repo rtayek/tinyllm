@@ -122,6 +122,34 @@ Equivalent module invocation:
 python -m llm.train_app
 ```
 
+Canonical supported tools live under `src/llm/` and are exposed first as
+`tinyllm-*` console scripts:
+
+```sh
+tinyllm-train
+tinyllm-infer
+tinyllm-prepare-corpora
+tinyllm-eval-per-book
+tinyllm-ngram-baseline
+tinyllm-destruction-experiments
+tinyllm-training-regression --profile smoke
+```
+
+The equivalent developer form is `python -m llm...`:
+
+```sh
+python -m llm.train_app
+python -m llm.infer
+python -m llm.corpus
+python -m llm.research.eval_per_book
+python -m llm.research.ngram_baseline
+python -m llm.research.destruction_experiments
+python -m llm.training_regression --profile smoke
+```
+
+Files under `scripts/` are compatibility wrappers or developer utilities, not
+the preferred interface for package features.
+
 Useful options:
 
 ```sh
@@ -274,6 +302,11 @@ settings and write outputs under `runs/regression/`. They are not part of normal
 ```sh
 tinyllm-training-regression --profile smoke
 tinyllm-training-regression --profile all
+```
+
+Equivalent module invocations:
+
+```sh
 python -m llm.training_regression --profile smoke
 python -m llm.training_regression --profile all
 ```
@@ -286,7 +319,7 @@ tinyllm-ngram-baseline --out runs/austen-byte/ngram-baseline.json
 tinyllm-destruction-experiments --out runs/austen-byte/destruction.json
 ```
 
-Equivalent package module invocations are under `llm.research`:
+Equivalent research module invocations are under `llm.research`:
 
 ```sh
 python -m llm.research.eval_per_book --help
@@ -296,7 +329,9 @@ python -m llm.research.destruction_experiments --help
 
 The `scripts/eval_per_book.py`, `scripts/ngram_baseline.py`, and
 `scripts/destruction_experiments.py` files remain compatibility wrappers for
-older shell history, but they are not the preferred interface.
+older shell history, but they are not the preferred interface. Diagnostic and
+one-off developer utilities may also live under `scripts/`, such as GPU checks
+or the Tender Buttons corpus helper.
 
 ## Sharing Archives
 
