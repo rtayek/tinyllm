@@ -118,6 +118,51 @@ def test_full_split_result_reports_distinct_method() -> None:
     assert full.nWindows == 7
 
 
+def test_full_split_result_reports_nonoverlap_token_accounting() -> None:
+    block_size = 4
+    source = torch.arange(18) % 16
+    evaluator = _make_evaluator(source, block_size=block_size, batch_size=2)
+
+    result = evaluator.estimate_split_full_result("val", name="validation")
+
+    assert result.name == "validation"
+    assert result.split == "val"
+    assert result.method == "full_nonoverlap"
+    assert result.nWindows == 4
+    assert result.nTokens == 16
+    assert math.isfinite(result.loss)
+    assert math.isclose(result.perplexity, math.exp(result.loss))
+
+
+def test_full_split_result_reports_strided_token_accounting() -> None:
+    block_size = 4
+    stride = 2
+    source = torch.arange(16) % 16
+    evaluator = _make_evaluator(source, block_size=block_size, batch_size=2)
+
+    result = evaluator.estimate_split_full_result("val", stride=stride)
+
+    assert result.method == "full_stride"
+    assert result.nWindows == 6
+    assert result.nTokens == 14
+    assert math.isfinite(result.loss)
+
+
+def test_full_split_tail_tokens_are_omitted_from_accounting() -> None:
+    block_size = 4
+    source = torch.arange(19) % 16
+    evaluator = _make_evaluator(source, block_size=block_size, batch_size=2)
+
+    result = evaluator.estimate_split_full_result("val")
+
+    # Full-split evaluation only scores complete block_size+1 windows. For this
+    # non-overlapping layout, target positions 17 and 18 are trailing targets
+    # that cannot close another full window and are intentionally omitted.
+    assert result.nWindows == 4
+    assert result.nTokens == 16
+    assert source.size(0) - 1 - result.nTokens == 2
+
+
 def test_sampled_loss_evaluator_mode_wraps_existing_evaluator() -> None:
     source = torch.arange(64) % 16
     evaluator = _make_evaluator(source, block_size=8, batch_size=4)
