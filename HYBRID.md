@@ -18,6 +18,77 @@ field spent 2025-2026 working out at enormous cost can be reproduced here, in
 miniature, in minutes rather than GPU-months, on a corpus small enough to
 iterate on and with a probe suite already built to measure what changed.
 
+## Recommendation: build a mixer block, do NOT adopt LFM2
+
+There is a tension worth naming up front. The primary tinyllm goal is
+**discovering what structure and relationships the model learns**. LFM2 and the
+whole efficient-architecture program optimize a *different* objective: **getting
+the same quality more cheaply**. These are not the same project, and conflating
+them is a trap.
+
+Adopting the actual LFM2 - downloading Liquid's pretrained model, or
+reimplementing their gated-convolution + GQA + LIV-operator stack - would make
+the research *harder*, not easier:
+
+- **It adds architectural complexity that must then be seen through.** The
+  method depends on the model being simple enough that a destruction experiment
+  or context probe has a clean interpretation. A hybrid with three mixer types,
+  multiplicative gates, and input-varying weights has *more* moving parts to
+  attribute structure to, not fewer. Interpretive budget goes to understanding
+  the architecture instead of what it learned.
+- **A pretrained LFM2 is the wrong object entirely.** It is trained on trillions
+  of tokens with a subword tokenizer. Using it forfeits byte-level control,
+  small-corpus iteration speed, and known-provenance training data - the exact
+  things that make the probes *mean* something. `replace_names` works as a
+  control only because we know precisely what went into training; that
+  evaporates with a frontier pretrained model.
+
+**The version that serves the goal is the comparison, not the adoption.** The
+interesting question is not "is LFM2 good" - it is **"does changing the mixer
+change what structure the model learns?"** That is a structure-and-relationships
+question, and it is genuinely novel:
+
+- Train an attention tinyllm and a convolution tinyllm on the *same* Austen
+  corpus, matched size, everything else identical.
+- Run the identical destruction suite and context probe on both.
+- The question is not which has lower loss - it is **do they learn the same
+  structure hierarchy?** Does the convolution model show the same +2.65
+  spelling delta, the same +0.29 word-order signal, the same ~8-byte locality?
+
+Both outcomes are real findings. If the hierarchies are identical, the structure
+is a property of the *data and task*, not the architecture - attention was not
+doing anything special for this corpus. If they differ, it localizes exactly
+what attention contributes that convolution does not. Either way it is a result
+about what the model learns, which is the stated goal.
+
+**Concrete recommendation:** do not adopt LFM2. Build a single convolution mixer
+block as a drop-in alternative to the attention block, and run the existing
+probes on it. This is a few hundred lines against the interface that already
+exists (`Transformer` / `Model` already isolate the mixer), it preserves every
+property that makes the probes interpretable, and it turns "efficient
+architectures" from a *performance* detour back into a *structure-discovery*
+experiment.
+
+Suggested order:
+
+1. Finish the self-improvement scaffolding currently mid-stream, or park it
+   cleanly at a committed checkpoint.
+2. Add one convolution mixer block behind the existing mixer interface.
+3. Train conv-tinyllm on Austen, matched params.
+4. Run the destruction suite + context probe on both attention and conv models.
+5. Compare *hierarchies*, not losses.
+
+That yields the LFM2 *insight* (is attention necessary for this structure?)
+without the LFM2 *baggage*.
+
+**A note on focus.** Several rich strands are now open at once: self-improvement,
+invariance probes, the mixer ablation, and the arithmetic-corpus idea. Each is
+good on its own. The risk is not any single one - it is that opening the next
+before closing the last means none reaches the measurement that justified
+starting it. If the mixer question is the most compelling right now, it is worth
+consciously choosing it *as* the next strand and letting the others wait, rather
+than running them in parallel.
+
 ## The problem being solved
 
 Softmax attention has two costs:
