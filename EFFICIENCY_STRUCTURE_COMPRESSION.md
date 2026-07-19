@@ -86,7 +86,11 @@ weight constraints:
 3. INT8 post-training quantization,
 4. INT4 weight-only quantization,
 5. ternary-weight experimental layers,
-6. binary-weight experiments only after ternary behavior is understood.
+6. binary-weight experiments only after ternary behavior is understood,
+7. low-rank factorization combined with quantization, as the only plausible
+   route below one effective bit per weight, and only after the ternary and
+   binary results exist. Precision and rank are different compression axes
+   and should be varied separately before being combined.
 
 For every precision level, record:
 
@@ -130,6 +134,62 @@ This may reveal whether compression first removes memorized detail, local
 orthography, word order, long-range dependencies, or several forms of structure
 at different rates.
 
+## Compression Invariants
+
+Absolute probe losses will shift under every architecture and precision change,
+which makes them noisy summaries on their own. Some derived quantities may be
+more stable, and their stability or failure is itself a finding:
+
+- **Ordinal fingerprint.** The destruction hierarchy currently observed is
+  letter identity > directionality > spelling > word shape > word order >
+  names. Record whether this ordering survives each compression step even when
+  every absolute loss moves. A compression method that preserves the ordering
+  while shifting the magnitudes is removing capacity uniformly; one that
+  reorders the hierarchy is removing specific structure.
+- **Ratio invariants.** The shuffle_middle / shuffle_letters ratio (about 0.51
+  on the legacy checkpoint) decomposes spelling sensitivity into word-edge
+  shape versus internal letter order. Track this ratio, and any similar ratios
+  worth defining, as scalar functions of precision and architecture. A ratio
+  that holds from FP32 down to INT4 and then breaks at ternary localizes where
+  in the compression ladder a distinction is stored.
+- **Effective context length.** The corrected context probe shows roughly 8
+  bytes of effective context. Measure effective context as a function of
+  precision. A hypothesis worth stating in advance: heavily local models
+  should lose effective context late, because little of it exists to lose;
+  early context shrinkage under mild quantization would suggest long-range
+  behavior is stored in fine-grained weight values.
+- **Matched-bits comparisons.** Architecture comparisons currently match
+  parameter count. Add a second control: matched checkpoint bits. A local
+  mixer that equals attention at FP32 and matched parameters, but diverges at
+  matched bits under ternary constraint, differs in how densely it encodes
+  structure. Loss per stored bit is the summary statistic.
+
+### Registered Prediction: Effective Context vs. Precision
+
+The effective-context hypothesis above is falsifiable in advance, so the
+prediction is registered here before any quantized context probe is run, in
+keeping with the measurement-first approach. Recorded prior to running INT8 or
+lower-precision context probes on any canonical-split checkpoint:
+
+- **Prediction.** Effective context length (currently about 8 bytes at full
+  precision) will remain within 1 byte of its full-precision value through
+  INT8 and INT4, and will degrade, if at all, only at ternary or below.
+- **Reasoning.** The model is almost entirely local, so there is little
+  long-range structure to lose, and the local statistics that dominate its
+  predictions should be robustly encoded rather than dependent on fine-grained
+  weight values.
+- **Falsification.** A drop of more than 1 byte of effective context at INT8
+  or INT4 falsifies the prediction and would indicate that even short-range
+  context use depends on precise weight values.
+- **Conditions.** The prediction applies to the default 4L/4H/256d
+  architecture on the canonical corpus split, using the corrected
+  (non-zero-padded) context probe. Amend this block with the outcome once
+  measured; do not silently edit the prediction after the fact.
+
+All invariant claims inherit the caveat from LEARNED_STRUCTURE.md: legacy
+numbers come from a discredited corpus split and must be reproduced on the
+canonical split before any compression comparison uses them as a baseline.
+
 ## Data-Quality Track
 
 Create controlled training corpora that differ in quality while preserving
@@ -167,6 +227,19 @@ Possible comparisons:
 Evaluate not only student loss, but also whether the student's destruction and
 context fingerprints converge toward the teacher's.
 
+Two further distillation questions connect to the rest of the project:
+
+- **Order of acquisition.** Checkpoint the student during training and run the
+  destruction probes at intervals. Does a distilled student acquire structure
+  in the same order as a from-scratch model of the same size, or does the
+  teacher signal reorder acquisition? This is the same lens as
+  SELF_IMPROVEMENT_PLAN.md (what structure is acquired, and in what order)
+  applied to distillation instead of self-training.
+- **Ordering of compression steps.** Compare quantize-then-distill against
+  distill-then-quantize at matched final size. If the two orderings preserve
+  different structure, the pipeline order is a real design variable rather
+  than a convenience choice.
+
 ## Hardware-Aware Reporting
 
 Every experiment should report enough information to distinguish architectural,
@@ -198,6 +271,9 @@ The tradeoff among quality, structure, storage, memory, and speed must be visibl
 8. Add a small teacher-student distillation experiment.
 9. Introduce ternary weights only after the conventional quantization baselines
    are reproducible.
+10. Track the ordinal fingerprint, ratio invariants, and effective context
+    length across steps 2-9 so that invariant behavior accumulates alongside
+    the primary results rather than requiring a separate campaign.
 
 ## Evidence Standard
 
