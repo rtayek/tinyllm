@@ -284,7 +284,7 @@ TinyLLM should prefer conclusions that survive:
 
 - controlled baselines,
 - matched budgets,
-- repeated seeds,
+-- repeated seeds,
 - out-of-domain evaluation,
 - learned-structure probes,
 - direct runtime measurement.
@@ -292,3 +292,4 @@ TinyLLM should prefer conclusions that survive:
 The project succeeds when it explains what was preserved, what was lost, and
 what the efficiency gain actually cost. Producing a smaller checkpoint without
 that explanation would be compression, but not much of an experiment.
+
